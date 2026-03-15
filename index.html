@@ -184,6 +184,7 @@ let player = {
   dead: false, deathTimer: 0, flash: 0,
   shieldTimer: 0,
   doubleTimer: 0,
+  tripleTimer: 0,
 };
 
 const POWERUP_DURATION = 300; // 5 sn @ 60fps
@@ -290,6 +291,13 @@ canvas.addEventListener('click', e => {
   const mx = (e.clientX - rect.left) * (W / rect.width);
   const my = (e.clientY - rect.top)  * (H / rect.height);
 
+  if (state === 'gameover') {
+    const btnY = H / 2 + 58;
+    if (mx > W / 2 - 100 && mx < W / 2 + 100 && my > btnY - 20 && my < btnY + 20) {
+      state = 'map'; return;
+    }
+  }
+
   if (state === 'menu') {
     // Sol ok
     if (mx < 52 && my > 100 && my < H - 80) { menuIdx = Math.max(0, menuIdx - 1); return; }
@@ -332,7 +340,7 @@ function startLevel(level) {
   player.lane = 1; player.targetLane = 1;
   player.x = LANE_CENTERS[1];
   player.dead = false; player.deathTimer = 0; player.flash = 0;
-  player.shieldTimer = 0; player.doubleTimer = 0;
+  player.shieldTimer = 0; player.doubleTimer = 0; player.tripleTimer = 0;
   state = 'play';
 }
 
@@ -391,7 +399,9 @@ function spawnExplosion(x, y, big) {
 
 function spawnPowerup(x, y) {
   if (Math.random() > 0.05) return; // ~5% şans
-  const types = ['shield', 'double', 'bomb'];
+  const cfg = getLevelConfig();
+  const enemyShoots = cfg ? cfg.canShoot : true; // 5. bölüm boss da ateş eder
+  const types = enemyShoots ? ['shield', 'triple', 'double', 'bomb'] : ['triple', 'double', 'bomb'];
   const type = types[Math.floor(Math.random() * types.length)];
   powerups.push({ type, x, y, speed: 1.8, bobTimer: 0 });
 }
@@ -677,29 +687,29 @@ function drawBullet(b) {
 }
 
 // --- Draw: Power-up ---
-const POWERUP_COLORS = { shield: '#2299ff', double: '#ffee00', bomb: '#ff4444' };
+const POWERUP_COLORS = { triple: '#00ffaa', double: '#ffee00', bomb: '#ff4444' };
 const POWERUP_GLOW = {
-  shield: ['rgba(34,153,255,0.65)', 'rgba(34,153,255,0)'],
+  triple: ['rgba(0,255,170,0.65)',  'rgba(0,255,170,0)'],
   double: ['rgba(255,238,0,0.65)',  'rgba(255,238,0,0)'],
   bomb:   ['rgba(255,68,68,0.65)',  'rgba(255,68,68,0)'],
 };
 
 function drawPowerupIcon(type, size) {
   ctx.save();
-  if (type === 'shield') {
-    // Kalkan şekli
+  if (type === 'triple') {
+    // Üç mermi
     ctx.fillStyle = '#fff';
-    ctx.shadowColor = '#2299ff';
+    ctx.shadowColor = '#00ffaa';
     ctx.shadowBlur = 6;
-    ctx.beginPath();
-    ctx.moveTo(0, -size * 0.75);
-    ctx.lineTo(size * 0.65, -size * 0.35);
-    ctx.lineTo(size * 0.65, size * 0.1);
-    ctx.quadraticCurveTo(0, size * 0.85, 0, size * 0.85);
-    ctx.quadraticCurveTo(-size * 0.65, size * 0.1, -size * 0.65, size * 0.1);
-    ctx.lineTo(-size * 0.65, -size * 0.35);
-    ctx.closePath();
-    ctx.fill();
+    for (const sx of [-size * 0.52, 0, size * 0.52]) {
+      ctx.beginPath();
+      ctx.moveTo(sx, -size * 0.7);
+      ctx.lineTo(sx + size * 0.2, size * 0.4);
+      ctx.lineTo(sx, size * 0.2);
+      ctx.lineTo(sx - size * 0.2, size * 0.4);
+      ctx.closePath();
+      ctx.fill();
+    }
   } else if (type === 'double') {
     // İki mermi
     ctx.fillStyle = '#fff';
@@ -850,7 +860,7 @@ function drawHUD() {
 
   // Aktif power-up göstergesi
   const active = [];
-  if (player.shieldTimer > 0) active.push({ type: 'shield', timer: player.shieldTimer, color: '#29f', label: 'KALKAN' });
+  if (player.tripleTimer > 0) active.push({ type: 'triple', timer: player.tripleTimer, color: '#0fa', label: 'ÜÇLÜ ATEŞ' });
   if (player.doubleTimer > 0) active.push({ type: 'double', timer: player.doubleTimer, color: '#ff0', label: 'ÇİFT ATEŞ' });
 
   if (active.length > 0) {
@@ -927,10 +937,19 @@ function drawOverlay(title, sub) {
     ctx.fillText('SKOR: ' + score, W / 2, H / 2 + 36);
   }
 
-  ctx.fillStyle = 'rgba(0,255,200,0.85)';
-  ctx.font = '13px Courier New';
-  ctx.shadowBlur = 4;
-  ctx.fillText('[ SPACE ] Haritaya dön', W / 2, H / 2 + 72);
+  // Haritaya dön butonu
+  const btnY = H / 2 + 58;
+  ctx.fillStyle = 'rgba(0,40,30,0.85)';
+  ctx.beginPath();
+  ctx.roundRect(W / 2 - 100, btnY - 20, 200, 40, 8);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,255,200,0.7)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(0,255,200,0.95)';
+  ctx.font = 'bold 15px Courier New';
+  ctx.shadowBlur = 6;
+  ctx.fillText('HARİTAYA DÖN', W / 2, btnY + 1);
   ctx.restore();
 }
 
@@ -1000,6 +1019,7 @@ function update() {
   if (player.flash > 0) player.flash--;
   if (player.shieldTimer > 0) player.shieldTimer--;
   if (player.doubleTimer > 0) player.doubleTimer--;
+  if (player.tripleTimer > 0) player.tripleTimer--;
 
   // Death animation
   if (player.dead) {
@@ -1012,7 +1032,11 @@ function update() {
   player.fireTimer++;
   if (player.fireTimer >= player.fireRate) {
     player.fireTimer = 0;
-    if (player.doubleTimer > 0) {
+    if (player.tripleTimer > 0) {
+      bullets.push({ x: player.x - 13, y: player.y - 20, speed: 10 });
+      bullets.push({ x: player.x,      y: player.y - 28, speed: 10 });
+      bullets.push({ x: player.x + 13, y: player.y - 20, speed: 10 });
+    } else if (player.doubleTimer > 0) {
       bullets.push({ x: player.x - 10, y: player.y - 24, speed: 10 });
       bullets.push({ x: player.x + 10, y: player.y - 24, speed: 10 });
     } else {
@@ -1031,7 +1055,7 @@ function update() {
   }
 
   // Level 1-4 tamamlama: 5 dalgayı geçince bölüm biter
-  if (currentLevel < 5 && !boss && currentWave > currentLevel * 5) {
+  if (currentLevel < 5 && !boss && currentWave > currentLevel * 5 && enemies.length === 0) {
     levelStates[currentLevel - 1] = 'completed';
     levelStates[currentLevel] = 'unlocked';
     bossKillTimer = 180;
@@ -1172,8 +1196,8 @@ function update() {
 
     // Oyuncu topladı mı?
     if (Math.abs(p.x - player.x) < 28 && Math.abs(p.y - player.y) < 34) {
-      if (p.type === 'shield') {
-        player.shieldTimer = POWERUP_DURATION;
+      if (p.type === 'triple') {
+        player.tripleTimer = POWERUP_DURATION;
       } else if (p.type === 'double') {
         player.doubleTimer = POWERUP_DURATION;
       } else if (p.type === 'bomb') {
