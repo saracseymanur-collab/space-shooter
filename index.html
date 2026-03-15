@@ -138,10 +138,10 @@ function getLevelConfig() {
     case 1: {
       const lw = getWave() - (currentLevel - 1) * 5; // level içi dalga (1-4)
       return {
-        interval: Math.max(42, 90 - (lw - 1) * 16),  // 90→74→58→42
-        doubleChance: (lw - 1) * 0.18,               // 0→18%→36%→54%
-        speed: () => 1.1 + Math.random() * 0.25,
-        hp: () => { const r = Math.random(); return r < 0.5 ? 1 : r < 0.8 ? 2 : 3; },
+        interval: Math.max(34, 72 - (lw - 1) * 14),  // 72→58→44→34
+        doubleChance: 0.12 + (lw - 1) * 0.2,         // 12%→32%→52%→72%
+        speed: () => 1.4 + Math.random() * 0.35,
+        hp: () => { const r = Math.random(); return r < 0.45 ? 1 : r < 0.78 ? 2 : 3; },
         canShoot: false, zigzag: false,
       };
     }
