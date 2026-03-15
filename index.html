@@ -20,19 +20,12 @@
     user-select: none;
     -webkit-user-select: none;
   }
-  body {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-family: 'Courier New', monospace;
-  }
   canvas {
     display: block;
-    /* Ekrana sığacak şekilde ölçekle, oranı koru */
-    max-width: 100vw;
-    max-height: 100dvh;
-    width: auto;
-    height: auto;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100% !important;
+    height: 100% !important;
     touch-action: none;
   }
 </style>
@@ -217,6 +210,11 @@ document.addEventListener('keydown', e => {
 document.addEventListener('keyup', e => { keys[e.code] = false; keyHandled[e.code] = false; });
 
 // --- Touch / Swipe Kontrolleri ---
+// Document seviyesinde tüm default touch davranışlarını engelle
+['touchstart','touchmove','touchend','touchcancel'].forEach(evt => {
+  document.addEventListener(evt, e => { e.preventDefault(); }, { passive: false });
+});
+
 let touchStartX = 0, touchStartY = 0, touchStartTime = 0;
 
 canvas.addEventListener('touchstart', e => {
@@ -235,19 +233,15 @@ canvas.addEventListener('touchend', e => {
   const dt = Date.now() - touchStartTime;
   const absDx = Math.abs(dx), absDy = Math.abs(dy);
 
-  // Tap (kısa dokunuş, az hareket) → canvas click gibi davran
+  // Tap → click olarak ilet
   if (absDx < 12 && absDy < 12 && dt < 300) {
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = W / rect.width, scaleY = H / rect.height;
-    const mx = (t.clientX - rect.left) * scaleX;
-    const my = (t.clientY - rect.top)  * scaleY;
     canvas.dispatchEvent(new MouseEvent('click', {
       clientX: t.clientX, clientY: t.clientY, bubbles: true
     }));
     return;
   }
 
-  // Swipe — yatay ağırlıklı ve hızlı ise şerit değiştir
+  // Oyun içi yatay swipe → şerit değiştir
   if (state === 'play' && absDx > absDy && absDx > 30 && dt < 400) {
     if (dx < 0 && player.targetLane > 0) player.targetLane--;
     if (dx > 0 && player.targetLane < 2) player.targetLane++;
@@ -261,7 +255,8 @@ canvas.addEventListener('touchend', e => {
   }
 }, { passive: false });
 
-canvas.addEventListener('touchmove', e => { e.preventDefault(); }, { passive: false });
+canvas.addEventListener('touchmove',   e => { e.preventDefault(); }, { passive: false });
+canvas.addEventListener('touchcancel', e => { e.preventDefault(); }, { passive: false });
 
 canvas.addEventListener('click', e => {
   const rect = canvas.getBoundingClientRect();
