@@ -101,8 +101,20 @@ let victoryParticles = [];
 let currentLevel = 1;
 const TEST_MODE = new URLSearchParams(window.location.search).get('test') === 'true';
 const BOSS_MODE = new URLSearchParams(window.location.search).get('boss') === 'true';
-let levelStates = Array.from({length: 5}, () => TEST_MODE ? 'unlocked' : 'locked');
-if (!TEST_MODE) levelStates[0] = 'unlocked';
+function loadLevelStates() {
+  if (TEST_MODE) return Array.from({length: 5}, () => 'unlocked');
+  try {
+    const saved = JSON.parse(localStorage.getItem('ss_levels'));
+    if (Array.isArray(saved) && saved.length === 5) return saved;
+  } catch(e) {}
+  const s = Array.from({length: 5}, () => 'locked');
+  s[0] = 'unlocked';
+  return s;
+}
+function saveLevelStates() {
+  try { localStorage.setItem('ss_levels', JSON.stringify(levelStates)); } catch(e) {}
+}
+let levelStates = loadLevelStates();
 
 // Zorluk: tüm parametreler frameCount'tan türetilir (smooth, ayrık wave yok)
 function gameSec()  { return frameCount / 60; }
@@ -1070,6 +1082,7 @@ function update() {
   if (currentLevel < 5 && !boss && currentWave > currentLevel * 5 && enemies.length === 0) {
     levelStates[currentLevel - 1] = 'completed';
     levelStates[currentLevel] = 'unlocked';
+    saveLevelStates();
     bossKillTimer = 180;
     levelCompleteType = 'clear';
     state = 'levelcomplete';
@@ -1174,6 +1187,7 @@ function update() {
           score += 300 + boss.bossNum * 200;
           levelStates[currentLevel - 1] = 'completed';
           if (currentLevel < 5) levelStates[currentLevel] = 'unlocked';
+          saveLevelStates();
           boss = null;
           bossKillTimer = 180;
           levelCompleteType = 'boss';
