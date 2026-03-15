@@ -687,11 +687,12 @@ function drawBullet(b) {
 }
 
 // --- Draw: Power-up ---
-const POWERUP_COLORS = { triple: '#00ffaa', double: '#ffee00', bomb: '#ff4444' };
+const POWERUP_COLORS = { triple: '#00ffaa', double: '#ffee00', bomb: '#ff4444', shield: '#2299ff' };
 const POWERUP_GLOW = {
   triple: ['rgba(0,255,170,0.65)',  'rgba(0,255,170,0)'],
   double: ['rgba(255,238,0,0.65)',  'rgba(255,238,0,0)'],
   bomb:   ['rgba(255,68,68,0.65)',  'rgba(255,68,68,0)'],
+  shield: ['rgba(34,153,255,0.65)', 'rgba(34,153,255,0)'],
 };
 
 function drawPowerupIcon(type, size) {
@@ -724,6 +725,19 @@ function drawPowerupIcon(type, size) {
       ctx.closePath();
       ctx.fill();
     }
+  } else if (type === 'shield') {
+    ctx.fillStyle = '#fff';
+    ctx.shadowColor = '#2299ff';
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.moveTo(0, -size * 0.75);
+    ctx.lineTo(size * 0.65, -size * 0.35);
+    ctx.lineTo(size * 0.65, size * 0.1);
+    ctx.quadraticCurveTo(0, size * 0.85, 0, size * 0.85);
+    ctx.quadraticCurveTo(-size * 0.65, size * 0.1, -size * 0.65, size * 0.1);
+    ctx.lineTo(-size * 0.65, -size * 0.35);
+    ctx.closePath();
+    ctx.fill();
   } else {
     // Bomba: daire + patlama çizgileri
     ctx.fillStyle = '#fff';
@@ -940,9 +954,7 @@ function drawOverlay(title, sub) {
   // Haritaya dön butonu
   const btnY = H / 2 + 58;
   ctx.fillStyle = 'rgba(0,40,30,0.85)';
-  ctx.beginPath();
-  ctx.roundRect(W / 2 - 100, btnY - 20, 200, 40, 8);
-  ctx.fill();
+  ctx.fillRect(W / 2 - 100, btnY - 20, 200, 40);
   ctx.strokeStyle = 'rgba(0,255,200,0.7)';
   ctx.lineWidth = 1.5;
   ctx.stroke();
