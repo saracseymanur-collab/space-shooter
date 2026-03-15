@@ -23,10 +23,12 @@
   canvas {
     display: block;
     position: fixed;
-    top: 0; left: 0;
-    width: 100%;
-    height: 100%;
+    top: 50%; left: 50%;
+    width: 390px; height: 844px;
+    transform-origin: center center;
+    transform: translate(-50%, -50%) scale(var(--game-scale, 1));
     touch-action: none;
+    image-rendering: pixelated;
   }
 </style>
 </head>
@@ -36,53 +38,40 @@
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
-// Mantıksal boyutlar — her zaman ekrana eşit, tüm koordinatlar orantılı
-let W = window.innerWidth;
-let H = window.innerHeight;
-
-// --- Lanes ---
-const LANE_COUNT = 3;
-let LANE_W = W / LANE_COUNT;
-let LANE_CENTERS = [LANE_W * 0.5, LANE_W * 1.5, LANE_W * 2.5];
-
-// --- Harita node pozisyonları (5 level, dikey path, H orantılı) ---
-let MAP_NODES = [];
-function buildMapNodes() {
-  MAP_NODES = [
-    { x: W / 2, y: H * 0.80 },
-    { x: W / 2, y: H * 0.66 },
-    { x: W / 2, y: H * 0.51 },
-    { x: W / 2, y: H * 0.37 },
-    { x: W / 2, y: H * 0.23 },
-  ];
-}
-buildMapNodes();
-
-function resizeCanvas() {
-  W = window.innerWidth;
-  H = window.innerHeight;
-  canvas.width  = W;
-  canvas.height = H;
-  LANE_W = W / LANE_COUNT;
-  LANE_CENTERS[0] = LANE_W * 0.5;
-  LANE_CENTERS[1] = LANE_W * 1.5;
-  LANE_CENTERS[2] = LANE_W * 2.5;
-  buildMapNodes();
-  // Yıldız konumlarını yeni boyuta uyarla
-  stars.forEach(s => {
-    s.x = Math.random() * W;
-    s.y = Math.random() * H;
-  });
-  // Oyun dışındayken oyuncu konumunu güncelle
-  if (typeof player !== 'undefined' && state !== 'play') {
-    player.x = LANE_CENTERS[player.targetLane];
-    player.y = H - 90;
-  }
-}
+// Sabit oyun alanı boyutu (390×844 — iPhone standart)
+const W = 390;
+const H = 844;
 
 canvas.width  = W;
 canvas.height = H;
-window.addEventListener('resize', resizeCanvas);
+
+// --- CSS ölçeği: mobilde tam ekran doldur, masaüstünde telefon boyutu ---
+function updateScale() {
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+  let scale;
+  if (isMobile) {
+    scale = Math.min(window.innerWidth / W, window.innerHeight / H);
+  } else {
+    scale = Math.min(1, window.innerWidth / W, window.innerHeight / H);
+  }
+  document.documentElement.style.setProperty('--game-scale', scale);
+}
+updateScale();
+window.addEventListener('resize', updateScale);
+
+// --- Lanes ---
+const LANE_COUNT = 3;
+const LANE_W = W / LANE_COUNT;
+const LANE_CENTERS = [LANE_W * 0.5, LANE_W * 1.5, LANE_W * 2.5];
+
+// --- Harita node pozisyonları (5 level, dikey path) ---
+const MAP_NODES = [
+  { x: W / 2, y: H * 0.80 },
+  { x: W / 2, y: H * 0.66 },
+  { x: W / 2, y: H * 0.51 },
+  { x: W / 2, y: H * 0.37 },
+  { x: W / 2, y: H * 0.23 },
+];
 
 // --- Menu ---
 const MENU_CARDS = [
