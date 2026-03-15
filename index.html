@@ -235,6 +235,7 @@ document.addEventListener('keyup', e => { keys[e.code] = false; keyHandled[e.cod
 });
 
 let touchStartX = 0, touchStartY = 0, touchStartTime = 0;
+let swipeFired = false; // her dokunuşta tek swipe
 
 canvas.addEventListener('touchstart', e => {
   e.preventDefault();
@@ -242,6 +243,21 @@ canvas.addEventListener('touchstart', e => {
   touchStartX = t.clientX;
   touchStartY = t.clientY;
   touchStartTime = Date.now();
+  swipeFired = false;
+}, { passive: false });
+
+// Oyun içi swipe: parmak kalkmadan, 8px hareket eder etmez anında tetikle
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (state !== 'play' || swipeFired) return;
+  const t = e.changedTouches[0];
+  const dx = t.clientX - touchStartX;
+  const dy = t.clientY - touchStartY;
+  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 8) {
+    if (dx < 0 && player.targetLane > 0) player.targetLane--;
+    if (dx > 0 && player.targetLane < 2) player.targetLane++;
+    swipeFired = true;
+  }
 }, { passive: false });
 
 canvas.addEventListener('touchend', e => {
@@ -252,18 +268,11 @@ canvas.addEventListener('touchend', e => {
   const dt = Date.now() - touchStartTime;
   const absDx = Math.abs(dx), absDy = Math.abs(dy);
 
-  // Tap → click olarak ilet
-  if (absDx < 12 && absDy < 12 && dt < 300) {
+  // Tap → click olarak ilet (swipe olmadıysa)
+  if (!swipeFired && absDx < 12 && absDy < 12 && dt < 300) {
     canvas.dispatchEvent(new MouseEvent('click', {
       clientX: t.clientX, clientY: t.clientY, bubbles: true
     }));
-    return;
-  }
-
-  // Oyun içi yatay swipe → şerit değiştir
-  if (state === 'play' && absDx > absDy && absDx > 12 && dt < 250) {
-    if (dx < 0 && player.targetLane > 0) player.targetLane--;
-    if (dx > 0 && player.targetLane < 2) player.targetLane++;
     return;
   }
 
@@ -274,8 +283,7 @@ canvas.addEventListener('touchend', e => {
   }
 }, { passive: false });
 
-canvas.addEventListener('touchmove',   e => { e.preventDefault(); }, { passive: false });
-canvas.addEventListener('touchcancel', e => { e.preventDefault(); }, { passive: false });
+canvas.addEventListener('touchcancel', e => { e.preventDefault(); swipeFired = false; }, { passive: false });
 
 canvas.addEventListener('click', e => {
   const rect = canvas.getBoundingClientRect();
