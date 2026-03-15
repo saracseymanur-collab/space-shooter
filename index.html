@@ -10,9 +10,8 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Space Shooter</title>
 <style>
-  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
-    margin: 0; padding: 0;
     width: 100%; height: 100%;
     background: #000;
     overflow: hidden;
@@ -37,28 +36,53 @@
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
-const W = 420, H = 700; // mantıksal koordinat sistemi (değişmez)
-
-function resizeCanvas() {
-  canvas.width  = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
-resizeCanvas();
-window.addEventListener('resize', resizeCanvas);
+// Mantıksal boyutlar — her zaman ekrana eşit, tüm koordinatlar orantılı
+let W = window.innerWidth;
+let H = window.innerHeight;
 
 // --- Lanes ---
 const LANE_COUNT = 3;
-const LANE_W = W / LANE_COUNT;
-const LANE_CENTERS = [LANE_W * 0.5, LANE_W * 1.5, LANE_W * 2.5];
+let LANE_W = W / LANE_COUNT;
+let LANE_CENTERS = [LANE_W * 0.5, LANE_W * 1.5, LANE_W * 2.5];
 
-// --- Harita node pozisyonları (5 level, dikey path) ---
-const MAP_NODES = [
-  { x: W / 2, y: 560 },
-  { x: W / 2, y: 460 },
-  { x: W / 2, y: 360 },
-  { x: W / 2, y: 260 },
-  { x: W / 2, y: 160 },
-];
+// --- Harita node pozisyonları (5 level, dikey path, H orantılı) ---
+let MAP_NODES = [];
+function buildMapNodes() {
+  MAP_NODES = [
+    { x: W / 2, y: H * 0.80 },
+    { x: W / 2, y: H * 0.66 },
+    { x: W / 2, y: H * 0.51 },
+    { x: W / 2, y: H * 0.37 },
+    { x: W / 2, y: H * 0.23 },
+  ];
+}
+buildMapNodes();
+
+function resizeCanvas() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width  = W;
+  canvas.height = H;
+  LANE_W = W / LANE_COUNT;
+  LANE_CENTERS[0] = LANE_W * 0.5;
+  LANE_CENTERS[1] = LANE_W * 1.5;
+  LANE_CENTERS[2] = LANE_W * 2.5;
+  buildMapNodes();
+  // Yıldız konumlarını yeni boyuta uyarla
+  stars.forEach(s => {
+    s.x = Math.random() * W;
+    s.y = Math.random() * H;
+  });
+  // Oyun dışındayken oyuncu konumunu güncelle
+  if (typeof player !== 'undefined' && state !== 'play') {
+    player.x = LANE_CENTERS[player.targetLane];
+    player.y = H - 90;
+  }
+}
+
+canvas.width  = W;
+canvas.height = H;
+window.addEventListener('resize', resizeCanvas);
 
 // --- Menu ---
 const MENU_CARDS = [
@@ -157,10 +181,10 @@ function getLevelConfig() {
 
 // --- Stars ---
 const STAR_COUNT = 80;
-let stars = [];
-for (let i = 0; i < STAR_COUNT; i++) {
-  stars.push({ x: Math.random() * W, y: Math.random() * H, s: Math.random() * 1.5 + 0.3, spd: Math.random() * 1.5 + 0.5 });
-}
+let stars = Array.from({ length: STAR_COUNT }, () => ({
+  x: Math.random() * W, y: Math.random() * H,
+  s: Math.random() * 1.5 + 0.3, spd: Math.random() * 1.5 + 0.5,
+}));
 
 // --- Player ---
 let player = {
@@ -343,7 +367,7 @@ function spawnBoss(wave) {
   const special = (currentLevel === 5);
   const hp      = special ? 90 : 25 + bossNum * 10;
   boss = {
-    x: W / 2, y: special ? 100 : 90,
+    x: W / 2, y: special ? H * 0.14 : H * 0.13,
     vx: special ? 1.9 : 1.2 + bossNum * 0.2,
     hp, maxHp: hp, flash: 0,
     fireTimer: 0,
@@ -1035,7 +1059,7 @@ function update() {
     if (boss.x > W - 55) { boss.x = W - 55; boss.vx = -baseSpeed; }
 
     // Dikey: her fazda üstte sabit
-    const homeY = boss.special ? 100 : 90;
+    const homeY = boss.special ? H * 0.14 : H * 0.13;
     boss.y += (homeY - boss.y) * 0.025;
 
     if (boss.flash > 0) boss.flash--;
@@ -1066,7 +1090,7 @@ function update() {
         // ── FAZ 3: dalga sistemi ──
         // Ekran 4 eşit zona bölünür. Her dalgada 1 zon güvenli, 3 zona ateş.
         // Dalga biter → nefes molası → oyuncu güvenli zona geçer → yeni dalga
-        const ZONE_CENTERS = [52, 157, 262, 367]; // 4 zonun ortası
+        const ZONE_CENTERS = [W/8, 3*W/8, 5*W/8, 7*W/8]; // 4 eşit zon, W orantılı
 
         if (!boss.wave) boss.wave = { onBreak: true, fired: 0, size: 3, targets: [], safeZone: 0 };
         const w = boss.wave;
@@ -1557,8 +1581,6 @@ function spawnCollectEffect(x, y, color) {
 
 // --- Render ---
 function render() {
-  // Ekranı W×H mantıksal alana ölçekle — tüm çizim kodu değişmeden çalışır
-  ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
 
   if (state === 'menu') { drawMenu(); return; }
   if (state === 'map') { drawMap(); return; }
