@@ -449,21 +449,7 @@ function drawStars() {
 }
 
 // --- Draw: Lanes ---
-function drawLanes() {
-  ctx.save();
-  ctx.strokeStyle = 'rgba(0, 200, 255, 0.08)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([12, 20]);
-  ctx.lineDashOffset = -(frameCount * 2) % 32;
-  for (let i = 1; i < LANE_COUNT; i++) {
-    ctx.beginPath();
-    ctx.moveTo(i * LANE_W, 0);
-    ctx.lineTo(i * LANE_W, H);
-    ctx.stroke();
-  }
-  ctx.setLineDash([]);
-  ctx.restore();
-}
+function drawLanes() { /* şerit çizgileri kaldırıldı */ }
 
 // --- Draw: Ship ---
 const SHIP_W = 78, SHIP_H = 86; // görsel boyutu (688x760 oranında)
