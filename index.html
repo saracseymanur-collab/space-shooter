@@ -426,7 +426,7 @@ function spawnExplosion(x, y, big) {
 }
 
 function spawnPowerup(x, y) {
-  if (Math.random() > 0.02) return; // ~2% şans
+  if (Math.random() > 0.04) return; // ~4% şans
   const cfg = getLevelConfig();
   const enemyShoots = cfg ? cfg.canShoot : true; // 5. bölüm boss da ateş eder
   const types = enemyShoots ? ['shield', 'triple', 'double', 'bomb'] : ['triple', 'double', 'bomb'];
