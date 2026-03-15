@@ -519,11 +519,14 @@ function drawEnemy(e) {
   // HP bar
   const barY = size / 2 + 4;
   const barW = size * 0.7, barH = 5;
-  ctx.globalAlpha = 0.8;
-  ctx.fillStyle = '#300';
-  ctx.fillRect(-barW / 2, barY, barW, barH);
+  // Bar rengi mevcut HP'ye göre: 3→koyu bordo, 2→orta kırmızı, 1→açık kırmızı
+  const HP_COLORS = { 3: '#96182d', 2: '#d43a52', 1: '#ff8090' };
+  const barColor = HP_COLORS[e.hp] || '#ff8090';
   const ratio = e.hp / e.maxHp;
-  ctx.fillStyle = ratio > 0.5 ? '#0f0' : ratio > 0.25 ? '#ff0' : '#f00';
+  ctx.globalAlpha = 0.85;
+  ctx.fillStyle = 'rgba(30,0,8,0.7)';
+  ctx.fillRect(-barW / 2, barY, barW, barH);
+  ctx.fillStyle = barColor;
   ctx.fillRect(-barW / 2, barY, barW * ratio, barH);
   ctx.globalAlpha = 1;
   ctx.restore();
