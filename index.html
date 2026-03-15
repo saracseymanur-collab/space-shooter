@@ -429,6 +429,7 @@ function drawLanes() {
 function drawShip(x, y) {
   ctx.save();
   ctx.translate(x, y);
+  ctx.scale(1.35, 1.35);
 
   // Kalkan efekti
   if (player.shieldTimer > 0) {
@@ -489,9 +490,9 @@ function drawShip(x, y) {
 // --- Draw: Enemy ---
 // Tier özellikleri: 1HP=küçük+mavi, 2HP=orta+turuncu, 3HP=büyük+kırmızı
 const ENEMY_TIER = {
-  1: { sc: 0.72, body: '#1e7acc', core: '#7dd4ff', glow: '#1e7acc' },
-  2: { sc: 1.00, body: '#c86010', core: '#ffcc77', glow: '#ff8820' },
-  3: { sc: 1.38, body: '#c01818', core: '#ff8888', glow: '#ff2020' },
+  1: { sc: 0.95, body: '#1e7acc', core: '#7dd4ff', glow: '#1e7acc' },
+  2: { sc: 1.30, body: '#c86010', core: '#ffcc77', glow: '#ff8820' },
+  3: { sc: 1.75, body: '#c01818', core: '#ff8888', glow: '#ff2020' },
 };
 
 function drawEnemy(e) {
