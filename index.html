@@ -472,34 +472,27 @@ function drawShip(x, y) {
   ctx.save();
   ctx.translate(x, y);
 
-  // Kalkan efekti
-  if (player.shieldTimer > 0) {
-    const pulse = 0.6 + 0.4 * Math.sin(frameCount * 0.15);
-    const shieldAlpha = Math.min(1, player.shieldTimer / 40) * pulse;
-    const sg = ctx.createRadialGradient(0, 0, 18, 0, 0, 44);
-    sg.addColorStop(0, `rgba(0, 180, 255, ${shieldAlpha * 0.5})`);
-    sg.addColorStop(0.6, `rgba(0, 100, 255, ${shieldAlpha * 0.3})`);
-    sg.addColorStop(1, `rgba(0, 50, 200, 0)`);
-    ctx.fillStyle = sg;
-    ctx.beginPath();
-    ctx.arc(0, 0, 44, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = `rgba(0, 220, 255, ${shieldAlpha * 0.9})`;
-    ctx.lineWidth = 2.5;
-    ctx.shadowColor = '#0cf';
-    ctx.shadowBlur = 14;
-    ctx.beginPath();
-    ctx.arc(0, 0, 36, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-  }
-
   // Hasar yanıp sönme
   ctx.globalAlpha = player.flash > 0 ? (Math.sin(player.flash * 1.5) > 0 ? 0.25 : 1) : 1;
 
-  // Görsel — merkeze hizalı
+  // Spaceship görseli (altta)
   if (spaceshipImg.complete && spaceshipImg.naturalWidth > 0) {
     ctx.drawImage(spaceshipImg, -SHIP_W / 2, -SHIP_H / 2, SHIP_W, SHIP_H);
+  }
+
+  // Kalkan efekti (geminin üstünde, stroke yok)
+  if (player.shieldTimer > 0) {
+    const pulse = 0.5 + 0.3 * Math.sin(frameCount * 0.15);
+    const shieldAlpha = Math.min(1, player.shieldTimer / 40) * pulse;
+    const sg = ctx.createRadialGradient(0, 0, 10, 0, 0, 46);
+    sg.addColorStop(0,   `rgba(0, 200, 255, ${shieldAlpha * 0.25})`);
+    sg.addColorStop(0.5, `rgba(0, 140, 255, ${shieldAlpha * 0.18})`);
+    sg.addColorStop(1,   `rgba(0, 60,  200, 0)`);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = sg;
+    ctx.beginPath();
+    ctx.arc(0, 0, 46, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   ctx.globalAlpha = 1;
