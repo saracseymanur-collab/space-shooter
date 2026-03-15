@@ -146,9 +146,9 @@ function getLevelConfig() {
       };
     }
     case 2: return {
-      interval: 82, doubleChance: 0.15,
-      speed: () => 1.5 + Math.random() * 0.35,
-      hp: () => Math.random() < 0.3 ? 2 : 1,
+      interval: 58, doubleChance: 0.30,
+      speed: () => 1.6 + Math.random() * 0.4,
+      hp: () => Math.random() < 0.45 ? 2 : 1,
       canShoot: true, zigzag: false,
     };
     case 3: return {
@@ -390,7 +390,7 @@ function spawnExplosion(x, y, big) {
 }
 
 function spawnPowerup(x, y) {
-  if (Math.random() > 0.08) return; // ~8% şans
+  if (Math.random() > 0.05) return; // ~5% şans
   const types = ['shield', 'double', 'bomb'];
   const type = types[Math.floor(Math.random() * types.length)];
   powerups.push({ type, x, y, speed: 1.8, bobTimer: 0 });
