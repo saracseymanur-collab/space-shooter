@@ -482,16 +482,18 @@ function drawShip(x, y) {
 
   // Kalkan efekti (geminin üstünde, stroke yok)
   if (player.shieldTimer > 0) {
-    const pulse = 0.5 + 0.3 * Math.sin(frameCount * 0.15);
+    const pulse = 0.6 + 0.4 * Math.sin(frameCount * 0.15);
     const shieldAlpha = Math.min(1, player.shieldTimer / 40) * pulse;
-    const sg = ctx.createRadialGradient(0, 0, 10, 0, 0, 46);
-    sg.addColorStop(0,   `rgba(0, 200, 255, ${shieldAlpha * 0.55})`);
-    sg.addColorStop(0.5, `rgba(0, 140, 255, ${shieldAlpha * 0.35})`);
-    sg.addColorStop(1,   `rgba(0, 60,  200, 0)`);
+    // Halka: içi boş, kenarda yoğunlaşan gradient — net koruyucu balon hissi
+    const sg = ctx.createRadialGradient(0, 0, 30, 0, 0, 48);
+    sg.addColorStop(0,    `rgba(0, 180, 255, 0)`);
+    sg.addColorStop(0.72, `rgba(0, 200, 255, ${shieldAlpha * 0.25})`);
+    sg.addColorStop(0.88, `rgba(80, 220, 255, ${shieldAlpha * 0.75})`);
+    sg.addColorStop(1,    `rgba(180, 240, 255, ${shieldAlpha * 0.55})`);
     ctx.globalAlpha = 1;
     ctx.fillStyle = sg;
     ctx.beginPath();
-    ctx.arc(0, 0, 46, 0, Math.PI * 2);
+    ctx.arc(0, 0, 48, 0, Math.PI * 2);
     ctx.fill();
   }
 
