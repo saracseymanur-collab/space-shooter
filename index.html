@@ -82,6 +82,8 @@ const MENU_CARDS = [
 ];
 let menuIdx  = 0;   // hedef kart indexi
 let menuAnimX = 0;  // smooth scroll x
+let titleTapCount = 0, titleTapTimer = 0; // gizli test modu: başlığa 5x hızlı dokun
+let devMode = false;
 
 // --- State ---
 let state = 'menu';
@@ -315,6 +317,12 @@ canvas.addEventListener('click', e => {
     if (mx < 52 && my > 100 && my < H - 80) { menuIdx = Math.max(0, menuIdx - 1); return; }
     // Sağ ok
     if (mx > W - 52 && my > 100 && my < H - 80) { menuIdx = Math.min(MENU_CARDS.length - 1, menuIdx + 1); return; }
+    // DEV butonu (sağ alt)
+    if (mx > W - 52 && my > H - 36) {
+      devMode = !devMode;
+      levelStates = devMode ? levelStates.map(() => 'unlocked') : loadLevelStates();
+      return;
+    }
     // OYNA butonu (merkez kart, kilitli değilse)
     if (!MENU_CARDS[menuIdx].locked) {
       if (mx > W/2 - 65 && mx < W/2 + 65 && my > 450 && my < 494) { state = 'map'; return; }
@@ -1366,8 +1374,8 @@ function drawMenu() {
   ctx.fillStyle = '#0ff'; ctx.shadowColor = '#0ff'; ctx.shadowBlur = 16;
   ctx.fillText('SPACE SHOOTER', W / 2, 46);
   ctx.font = '11px Courier New';
-  ctx.fillStyle = '#48a'; ctx.shadowBlur = 0;
-  ctx.fillText('Bir bölge seç', W / 2, 70);
+  ctx.fillStyle = devMode ? '#ff0' : '#48a'; ctx.shadowBlur = 0;
+  ctx.fillText(devMode ? '⚡ TEST MODU' : 'Bir bölge seç', W / 2, 70);
   ctx.restore();
 
   const CW = 280, CH = 420, CR = 16;
@@ -1505,6 +1513,18 @@ function drawMenu() {
     ctx.fillStyle = i === menuIdx ? '#0cf' : '#224';
     ctx.beginPath(); ctx.arc(W / 2 + (i - 1.5) * 18, 626, i === menuIdx ? 5 : 3.5, 0, Math.PI * 2); ctx.fill();
   });
+
+  // DEV butonu (sağ alt köşe)
+  ctx.fillStyle = devMode ? 'rgba(255,200,0,0.25)' : 'rgba(255,255,255,0.08)';
+  ctx.fillRect(W - 52, H - 36, 44, 26);
+  ctx.strokeStyle = devMode ? 'rgba(255,200,0,0.6)' : 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(W - 52, H - 36, 44, 26);
+  ctx.fillStyle = devMode ? '#fc0' : 'rgba(255,255,255,0.4)';
+  ctx.font = 'bold 11px Courier New';
+  ctx.textAlign = 'center';
+  ctx.fillText('DEV', W - 30, H - 19);
+
   ctx.restore();
 }
 
