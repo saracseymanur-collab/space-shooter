@@ -178,7 +178,7 @@ let stars = Array.from({ length: STAR_COUNT }, () => ({
 // --- Player ---
 let player = {
   lane: 1, targetLane: 1,
-  x: LANE_CENTERS[1], y: H - 90,
+  x: LANE_CENTERS[1], y: H - 160,
   w: 40, h: 50,
   fireTimer: 0, fireRate: 10,
   dead: false, deathTimer: 0, flash: 0,
@@ -261,14 +261,14 @@ canvas.addEventListener('touchend', e => {
   }
 
   // Oyun içi yatay swipe → şerit değiştir
-  if (state === 'play' && absDx > absDy && absDx > 30 && dt < 400) {
+  if (state === 'play' && absDx > absDy && absDx > 12 && dt < 250) {
     if (dx < 0 && player.targetLane > 0) player.targetLane--;
     if (dx > 0 && player.targetLane < 2) player.targetLane++;
     return;
   }
 
   // Menüde yatay swipe → kart değiştir
-  if (state === 'menu' && absDx > absDy && absDx > 40) {
+  if (state === 'menu' && absDx > absDy && absDx > 20) {
     if (dx < 0) menuIdx = Math.min(MENU_CARDS.length - 1, menuIdx + 1);
     if (dx > 0) menuIdx = Math.max(0, menuIdx - 1);
   }
@@ -792,25 +792,25 @@ function drawHUD() {
   ctx.fillStyle = 'rgba(0,0,20,0.55)';
   ctx.fillRect(0, 0, W, 36);
 
-  ctx.font = 'bold 13px Courier New';
+  ctx.font = 'bold 19px Courier New';
   ctx.textBaseline = 'middle';
   ctx.shadowBlur = 8;
 
   ctx.fillStyle = '#0ff';
   ctx.shadowColor = '#0ff';
   ctx.textAlign = 'left';
-  ctx.fillText('SKOR: ' + score, 12, 18);
+  ctx.fillText('SKOR: ' + score, 12, 24);
 
   ctx.textAlign = 'center';
-  ctx.fillText('DALGA: ' + getWave(), W / 2, 18);
+  ctx.fillText('DALGA: ' + getWave(), W / 2, 24);
 
   ctx.textAlign = 'right';
   const livesStr = '❤'.repeat(Math.max(0, lives)) + '🖤'.repeat(Math.max(0, 3 - lives));
-  ctx.fillText('CAN: ' + livesStr, W - 12, 18);
+  ctx.fillText('CAN: ' + livesStr, W - 12, 24);
 
   // Boss HP barı
   if (boss) {
-    const bx = 16, by = 40, bw = W - 32, bh = 13;
+    const bx = 16, by = 52, bw = W - 32, bh = 18;
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.fillRect(bx, by, bw, bh);
     const bRatio = boss.hp / boss.maxHp;
@@ -832,7 +832,7 @@ function drawHUD() {
       ctx.beginPath(); ctx.moveTo(lx, by); ctx.lineTo(lx, by + bh); ctx.stroke();
     });
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 9px Courier New';
+    ctx.font = 'bold 12px Courier New';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const phaseLabels = ['', ' ◆ FAZ 2', ' ◆◆ FAZ 3'];
