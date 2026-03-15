@@ -883,6 +883,7 @@ function drawHUD() {
 
   // Aktif power-up göstergesi
   const active = [];
+  if (player.shieldTimer > 0) active.push({ type: 'shield', timer: player.shieldTimer, color: '#29f', label: 'KALKAN' });
   if (player.tripleTimer > 0) active.push({ type: 'triple', timer: player.tripleTimer, color: '#0fa', label: 'ÜÇLÜ ATEŞ' });
   if (player.doubleTimer > 0) active.push({ type: 'double', timer: player.doubleTimer, color: '#ff0', label: 'ÇİFT ATEŞ' });
 
@@ -1231,7 +1232,9 @@ function update() {
 
     // Oyuncu topladı mı?
     if (Math.abs(p.x - player.x) < 28 && Math.abs(p.y - player.y) < 34) {
-      if (p.type === 'triple') {
+      if (p.type === 'shield') {
+        player.shieldTimer = POWERUP_DURATION;
+      } else if (p.type === 'triple') {
         player.tripleTimer = POWERUP_DURATION;
       } else if (p.type === 'double') {
         player.doubleTimer = POWERUP_DURATION;
