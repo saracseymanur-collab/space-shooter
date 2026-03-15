@@ -246,10 +246,10 @@ canvas.addEventListener('touchstart', e => {
   swipeFired = false;
 }, { passive: false });
 
-// Oyun içi swipe: 10px hareket eder etmez anında şerit değiştir
+// Oyun içi swipe: parmak kalkmadan, 10px hareket eder etmez anında tetikle
 canvas.addEventListener('touchmove', e => {
   e.preventDefault();
-  if (state !== 'play') return;
+  if (state !== 'play' || swipeFired) return;
   const t = e.changedTouches[0];
   const dx = t.clientX - touchStartX;
   const dy = t.clientY - touchStartY;
@@ -257,9 +257,6 @@ canvas.addEventListener('touchmove', e => {
     if (dx < 0 && player.targetLane > 0) player.targetLane--;
     if (dx > 0 && player.targetLane < 2) player.targetLane++;
     swipeFired = true;
-    // Sıfırla — aynı sürekli hareketle sonraki şeride geçilebilsin
-    touchStartX = t.clientX;
-    touchStartY = t.clientY;
   }
 }, { passive: false });
 
