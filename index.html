@@ -10,8 +10,9 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Space Shooter</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
+    margin: 0; padding: 0;
     width: 100%; height: 100%;
     background: #000;
     overflow: hidden;
@@ -24,8 +25,8 @@
     display: block;
     position: fixed;
     top: 0; left: 0;
-    width: 100% !important;
-    height: 100% !important;
+    width: 100%;
+    height: 100%;
     touch-action: none;
   }
 </style>
@@ -36,9 +37,14 @@
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
-const W = 420, H = 700;
-canvas.width = W;
-canvas.height = H;
+const W = 420, H = 700; // mantıksal koordinat sistemi (değişmez)
+
+function resizeCanvas() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
 
 // --- Lanes ---
 const LANE_COUNT = 3;
@@ -1551,6 +1557,9 @@ function spawnCollectEffect(x, y, color) {
 
 // --- Render ---
 function render() {
+  // Ekranı W×H mantıksal alana ölçekle — tüm çizim kodu değişmeden çalışır
+  ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+
   if (state === 'menu') { drawMenu(); return; }
   if (state === 'map') { drawMap(); return; }
 
