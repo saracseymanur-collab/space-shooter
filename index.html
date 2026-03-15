@@ -38,6 +38,9 @@
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
+const spaceshipImg = new Image();
+spaceshipImg.src = 'assets/spaceship.png';
+
 // Sabit oyun alanı boyutu (390×844 — iPhone standart)
 const W = 390;
 const H = 844;
@@ -461,62 +464,41 @@ function drawLanes() {
 }
 
 // --- Draw: Ship ---
+const SHIP_W = 62, SHIP_H = 68; // görsel boyutu (688x760 oranında)
+
 function drawShip(x, y) {
   ctx.save();
   ctx.translate(x, y);
-  ctx.scale(1.35, 1.35);
 
   // Kalkan efekti
   if (player.shieldTimer > 0) {
     const pulse = 0.6 + 0.4 * Math.sin(frameCount * 0.15);
     const shieldAlpha = Math.min(1, player.shieldTimer / 40) * pulse;
-    const sg = ctx.createRadialGradient(0, 0, 18, 0, 0, 40);
+    const sg = ctx.createRadialGradient(0, 0, 18, 0, 0, 44);
     sg.addColorStop(0, `rgba(0, 180, 255, ${shieldAlpha * 0.5})`);
     sg.addColorStop(0.6, `rgba(0, 100, 255, ${shieldAlpha * 0.3})`);
     sg.addColorStop(1, `rgba(0, 50, 200, 0)`);
     ctx.fillStyle = sg;
     ctx.beginPath();
-    ctx.arc(0, 0, 40, 0, Math.PI * 2);
+    ctx.arc(0, 0, 44, 0, Math.PI * 2);
     ctx.fill();
-
     ctx.strokeStyle = `rgba(0, 220, 255, ${shieldAlpha * 0.9})`;
     ctx.lineWidth = 2.5;
     ctx.shadowColor = '#0cf';
     ctx.shadowBlur = 14;
     ctx.beginPath();
-    ctx.arc(0, 0, 33, 0, Math.PI * 2);
+    ctx.arc(0, 0, 36, 0, Math.PI * 2);
     ctx.stroke();
+    ctx.shadowBlur = 0;
   }
 
-  const alpha = player.flash > 0 ? (Math.sin(player.flash * 1.5) > 0 ? 0.3 : 1) : 1;
-  ctx.globalAlpha = alpha;
+  // Hasar yanıp sönme
+  ctx.globalAlpha = player.flash > 0 ? (Math.sin(player.flash * 1.5) > 0 ? 0.25 : 1) : 1;
 
-  // Engine glow
-  const grd = ctx.createRadialGradient(0, 28, 2, 0, 28, 22);
-  grd.addColorStop(0, 'rgba(0, 200, 255, 0.9)');
-  grd.addColorStop(1, 'rgba(0, 100, 255, 0)');
-  ctx.fillStyle = grd;
-  ctx.beginPath();
-  ctx.ellipse(0, 28, 12, 18, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Body
-  ctx.fillStyle = '#1af';
-  ctx.beginPath();
-  ctx.moveTo(0, -25);
-  ctx.lineTo(18, 20);
-  ctx.lineTo(8, 14);
-  ctx.lineTo(0, 18);
-  ctx.lineTo(-8, 14);
-  ctx.lineTo(-18, 20);
-  ctx.closePath();
-  ctx.fill();
-
-  // Cockpit
-  ctx.fillStyle = '#0ff';
-  ctx.beginPath();
-  ctx.ellipse(0, -4, 7, 11, 0, 0, Math.PI * 2);
-  ctx.fill();
+  // Görsel — merkeze hizalı
+  if (spaceshipImg.complete && spaceshipImg.naturalWidth > 0) {
+    ctx.drawImage(spaceshipImg, -SHIP_W / 2, -SHIP_H / 2, SHIP_W, SHIP_H);
+  }
 
   ctx.globalAlpha = 1;
   ctx.restore();
