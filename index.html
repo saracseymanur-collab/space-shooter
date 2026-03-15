@@ -992,7 +992,9 @@ function update() {
   if (state !== 'play') return;
 
   // Player slide
-  player.x = LANE_CENTERS[player.targetLane];
+  const targetX = LANE_CENTERS[player.targetLane];
+  player.x += (targetX - player.x) * 0.35;
+  if (Math.abs(targetX - player.x) < 1) player.x = targetX;
 
   if (player.flash > 0) player.flash--;
   if (player.shieldTimer > 0) player.shieldTimer--;
