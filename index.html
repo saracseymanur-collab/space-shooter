@@ -41,12 +41,20 @@ const ctx = canvas.getContext('2d');
 const spaceshipImg = new Image();
 spaceshipImg.src = 'assets/spaceship.png';
 
+const enemyImgs = [null, new Image(), new Image(), new Image()];
+enemyImgs[1].src = 'assets/enemy1.png';
+enemyImgs[2].src = 'assets/enemy2.png';
+enemyImgs[3].src = 'assets/enemy3.png';
+
+// Düşman görsel boyutları (1024x1024 kare, şerit 130px)
+const ENEMY_SIZES = { 1: 58, 2: 82, 3: 112 };
+
 // Sabit oyun alanı boyutu (390×844 — iPhone standart)
 const W = 390;
 const H = 844;
 
 // Retina/HiDPI: fiziksel piksel sayısını artır, mantıksal koordinatlar değişmez
-const DPR = Math.min(window.devicePixelRatio || 1, 3);
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
 canvas.width  = W * DPR;
 canvas.height = H * DPR;
 
@@ -496,57 +504,28 @@ const ENEMY_TIER = {
 };
 
 function drawEnemy(e) {
-  const tier = ENEMY_TIER[e.maxHp];
-  const sc   = tier.sc;
+  const size = ENEMY_SIZES[e.maxHp];
+  const img  = enemyImgs[e.maxHp];
 
   ctx.save();
   ctx.translate(e.x, e.y);
   ctx.globalAlpha = e.flash > 0 ? (e.flash % 6 < 3 ? 0.3 : 1) : 1;
 
-  // Gemi gövdesi (ölçekli)
-  ctx.save();
-  ctx.scale(sc, sc);
+  // Görsel — merkeze hizalı
+  if (img && img.complete && img.naturalWidth > 0) {
+    ctx.drawImage(img, -size / 2, -size / 2, size, size);
+  }
 
-  ctx.shadowColor = tier.glow;
-  ctx.shadowBlur  = 10;
-  ctx.fillStyle   = tier.body;
-  ctx.beginPath();
-  ctx.moveTo(0, 22);
-  ctx.lineTo(-18, -18);
-  ctx.lineTo(-8, -12);
-  ctx.lineTo(0, -20);
-  ctx.lineTo(8, -12);
-  ctx.lineTo(18, -18);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.shadowBlur  = 0;
-  ctx.fillStyle   = tier.core;
-  ctx.beginPath();
-  ctx.ellipse(0, 0, 8, 10, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.restore(); // scale geri al
-
-  // HP bar (ölçeksiz, gemi boyutuna göre konumlandırılmış)
-  const barY = sc * 24 + 5;
-  const barW = 34, barH = 5;
-  ctx.globalAlpha = 0.75;
-  ctx.shadowBlur  = 0;
-  ctx.fillStyle   = '#300';
+  // HP bar
+  const barY = size / 2 + 4;
+  const barW = size * 0.7, barH = 5;
+  ctx.globalAlpha = 0.8;
+  ctx.fillStyle = '#300';
   ctx.fillRect(-barW / 2, barY, barW, barH);
   const ratio = e.hp / e.maxHp;
   ctx.fillStyle = ratio > 0.5 ? '#0f0' : ratio > 0.25 ? '#ff0' : '#f00';
   ctx.fillRect(-barW / 2, barY, barW * ratio, barH);
   ctx.globalAlpha = 1;
-
-  ctx.fillStyle    = '#fff';
-  ctx.font         = 'bold 11px Courier New';
-  ctx.textAlign    = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.shadowColor  = '#000';
-  ctx.shadowBlur   = 3;
-  ctx.fillText(e.hp, 0, barY + barH + 7);
   ctx.restore();
 }
 
