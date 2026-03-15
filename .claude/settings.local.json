@@ -3,7 +3,8 @@
     "allow": [
       "Bash(git init:*)",
       "Bash(git -C /Users/seymanur.yuksel/Desktop/space-shooter config user.email \"saracseymanur@gmail.com\" && git -C /Users/seymanur.yuksel/Desktop/space-shooter config user.name \"saracseymanur-collab\")",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git -C /Users/seymanur.yuksel/Desktop/space-shooter push -u origin main)"
     ]
   }
 }
