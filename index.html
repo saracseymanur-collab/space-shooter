@@ -518,7 +518,7 @@ function drawEnemy(e) {
 
   // HP bar
   const barY = size / 2 + 4;
-  const barW = size * 0.7, barH = 5;
+  const barW = size * 0.30 * e.maxHp, barH = 5; // 1x / 2x / 3x
   // Bar rengi: düşman tipine göre ton, can azaldıkça açılır
   const ENEMY_HUE = { 1: 125, 2: 48, 3: 350 }; // yeşil / sarı / kırmızı
   const ratio = e.hp / e.maxHp;
