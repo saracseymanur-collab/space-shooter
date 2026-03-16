@@ -46,6 +46,10 @@ enemyImgs[1].src = 'ASSETS/enemy1.png';
 enemyImgs[2].src = 'ASSETS/enemy2.png';
 enemyImgs[3].src = 'ASSETS/enemy3.png';
 
+const bossImg = new Image();
+bossImg.src = 'ASSETS/boss.png';
+const BOSS_W = 190, BOSS_H = 127; // 1536×1024 oranında
+
 // Düşman görsel boyutları — gerçek en/boy oranına göre (sıkı kırpılmış assetler)
 const ENEMY_SIZES = { 1: { w: 58, h: 38 }, 2: { w: 82, h: 55 }, 3: { w: 108, h: 89 } };
 
@@ -562,37 +566,17 @@ function drawBoss(b) {
   ctx.fillStyle = `rgba(${p.aura1},${0.22 * pulse})`;
   ctx.beginPath(); ctx.arc(0, 0, 48, 0, Math.PI * 2); ctx.fill();
 
-  // Gövde ve kanatlar — tek shadowBlur ile toplu çizim
-  ctx.shadowColor = p.bodyGlow; ctx.shadowBlur = 14;
+  // Boss görseli
+  if (bossImg.complete && bossImg.naturalWidth > 0) {
+    const bw = BOSS_W, bh = BOSS_H;
+    ctx.shadowColor = p.bodyGlow; ctx.shadowBlur = 18;
+    ctx.drawImage(bossImg, -bw / 2, -bh / 2, bw, bh);
+    ctx.shadowBlur = 0;
+  }
 
-  ctx.fillStyle = p.wing;
-  ctx.beginPath();
-  ctx.moveTo(-52, -8); ctx.lineTo(-85, 10); ctx.lineTo(-72, 32); ctx.lineTo(-38, 18);
-  ctx.closePath(); ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(52, -8); ctx.lineTo(85, 10); ctx.lineTo(72, 32); ctx.lineTo(38, 18);
-  ctx.closePath(); ctx.fill();
-
-  ctx.fillStyle = p.body;
-  ctx.beginPath();
-  ctx.moveTo(0, 46);
-  ctx.lineTo(-42, 18); ctx.lineTo(-55, -8); ctx.lineTo(-28, -34);
-  ctx.lineTo(0, -44);
-  ctx.lineTo(28, -34); ctx.lineTo(55, -8); ctx.lineTo(42, 18);
-  ctx.closePath(); ctx.fill();
-
-  ctx.shadowBlur = 0;
-
-  // Çekirdek — gradient yerine 3 katmanlı circle
-  ctx.fillStyle = `rgba(${p.core3},0.7)`;  ctx.beginPath(); ctx.arc(0,0,24,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle = `rgba(${p.core2},0.85)`; ctx.beginPath(); ctx.arc(0,0,16,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle = `rgba(${p.core1},${pulse})`; ctx.beginPath(); ctx.arc(0,0,8,0,Math.PI*2); ctx.fill();
-
-  // Top noktaları
-  ctx.fillStyle = p.gun;
-  [[-32, 22], [32, 22], [0, 40]].forEach(([ex, ey]) => {
-    ctx.beginPath(); ctx.arc(ex, ey, 6, 0, Math.PI * 2); ctx.fill();
-  });
+  // Çekirdek parıltısı — faz renginde nabız
+  ctx.fillStyle = `rgba(${p.core2},${0.35 * pulse})`; ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = `rgba(${p.core1},${0.55 * pulse})`; ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI*2); ctx.fill();
 
   // Faz 3: alev efekti — gradient yerine transparan circle'lar
   if (phase === 3) {
