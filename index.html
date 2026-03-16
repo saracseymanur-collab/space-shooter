@@ -524,8 +524,9 @@ function drawEnemy(e) {
   const ENEMY_HUE = { 1: 125, 2: 48, 3: 350 }; // yeşil / sarı / kırmızı
   const ratio = e.hp / e.maxHp;
   const hue = ENEMY_HUE[e.maxHp] ?? 0;
-  const lightness = Math.round(28 + (1 - ratio) * 42); // tam can=koyu(%28) → sıfır=açık(%70)
-  const barColor = `hsl(${hue}, 85%, ${lightness}%)`;
+  const sat  = Math.round(15 + ratio * 45);  // tam can=orta doygun(%60) → sıfır=soluk(%15)
+  const lum  = Math.round(22 + ratio * 18);  // tam can=orta(%40) → sıfır=koyu(%22)
+  const barColor = `hsl(${hue}, ${sat}%, ${lum}%)`;
   ctx.globalAlpha = 0.85;
   ctx.fillStyle = `hsla(${hue}, 40%, 10%, 0.7)`;
   ctx.fillRect(-barW / 2, barY, barW, barH);
