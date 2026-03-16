@@ -104,6 +104,9 @@ let devMode = false;
 
 // --- State ---
 let state = 'menu';
+
+// --- Tutorial ---
+let tutorial = localStorage.getItem('ss_tutorial') ? null : { step: 0 }; // 0=swipe right, 1=swipe left
 let score = 0;
 let lives = 3;
 let spawnTimer = 0;
@@ -289,6 +292,10 @@ canvas.addEventListener('touchmove', e => {
     if (dx < 0 && player.targetLane > 0) player.targetLane--;
     if (dx > 0 && player.targetLane < 2) player.targetLane++;
     swipeFired = true;
+    if (tutorial) {
+      if (dx > 0 && tutorial.step === 0) tutorial.step = 1;
+      else if (dx < 0 && tutorial.step === 1) { localStorage.setItem('ss_tutorial', '1'); tutorial = null; }
+    }
   }
 }, { passive: false });
 
@@ -627,6 +634,59 @@ function drawEBullet(b) {
 }
 
 // --- Draw: Player Bullet ---
+function drawTutorial() {
+  const step = tutorial.step;
+  const dir  = step === 0 ? 1 : -1; // 1=sağ, -1=sol
+  const label = step === 0 ? 'SWIPE RIGHT' : 'SWIPE LEFT';
+
+  // Ok animasyonu: ileri-geri kayma + nabız
+  const slide   = Math.sin(frameCount * 0.07) * 14;
+  const opacity = 0.55 + 0.45 * Math.sin(frameCount * 0.07);
+
+  const cx = W / 2;
+  const cy = H - 110;
+
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  ctx.translate(cx + dir * slide, cy);
+
+  // Ok gövdesi
+  const aw = 52, ah = 18, tipW = 30, tipH = 38;
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  if (dir === 1) {
+    // → sağ ok
+    ctx.moveTo(-aw, -ah / 2);
+    ctx.lineTo(aw - tipW, -ah / 2);
+    ctx.lineTo(aw - tipW, -tipH / 2);
+    ctx.lineTo(aw, 0);
+    ctx.lineTo(aw - tipW, tipH / 2);
+    ctx.lineTo(aw - tipW, ah / 2);
+    ctx.lineTo(-aw, ah / 2);
+  } else {
+    // ← sol ok
+    ctx.moveTo(aw, -ah / 2);
+    ctx.lineTo(-aw + tipW, -ah / 2);
+    ctx.lineTo(-aw + tipW, -tipH / 2);
+    ctx.lineTo(-aw, 0);
+    ctx.lineTo(-aw + tipW, tipH / 2);
+    ctx.lineTo(-aw + tipW, ah / 2);
+    ctx.lineTo(aw, ah / 2);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  // Yazı
+  ctx.globalAlpha = opacity;
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 15px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText(label, 0, 28);
+
+  ctx.restore();
+}
+
 function drawBullet(b) {
   ctx.save();
   ctx.translate(b.x, b.y);
@@ -1631,6 +1691,8 @@ function render() {
   if ((state === 'play' || state === 'gameover') && !player.dead) {
     drawShip(player.x, player.y);
   }
+
+  if (state === 'play' && tutorial) drawTutorial();
 
   if (state === 'gameover') drawOverlay('OYUN BİTTİ', 'Düşman gemiye ulaştı!');
 
