@@ -1,5 +1,5 @@
 const CACHE = 'space-shooter-v1';
-const ASSETS = ['/', '/index.html', '/manifest.json', '/assets/spaceship.png', '/assets/enemy1.png', '/assets/enemy2.png', '/assets/enemy3.png'];
+const ASSETS = ['./index.html', './manifest.json', './ASSETS/spaceship.png', './ASSETS/enemy1.png', './ASSETS/enemy2.png', './ASSETS/enemy3.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(

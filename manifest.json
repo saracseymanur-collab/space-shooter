@@ -2,7 +2,7 @@
   "name": "Space Shooter",
   "short_name": "SpaceShooter",
   "description": "3 şeritli uzay nişancı oyunu",
-  "start_url": "/index.html",
+  "start_url": ".",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#000000",
