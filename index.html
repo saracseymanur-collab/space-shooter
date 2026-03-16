@@ -464,7 +464,7 @@ function drawStars() {
 function drawLanes() { /* şerit çizgileri kaldırıldı */ }
 
 // --- Draw: Ship ---
-const SHIP_W = 100, SHIP_H = 110; // görsel boyutu (806×888 oranında)
+const SHIP_W = 90, SHIP_H = 90; // görsel boyutu (1024×1024 kare)
 
 function drawShip(x, y) {
   ctx.save();
@@ -1214,7 +1214,7 @@ function update() {
     b.y += b.vy;
     if (b.y > H + 10) return false;
 
-    if (!player.dead && Math.abs(b.x - player.x) < 28 && Math.abs(b.y - player.y) < 46) {
+    if (!player.dead && Math.abs(b.x - player.x) < 24 && Math.abs(b.y - player.y) < 40) {
       if (player.shieldTimer > 0) {
         player.flash = 14;
       } else {
