@@ -479,7 +479,7 @@ function drawShip(x, y) {
     const pulse = 0.6 + 0.4 * Math.sin(frameCount * 0.15);
     const shieldAlpha = Math.min(1, player.shieldTimer / 40) * pulse;
     // Halka: içi boş, kenarda yoğunlaşan gradient — net koruyucu balon hissi
-    const sg = ctx.createRadialGradient(0, 0, 30, 0, 0, 48);
+    const sg = ctx.createRadialGradient(0, 0, 42, 0, 0, 62);
     sg.addColorStop(0,    `rgba(0, 180, 255, 0)`);
     sg.addColorStop(0.72, `rgba(0, 200, 255, ${shieldAlpha * 0.25})`);
     sg.addColorStop(0.88, `rgba(80, 220, 255, ${shieldAlpha * 0.75})`);
@@ -487,7 +487,7 @@ function drawShip(x, y) {
     ctx.globalAlpha = 1;
     ctx.fillStyle = sg;
     ctx.beginPath();
-    ctx.arc(0, 0, 48, 0, Math.PI * 2);
+    ctx.arc(0, 0, 62, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -646,7 +646,12 @@ function drawEBullet(b) {
 function drawBullet(b) {
   ctx.save();
   ctx.translate(b.x, b.y);
-  const color = player.doubleTimer > 0 ? ['rgba(255,255,80,1)', 'rgba(255,180,0,0.8)'] : ['rgba(255,255,180,1)', 'rgba(0,220,255,0.8)'];
+  const BULLET_COLORS = {
+    triple: ['rgba(180,255,200,1)', 'rgba(0,220,100,0.8)'],  // yeşil
+    double: ['rgba(255,255,80,1)',  'rgba(255,180,0,0.8)'],   // sarı
+    normal: ['rgba(255,255,180,1)', 'rgba(0,220,255,0.8)'],   // mavi/beyaz
+  };
+  const color = BULLET_COLORS[b.color] ?? BULLET_COLORS.normal;
   const grd = ctx.createRadialGradient(0, 0, 0, 0, 0, 7);
   grd.addColorStop(0, color[0]);
   grd.addColorStop(0.4, color[1]);
@@ -1033,15 +1038,16 @@ function update() {
   player.fireTimer++;
   if (player.fireTimer >= player.fireRate) {
     player.fireTimer = 0;
+    const bColor = player.tripleTimer > 0 ? 'triple' : player.doubleTimer > 0 ? 'double' : 'normal';
     if (player.tripleTimer > 0) {
-      bullets.push({ x: player.x - 13, y: player.y - 20, speed: 10 });
-      bullets.push({ x: player.x,      y: player.y - 28, speed: 10 });
-      bullets.push({ x: player.x + 13, y: player.y - 20, speed: 10 });
+      bullets.push({ x: player.x - 13, y: player.y - 20, speed: 10, color: bColor });
+      bullets.push({ x: player.x,      y: player.y - 28, speed: 10, color: bColor });
+      bullets.push({ x: player.x + 13, y: player.y - 20, speed: 10, color: bColor });
     } else if (player.doubleTimer > 0) {
-      bullets.push({ x: player.x - 10, y: player.y - 24, speed: 10 });
-      bullets.push({ x: player.x + 10, y: player.y - 24, speed: 10 });
+      bullets.push({ x: player.x - 10, y: player.y - 24, speed: 10, color: bColor });
+      bullets.push({ x: player.x + 10, y: player.y - 24, speed: 10, color: bColor });
     } else {
-      bullets.push({ x: player.x, y: player.y - 28, speed: 10 });
+      bullets.push({ x: player.x, y: player.y - 28, speed: 10, color: bColor });
     }
   }
 
