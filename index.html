@@ -519,12 +519,14 @@ function drawEnemy(e) {
   // HP bar
   const barY = size / 2 + 4;
   const barW = size * 0.7, barH = 5;
-  // Bar rengi mevcut HP'ye göre: 3→koyu bordo, 2→orta kırmızı, 1→açık kırmızı
-  const HP_COLORS = { 3: '#96182d', 2: '#d43a52', 1: '#ff8090' };
-  const barColor = HP_COLORS[e.hp] || '#ff8090';
+  // Bar rengi: düşman tipine göre ton, can azaldıkça açılır
+  const ENEMY_HUE = { 1: 125, 2: 48, 3: 350 }; // yeşil / sarı / kırmızı
   const ratio = e.hp / e.maxHp;
+  const hue = ENEMY_HUE[e.maxHp] ?? 0;
+  const lightness = Math.round(28 + (1 - ratio) * 42); // tam can=koyu(%28) → sıfır=açık(%70)
+  const barColor = `hsl(${hue}, 85%, ${lightness}%)`;
   ctx.globalAlpha = 0.85;
-  ctx.fillStyle = 'rgba(30,0,8,0.7)';
+  ctx.fillStyle = `hsla(${hue}, 40%, 10%, 0.7)`;
   ctx.fillRect(-barW / 2, barY, barW, barH);
   ctx.fillStyle = barColor;
   ctx.fillRect(-barW / 2, barY, barW * ratio, barH);
