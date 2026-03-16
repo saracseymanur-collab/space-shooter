@@ -1,4 +1,4 @@
-const CACHE = 'space-shooter-v2';
+const CACHE = 'space-shooter-20260316';
 const ASSETS = ['./index.html', './manifest.json', './ASSETS/spaceship.png', './ASSETS/enemy1.png', './ASSETS/enemy2.png', './ASSETS/enemy3.png'];
 
 self.addEventListener('install', e => {
