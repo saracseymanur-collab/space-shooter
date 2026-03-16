@@ -46,8 +46,8 @@ enemyImgs[1].src = 'assets/enemy1.png';
 enemyImgs[2].src = 'assets/enemy2.png';
 enemyImgs[3].src = 'assets/enemy3.png';
 
-// Düşman görsel boyutları — her görsel 1024x1024, içeriğin relatif boyutu görsele gömülü
-const ENEMY_SIZES = { 1: 120, 2: 120, 3: 120 };
+// Düşman görsel boyutları — gerçek en/boy oranına göre (sıkı kırpılmış assetler)
+const ENEMY_SIZES = { 1: { w: 58, h: 38 }, 2: { w: 82, h: 55 }, 3: { w: 108, h: 89 } };
 
 // Sabit oyun alanı boyutu (390×844 — iPhone standart)
 const W = 390;
@@ -460,7 +460,7 @@ function drawStars() {
 function drawLanes() { /* şerit çizgileri kaldırıldı */ }
 
 // --- Draw: Ship ---
-const SHIP_W = 110, SHIP_H = 110; // görsel boyutu (1024x1024 kare)
+const SHIP_W = 100, SHIP_H = 110; // görsel boyutu (806×888 oranında)
 
 function drawShip(x, y) {
   ctx.save();
@@ -504,21 +504,22 @@ const ENEMY_TIER = {
 };
 
 function drawEnemy(e) {
-  const size = ENEMY_SIZES[e.maxHp];
+  const sz   = ENEMY_SIZES[e.maxHp] ?? { w: 80, h: 60 };
+  const dw   = sz.w, dh = sz.h;
   const img  = enemyImgs[e.maxHp];
 
   ctx.save();
   ctx.translate(e.x, e.y);
   ctx.globalAlpha = e.flash > 0 ? (e.flash % 6 < 3 ? 0.3 : 1) : 1;
 
-  // Görsel — merkeze hizalı
+  // Görsel — merkeze hizalı, gerçek en/boy oranıyla
   if (img && img.complete && img.naturalWidth > 0) {
-    ctx.drawImage(img, -size / 2, -size / 2, size, size);
+    ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
   }
 
-  // HP bar
-  const barY = size / 2 + 4;
-  const barW = size * 0.30 * e.maxHp, barH = 5; // 1x / 2x / 3x
+  // HP bar — geminin gerçek alt kenarına dayalı
+  const barY = dh / 2 + 4;
+  const barW = dw * 0.30 * e.maxHp, barH = 5; // 1x / 2x / 3x
   // Bar rengi: düşman tipine göre ton, can azaldıkça açılır
   const ENEMY_HUE = { 1: 125, 2: 48, 3: 350 }; // yeşil / sarı / kırmızı
   const ratio = e.hp / e.maxHp;
