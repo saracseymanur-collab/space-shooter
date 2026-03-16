@@ -46,8 +46,8 @@ enemyImgs[1].src = 'assets/enemy1.png';
 enemyImgs[2].src = 'assets/enemy2.png';
 enemyImgs[3].src = 'assets/enemy3.png';
 
-// Düşman görsel boyutları (1024x1024 kare, şerit 130px)
-const ENEMY_SIZES = { 1: 58, 2: 82, 3: 112 };
+// Düşman görsel boyutları — her görsel 1024x1024, içeriğin relatif boyutu görsele gömülü
+const ENEMY_SIZES = { 1: 120, 2: 120, 3: 120 };
 
 // Sabit oyun alanı boyutu (390×844 — iPhone standart)
 const W = 390;
@@ -460,7 +460,7 @@ function drawStars() {
 function drawLanes() { /* şerit çizgileri kaldırıldı */ }
 
 // --- Draw: Ship ---
-const SHIP_W = 110, SHIP_H = 118; // görsel boyutu (952x1024 oranında)
+const SHIP_W = 110, SHIP_H = 110; // görsel boyutu (1024x1024 kare)
 
 function drawShip(x, y) {
   ctx.save();
