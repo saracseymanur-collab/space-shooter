@@ -39,12 +39,12 @@ const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
 const spaceshipImg = new Image();
-spaceshipImg.src = 'assets/spaceship.png';
+spaceshipImg.src = 'ASSETS/spaceship.png';
 
 const enemyImgs = [null, new Image(), new Image(), new Image()];
-enemyImgs[1].src = 'assets/enemy1.png';
-enemyImgs[2].src = 'assets/enemy2.png';
-enemyImgs[3].src = 'assets/enemy3.png';
+enemyImgs[1].src = 'ASSETS/enemy1.png';
+enemyImgs[2].src = 'ASSETS/enemy2.png';
+enemyImgs[3].src = 'ASSETS/enemy3.png';
 
 // Düşman görsel boyutları — gerçek en/boy oranına göre (sıkı kırpılmış assetler)
 const ENEMY_SIZES = { 1: { w: 58, h: 38 }, 2: { w: 82, h: 55 }, 3: { w: 108, h: 89 } };
@@ -1229,7 +1229,7 @@ function update() {
     b.y += b.vy;
     if (b.y > H + 10) return false;
 
-    if (!player.dead && Math.abs(b.x - player.x) < 20 && Math.abs(b.y - player.y) < 22) {
+    if (!player.dead && Math.abs(b.x - player.x) < 28 && Math.abs(b.y - player.y) < 46) {
       if (player.shieldTimer > 0) {
         player.flash = 14;
       } else {
