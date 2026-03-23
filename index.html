@@ -1745,13 +1745,23 @@ function update() {
       const astInterval = [80, 62, 64, 58][astLvl - 1] ?? 70;
       if (asteroidSpawnTimer >= astInterval) {
         asteroidSpawnTimer = 0;
+        // Count iron asteroids currently blocking lanes in upper screen
+        const ironLanes = new Set();
+        asteroids.forEach(a => {
+          if (a.type === 'iron' && a.y < H * 0.6) {
+            LANE_CENTERS.forEach((lc, li) => { if (Math.abs(a.x - lc) < LANE_W * 0.65) ironLanes.add(li); });
+          }
+        });
+        const ironCount = ironLanes.size;
+        const capIron = t => (t === 'iron' && ironCount >= 2) ? 'normal' : t;
+
         let atype;
         if (astLvl === 1) atype = 'normal';
-        else if (astLvl === 2) atype = Math.random() < 0.45 ? 'iron' : 'normal';
-        else if (astLvl === 3) atype = Math.random() < 0.3 ? 'ice' : Math.random() < 0.45 ? 'iron' : 'normal';
-        else atype = ['normal','iron','ice'][Math.floor(Math.random() * 3)];
+        else if (astLvl === 2) atype = capIron(Math.random() < 0.45 ? 'iron' : 'normal');
+        else if (astLvl === 3) atype = capIron(Math.random() < 0.3 ? 'ice' : Math.random() < 0.45 ? 'iron' : 'normal');
+        else atype = capIron(['normal','iron','ice'][Math.floor(Math.random() * 3)]);
         spawnAsteroid(atype);
-        if (Math.random() < 0.28) spawnAsteroid(astLvl <= 2 ? 'normal' : (Math.random() < 0.5 ? 'iron' : 'normal'));
+        if (Math.random() < 0.28) spawnAsteroid(capIron(astLvl <= 2 ? 'normal' : (Math.random() < 0.5 ? 'iron' : 'normal')));
       }
     }
 
@@ -1799,16 +1809,8 @@ function update() {
           return true;
         });
         if (hit) return false;
-      } else {
-        // Iron: bullets bounce off (destroy bullet, spark effect)
-        bullets = bullets.filter(b => {
-          if (Math.hypot(b.x - a.x, b.y - a.y) < a.size * 0.9) {
-            spawnExplosion(b.x, b.y, false);
-            return false;
-          }
-          return true;
-        });
       }
+      // Iron asteroids: bullets pass through (invincible, but doesn't block shots)
 
       // Player collision
       if (!player.dead && Math.abs(a.x - player.x) < a.size + 16 && Math.abs(a.y - player.y) < a.size + 16) {
