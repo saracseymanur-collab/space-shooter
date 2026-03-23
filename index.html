@@ -593,6 +593,7 @@ function spawnAsteroid(type, ox, oy, osize) {
   const shape = Array.from({length: n}, () => 0.55 + Math.random() * 0.5);
 
   // Pick a free lane (not blocked by an enemy or another asteroid near the top)
+  // Iron asteroids are restricted to side lanes (0 or 2) so the middle stays passable
   let ax;
   if (ox !== undefined) {
     ax = ox;
@@ -604,8 +605,10 @@ function spawnAsteroid(type, ox, oy, osize) {
         LANE_CENTERS.forEach((lc, li) => { if (Math.abs(a.x - lc) < LANE_W * 0.65) blocked.add(li); });
       }
     });
-    const free = [0, 1, 2].filter(l => !blocked.has(l));
-    const lane = free.length > 0 ? free[Math.floor(Math.random() * free.length)] : Math.floor(Math.random() * 3);
+    const candidates = (type === 'iron') ? [0, 2] : [0, 1, 2];
+    const free = candidates.filter(l => !blocked.has(l));
+    const pool = free.length > 0 ? free : candidates;
+    const lane = pool[Math.floor(Math.random() * pool.length)];
     ax = LANE_CENTERS[lane];
   }
 
@@ -1742,26 +1745,21 @@ function update() {
     if (!boss) {
       asteroidSpawnTimer++;
       const astLvl = currentLevel - 5; // 1-4 for zone 2 levels 6-9
-      const astInterval = [80, 62, 64, 58][astLvl - 1] ?? 70;
+      const astInterval = [96, 80, 82, 74][astLvl - 1] ?? 80;
       if (asteroidSpawnTimer >= astInterval) {
         asteroidSpawnTimer = 0;
-        // Count iron asteroids currently blocking lanes in upper screen
-        const ironLanes = new Set();
-        asteroids.forEach(a => {
-          if (a.type === 'iron' && a.y < H * 0.6) {
-            LANE_CENTERS.forEach((lc, li) => { if (Math.abs(a.x - lc) < LANE_W * 0.65) ironLanes.add(li); });
-          }
-        });
-        const ironCount = ironLanes.size;
-        const capIron = t => (t === 'iron' && ironCount >= 2) ? 'normal' : t;
+        // Max 1 iron asteroid on screen at any time
+        const hasIron = asteroids.some(a => a.type === 'iron');
+        const capIron = t => (t === 'iron' && hasIron) ? 'normal' : t;
 
         let atype;
         if (astLvl === 1) atype = 'normal';
-        else if (astLvl === 2) atype = capIron(Math.random() < 0.45 ? 'iron' : 'normal');
-        else if (astLvl === 3) atype = capIron(Math.random() < 0.3 ? 'ice' : Math.random() < 0.45 ? 'iron' : 'normal');
+        else if (astLvl === 2) atype = capIron(Math.random() < 0.40 ? 'iron' : 'normal');
+        else if (astLvl === 3) atype = capIron(Math.random() < 0.28 ? 'ice' : Math.random() < 0.38 ? 'iron' : 'normal');
         else atype = capIron(['normal','iron','ice'][Math.floor(Math.random() * 3)]);
         spawnAsteroid(atype);
-        if (Math.random() < 0.28) spawnAsteroid(capIron(astLvl <= 2 ? 'normal' : (Math.random() < 0.5 ? 'iron' : 'normal')));
+        // Second asteroid only when no iron on screen and only normal/ice types
+        if (!hasIron && Math.random() < 0.18) spawnAsteroid(astLvl <= 2 ? 'normal' : (Math.random() < 0.4 ? 'ice' : 'normal'));
       }
     }
 
@@ -1843,7 +1841,9 @@ function update() {
     if (spawnTimer >= interval) {
       spawnTimer = 0;
       spawnEnemy();
-      if (Math.random() < dChance) spawnEnemy(Math.floor(Math.random() * 80 + 60));
+      // Suppress double enemy spawn when an iron asteroid is blocking a lane
+      const ironActive = currentZone === 2 && asteroids.some(a => a.type === 'iron');
+      if (Math.random() < dChance && !ironActive) spawnEnemy(Math.floor(Math.random() * 80 + 60));
     }
   }
 
