@@ -147,19 +147,49 @@ let currentLevel = 1;
 const TEST_MODE = new URLSearchParams(window.location.search).get('test') === 'true';
 const BOSS_MODE = new URLSearchParams(window.location.search).get('boss') === 'true';
 function loadLevelStates() {
-  if (TEST_MODE) return Array.from({length: 5}, () => 'unlocked');
+  if (TEST_MODE) return Array.from({length: 10}, () => 'unlocked');
   try {
     const saved = JSON.parse(localStorage.getItem('ss_levels'));
-    if (Array.isArray(saved) && saved.length === 5) return saved;
+    if (Array.isArray(saved) && saved.length === 10) return saved;
+    if (Array.isArray(saved) && saved.length === 5) {
+      return [...saved, ...Array.from({length: 5}, () => 'locked')];
+    }
   } catch(e) {}
-  const s = Array.from({length: 5}, () => 'locked');
+  const s = Array.from({length: 10}, () => 'locked');
   s[0] = 'unlocked';
   return s;
 }
 function saveLevelStates() {
   try { localStorage.setItem('ss_levels', JSON.stringify(levelStates)); } catch(e) {}
 }
+function loadZoneUnlocked() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('ss_zones'));
+    if (Array.isArray(saved) && saved.length === 4) return saved;
+  } catch(e) {}
+  return [false, true, true, true]; // true = locked
+}
+function saveZoneStates() {
+  try { localStorage.setItem('ss_zones', JSON.stringify(MENU_CARDS.map(c => c.locked))); } catch(e) {}
+}
 let levelStates = loadLevelStates();
+// Apply saved zone locks
+(function() {
+  const zl = loadZoneUnlocked();
+  MENU_CARDS.forEach((c, i) => { c.locked = zl[i]; });
+})();
+
+let currentZone = 1;
+
+// --- Zone 2 mechanics ---
+let asteroids = [];
+let asteroidSpawnTimer = 0;
+let fuel = 100;
+const FUEL_MAX = 100;
+const FUEL_DRAIN = 0.016; // per frame
+let iceSlowTimer = 0;
+let magnetDir = 1;
+let magnetSwitchTimer = 320;
 
 // Zorluk: tüm parametreler frameCount'tan türetilir (smooth, ayrık wave yok)
 function gameSec()  { return frameCount / 60; }
@@ -221,7 +251,31 @@ function getLevelConfig() {
       hp: () => Math.random() < 0.4 ? 2 : 1,
       canShoot: false, zigzag: true,
     };
-    default: return null; // 6+: smooth sistem
+    case 6: return { // Zone 2 L1: light enemies
+      interval: 75, doubleChance: 0.15,
+      speed: () => 1.5 + Math.random() * 0.4,
+      hp: () => Math.random() < 0.35 ? 2 : 1,
+      canShoot: false, zigzag: false,
+    };
+    case 7: return { // Zone 2 L2: iron asteroids + enemies
+      interval: 68, doubleChance: 0.25,
+      speed: () => 1.7 + Math.random() * 0.4,
+      hp: () => Math.random() < 0.4 ? 2 : 1,
+      canShoot: true, zigzag: false,
+    };
+    case 8: return { // Zone 2 L3: ice asteroids + enemies
+      interval: 65, doubleChance: 0.28,
+      speed: () => 1.8 + Math.random() * 0.5,
+      hp: () => Math.random() < 0.45 ? 2 : 1,
+      canShoot: true, zigzag: false,
+    };
+    case 9: return { // Zone 2 L4: magnetic field + enemies
+      interval: 70, doubleChance: 0.22,
+      speed: () => 1.6 + Math.random() * 0.4,
+      hp: () => Math.random() < 0.4 ? 2 : 1,
+      canShoot: true, zigzag: true,
+    };
+    default: return null;
   }
 }
 
@@ -276,7 +330,7 @@ document.addEventListener('keydown', e => {
   if (state === 'menu') {
     if (e.code === 'ArrowLeft')  menuIdx = Math.max(0, menuIdx - 1);
     if (e.code === 'ArrowRight') menuIdx = Math.min(MENU_CARDS.length - 1, menuIdx + 1);
-    if ((e.code === 'Enter' || e.code === 'Space') && !MENU_CARDS[menuIdx].locked) state = 'map';
+    if ((e.code === 'Enter' || e.code === 'Space') && !MENU_CARDS[menuIdx].locked) { currentZone = menuIdx + 1; state = 'map'; }
     return;
   }
   if (state === 'map') {
@@ -393,7 +447,7 @@ canvas.addEventListener('click', e => {
     }
     // OYNA butonu (merkez kart, kilitli değilse)
     if (!MENU_CARDS[menuIdx].locked) {
-      if (mx > W/2 - 65 && mx < W/2 + 65 && my > 450 && my < 494) { state = 'map'; return; }
+      if (mx > W/2 - 65 && mx < W/2 + 65 && my > 450 && my < 494) { currentZone = menuIdx + 1; state = 'map'; return; }
     }
     return;
   }
@@ -427,8 +481,9 @@ canvas.addEventListener('click', e => {
     // Geri butonu (sol üst)
     if (mx < 60 && my < 52) { state = 'menu'; return; }
     MAP_NODES.forEach((node, i) => {
-      if (levelStates[i] === 'locked') return;
-      if (Math.hypot(mx - node.x, my - node.y) < 32) startLevel(i + 1);
+      const li = (currentZone - 1) * 5 + i;
+      if (levelStates[li] === 'locked') return;
+      if (Math.hypot(mx - node.x, my - node.y) < 32) startLevel(li + 1);
     });
   }
 });
@@ -436,13 +491,16 @@ canvas.addEventListener('click', e => {
 // --- Level Başlatma ---
 function startLevel(level) {
   currentLevel = level;
+  currentZone = Math.ceil(level / 5);
   score = 0; lives = 3;
   spawnTimer = 0;
-  // Level L → wave (L-1)*5+1'den başla
-  frameCount     = (level - 1) * 4200; // 5 dalga × 14s × 60fps
+  frameCount     = (level - 1) * 4200;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; powerups = [];
+  asteroids = []; asteroidSpawnTimer = 0;
   boss = null; bossKillTimer = 0; returnToMap = false;
+  // Zone 2 mechanics reset
+  fuel = FUEL_MAX; iceSlowTimer = 0; magnetDir = 1; magnetSwitchTimer = 320;
   player.lane = 1; player.targetLane = 1;
   player.x = LANE_CENTERS[1];
   player.dead = false; player.deathTimer = 0; player.flash = 0;
@@ -475,17 +533,20 @@ function spawnEnemy(yOffset = 0) {
 
 function spawnBoss(wave) {
   const bossNum = Math.floor(wave / 5);
-  const special = (currentLevel === 5);
-  const hp      = special ? 90 : 25 + bossNum * 10;
+  const isZone1Final = (currentLevel === 5);
+  const isZone2Final = (currentLevel === 10);
+  const special = isZone1Final || isZone2Final;
+  const hp = isZone2Final ? 130 : isZone1Final ? 90 : 25 + bossNum * 10;
   boss = {
     x: W / 2, y: special ? H * 0.14 : H * 0.13,
-    vx: special ? 1.9 : 1.2 + bossNum * 0.2,
+    vx: isZone2Final ? 2.2 : special ? 1.9 : 1.2 + bossNum * 0.2,
     hp, maxHp: hp, flash: 0,
     fireTimer: 0,
-    nextFireIn: special ? 26 : 55,
-    bossNum, special,
+    nextFireIn: special ? 28 : 55,
+    bossNum, special, zone: currentZone,
   };
   enemies = [];
+  asteroids = []; // clear asteroids during boss fight
 }
 
 function spawnExplosion(x, y, big) {
@@ -504,12 +565,112 @@ function spawnExplosion(x, y, big) {
 }
 
 function spawnPowerup(x, y) {
-  if (Math.random() > 0.04) return; // ~4% şans
+  if (currentZone === 2) {
+    if (Math.random() > 0.10) return;
+    const types = ['fuel', 'fuel', 'fuel', 'shield', 'triple', 'double', 'bomb'];
+    const type = types[Math.floor(Math.random() * types.length)];
+    powerups.push({ type, x, y, speed: 1.8, bobTimer: 0 });
+    return;
+  }
+  if (Math.random() > 0.04) return;
   const cfg = getLevelConfig();
-  const enemyShoots = cfg ? cfg.canShoot : true; // 5. bölüm boss da ateş eder
+  const enemyShoots = cfg ? cfg.canShoot : true;
   const types = enemyShoots ? ['shield', 'triple', 'double', 'bomb'] : ['triple', 'double', 'bomb'];
   const type = types[Math.floor(Math.random() * types.length)];
   powerups.push({ type, x, y, speed: 1.8, bobTimer: 0 });
+}
+
+function spawnAsteroid(type, ox, oy, osize) {
+  const sz = osize ?? (type === 'iron' ? 26 + Math.random() * 14
+                     : type === 'ice'  ? 18 + Math.random() * 14
+                                       : 14 + Math.random() * 20);
+  const n = 8;
+  const shape = Array.from({length: n}, () => 0.55 + Math.random() * 0.5);
+  asteroids.push({
+    type,
+    x: ox ?? (30 + Math.random() * (W - 60)),
+    y: oy ?? -sz - 10,
+    size: sz,
+    speed: (osize ? 1.8 : 1.0) + Math.random() * 1.5,
+    hp: type === 'normal' ? Math.max(1, Math.floor(sz / 14)) : type === 'ice' ? 1 : Infinity,
+    maxHp: type === 'normal' ? Math.max(1, Math.floor(sz / 14)) : 1,
+    vx: (Math.random() - 0.5) * 1.4,
+    rotation: Math.random() * Math.PI * 2,
+    rotSpeed: (Math.random() - 0.5) * 0.032,
+    shape,
+    flash: 0,
+    isFragment: !!osize,
+  });
+}
+
+// --- Draw: Zone 2 Background ---
+function drawZone2Background() {
+  // Warm dark rocky space
+  ctx.fillStyle = '#0c0804';
+  ctx.fillRect(0, 0, W, H);
+  // Amber nebula glow patches
+  [[W*0.75, H*0.25, 260, 'rgba(90,45,8,0.18)'], [W*0.2, H*0.65, 200, 'rgba(70,30,5,0.14)'], [W*0.5, H*0.5, 320, 'rgba(50,20,2,0.09)']].forEach(([gx,gy,gr,gc]) => {
+    const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
+    g.addColorStop(0, gc); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  });
+  // Stars with warm tint
+  ctx.save();
+  stars.forEach(s => {
+    const warm = s.spd > 1.2;
+    ctx.fillStyle = warm ? `rgba(255,220,160,${0.3 + s.spd * 0.15})` : `rgba(255,255,255,${0.3 + s.spd * 0.15})`;
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.s, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.restore();
+}
+
+// --- Draw: Asteroid ---
+function drawAsteroid(a) {
+  ctx.save();
+  ctx.translate(a.x, a.y);
+  ctx.rotate(a.rotation);
+  ctx.globalAlpha = a.flash > 0 ? (a.flash % 4 < 2 ? 0.35 : 1) : 1;
+  const r = a.size;
+  const n = a.shape.length;
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+    const pr = r * a.shape[i];
+    if (i === 0) ctx.moveTo(Math.cos(angle) * pr, Math.sin(angle) * pr);
+    else ctx.lineTo(Math.cos(angle) * pr, Math.sin(angle) * pr);
+  }
+  ctx.closePath();
+  if (a.type === 'ice') {
+    ctx.fillStyle = 'rgba(140,210,255,0.78)';
+    ctx.strokeStyle = '#ccecff'; ctx.lineWidth = 2;
+  } else if (a.type === 'iron') {
+    ctx.fillStyle = '#4a5a6a';
+    ctx.strokeStyle = '#8899aa'; ctx.lineWidth = 2.5;
+  } else {
+    ctx.fillStyle = '#7a5535';
+    ctx.strokeStyle = '#9a7050'; ctx.lineWidth = 1.5;
+  }
+  ctx.fill(); ctx.stroke();
+  // Highlight
+  ctx.globalAlpha *= (a.type === 'iron' ? 0.45 : 0.55);
+  ctx.fillStyle = a.type === 'ice' ? '#ddf4ff' : a.type === 'iron' ? '#aabccc' : '#c09060';
+  ctx.beginPath(); ctx.arc(-r * 0.18, -r * 0.24, r * 0.22, 0, Math.PI * 2); ctx.fill();
+  // Iron: warning X mark
+  if (a.type === 'iron') {
+    ctx.globalAlpha = 0.7;
+    ctx.strokeStyle = '#ff6633'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-r*0.25, -r*0.25); ctx.lineTo(r*0.25, r*0.25); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(r*0.25, -r*0.25); ctx.lineTo(-r*0.25, r*0.25); ctx.stroke();
+  }
+  // HP bar for destructible normal
+  if (a.type === 'normal' && a.maxHp > 1) {
+    ctx.globalAlpha = 0.8;
+    const bw = r * 1.2, bh = 4, bx = -bw/2, by = r + 3;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(bx, by, bw, bh);
+    ctx.fillStyle = '#c09060'; ctx.fillRect(bx, by, bw * (a.hp / a.maxHp), bh);
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
 }
 
 // --- Draw: Zone Transition ---
@@ -905,12 +1066,13 @@ function drawBullet(b) {
 }
 
 // --- Draw: Power-up ---
-const POWERUP_COLORS = { triple: '#00ffaa', double: '#ffee00', bomb: '#ff4444', shield: '#2299ff' };
+const POWERUP_COLORS = { triple: '#00ffaa', double: '#ffee00', bomb: '#ff4444', shield: '#2299ff', fuel: '#44ff66' };
 const POWERUP_GLOW = {
   triple: ['rgba(0,255,170,0.65)',  'rgba(0,255,170,0)'],
   double: ['rgba(255,238,0,0.65)',  'rgba(255,238,0,0)'],
   bomb:   ['rgba(255,68,68,0.65)',  'rgba(255,68,68,0)'],
   shield: ['rgba(34,153,255,0.65)', 'rgba(34,153,255,0)'],
+  fuel:   ['rgba(68,255,102,0.65)', 'rgba(68,255,102,0)'],
 };
 
 function drawPowerupIcon(type, size) {
@@ -956,6 +1118,17 @@ function drawPowerupIcon(type, size) {
     ctx.lineTo(-size * 0.65, -size * 0.35);
     ctx.closePath();
     ctx.fill();
+  } else if (type === 'fuel') {
+    ctx.fillStyle = '#fff';
+    ctx.shadowColor = '#44ff66';
+    ctx.shadowBlur = 6;
+    // Barrel body
+    ctx.fillRect(-size * 0.38, -size * 0.55, size * 0.76, size * 0.9);
+    // Cap
+    ctx.fillRect(-size * 0.22, -size * 0.72, size * 0.44, size * 0.2);
+    // Green tint stripe
+    ctx.fillStyle = '#88ffaa';
+    ctx.fillRect(-size * 0.28, -size * 0.2, size * 0.56, size * 0.22);
   } else {
     // Bomba: daire + patlama çizgileri
     ctx.fillStyle = '#fff';
@@ -1142,6 +1315,41 @@ function drawHUD() {
   ctx.textBaseline = 'middle';
   ctx.fillText('◀ BACK', 32, 57);
 
+  // Zone 2 extras: fuel bar
+  if (currentZone === 2) {
+    const fby = boss ? 76 : 44, fbx = 16, fbw = W - 32, fbh = 13;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(fbx, fby, fbw, fbh);
+    const fr = fuel / FUEL_MAX;
+    const fc = fr > 0.5 ? '#44ff66' : fr > 0.25 ? '#ffcc00' : '#ff4444';
+    ctx.fillStyle = fc; ctx.shadowColor = fc; ctx.shadowBlur = fr < 0.25 ? 10 : 4;
+    ctx.fillRect(fbx, fby, fbw * fr, fbh);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 8px Courier New';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(`⛽ FUEL  ${Math.ceil(fuel)}%`, W / 2, fby + fbh / 2);
+
+    // Magnetic indicator (level 9)
+    if (currentLevel === 9) {
+      const pulse = 0.6 + 0.4 * Math.sin(frameCount * 0.08);
+      ctx.globalAlpha = pulse;
+      ctx.font = 'bold 10px Courier New';
+      ctx.fillStyle = '#aa44ff'; ctx.shadowColor = '#aa44ff'; ctx.shadowBlur = 8;
+      ctx.textAlign = 'right';
+      ctx.fillText(`⚡ MAGNET ${magnetDir > 0 ? '▶' : '◀'}`, W - 10, fby + fbh + 12);
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+    // Ice slow indicator
+    if (iceSlowTimer > 0) {
+      const pulse2 = 0.6 + 0.4 * Math.sin(frameCount * 0.1);
+      ctx.globalAlpha = pulse2;
+      ctx.font = 'bold 10px Courier New';
+      ctx.fillStyle = '#88ccff'; ctx.shadowColor = '#88ccff'; ctx.shadowBlur = 8;
+      ctx.textAlign = 'left';
+      ctx.fillText(`❄ FROZEN ${Math.ceil(iceSlowTimer/60)}s`, 10, fby + fbh + 12);
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+  }
+
   ctx.restore();
 }
 
@@ -1283,9 +1491,10 @@ function update() {
   }
   if (state !== 'play') return;
 
-  // Player slide
+  // Player slide (ice slow: reduced responsiveness)
   const targetX = LANE_CENTERS[player.targetLane];
-  player.x += (targetX - player.x) * 0.35;
+  const slideFactor = (currentZone === 2 && iceSlowTimer > 0) ? 0.10 : 0.35;
+  player.x += (targetX - player.x) * slideFactor;
   if (Math.abs(targetX - player.x) < 1) player.x = targetX;
 
   if (player.flash > 0) player.flash--;
@@ -1324,11 +1533,12 @@ function update() {
   const currentWave = getWave();
   if (currentWave !== lastWaveForBoss) {
     lastWaveForBoss = currentWave;
-    if (currentLevel === 5 && currentWave % 5 === 0 && !boss) spawnBoss(currentWave);
+    if (currentLevel === currentZone * 5 && currentWave % 5 === 0 && !boss) spawnBoss(currentWave);
   }
 
-  // Level 1-4 tamamlama: 5 dalgayı geçince bölüm biter
-  if (currentLevel < 5 && !boss && currentWave > currentLevel * 5 && enemies.length === 0) {
+  // Level tamamlama: 5 dalgayı geçince bölüm biter (boss seviyesi hariç)
+  const _zoneLastLevel = currentZone * 5;
+  if (currentLevel !== _zoneLastLevel && !boss && currentWave > currentLevel * 5 && enemies.length === 0) {
     levelStates[currentLevel - 1] = 'completed';
     levelStates[currentLevel] = 'unlocked';
     saveLevelStates();
@@ -1366,7 +1576,27 @@ function update() {
       const bY  = boss.y + 44;
       const mk  = (x, vy, big) => ({ x, y: bY, vx: 0, vy, hp: 3, lane: -1, fromBoss: true, big: !!big });
 
-      if (boss.phase === 1) {
+      if (boss.zone === 2) {
+        // Zone 2 boss: fires asteroids + bullets by phase
+        const phase = boss.phase || 1;
+        if (phase === 1) {
+          boss.nextFireIn = 55 + Math.random() * 20;
+          spawnAsteroid('normal', boss.x + (Math.random()-0.5)*80, boss.y + 50, 18 + Math.random()*10);
+          asteroids[asteroids.length-1].speed = 3.5; asteroids[asteroids.length-1].vx = (Math.random()-0.5)*1.5;
+        } else if (phase === 2) {
+          boss.nextFireIn = 40 + Math.random() * 15;
+          const atype = Math.random() < 0.45 ? 'iron' : 'normal';
+          spawnAsteroid(atype, boss.x + (Math.random()-0.5)*100, boss.y + 50, 20 + Math.random()*12);
+          asteroids[asteroids.length-1].speed = 4.0; asteroids[asteroids.length-1].vx = (Math.random()-0.5)*2;
+          eBullets.push(mk(LANE_CENTERS[Math.floor(Math.random()*3)], 5.0));
+        } else {
+          boss.nextFireIn = 22 + Math.random() * 10;
+          spawnAsteroid('ice', boss.x + (Math.random()-0.5)*60, boss.y + 50, 16 + Math.random()*8);
+          asteroids[asteroids.length-1].speed = 4.5; asteroids[asteroids.length-1].vx = (Math.random()-0.5)*2.5;
+          eBullets.push(mk(LANE_CENTERS[Math.floor(Math.random()*3)], 6.0));
+          if (Math.random() < 0.4) eBullets.push(mk(LANE_CENTERS[Math.floor(Math.random()*3)], 5.5));
+        }
+      } else if (boss.phase === 1) {
         // ── FAZ 1: tek mermi, yavaş ──
         // Rastgele 1 şerite ateş → 2 şerit daima boş
         boss.nextFireIn = 62 + Math.random() * 18;
@@ -1435,7 +1665,16 @@ function update() {
             spawnExplosion(boss.x + (Math.random() - 0.5) * 130, boss.y + (Math.random() - 0.5) * 80, true);
           score += 300 + boss.bossNum * 200;
           levelStates[currentLevel - 1] = 'completed';
-          if (currentLevel < 5) levelStates[currentLevel] = 'unlocked';
+          const _zll = currentZone * 5;
+          if (currentLevel < _zll) {
+            levelStates[currentLevel] = 'unlocked';
+          } else if (currentLevel < levelStates.length) {
+            levelStates[currentLevel] = 'unlocked'; // first level of next zone
+            if (currentZone < MENU_CARDS.length) {
+              MENU_CARDS[currentZone].locked = false;
+              saveZoneStates();
+            }
+          }
           saveLevelStates();
           boss = null;
           bossKillTimer = 180;
@@ -1450,8 +1689,128 @@ function update() {
     });
   }
 
+  // --- Zone 2 mechanics ---
+  if (currentZone === 2 && state === 'play' && !player.dead) {
+    // Fuel drain
+    fuel = Math.max(0, fuel - FUEL_DRAIN);
+    if (fuel <= 0) {
+      lives = 0;
+      player.dead = true;
+      spawnExplosion(player.x, player.y, true);
+      spawnExplosion(player.x + 15, player.y - 10, true);
+    }
+
+    // Ice slow countdown
+    if (iceSlowTimer > 0) iceSlowTimer--;
+
+    // Magnetic field (level 9)
+    if (currentLevel === 9 && !boss) {
+      magnetSwitchTimer--;
+      if (magnetSwitchTimer <= 0) { magnetDir *= -1; magnetSwitchTimer = 240 + Math.floor(Math.random() * 180); }
+      const force = 0.55 * magnetDir;
+      player.x += force;
+      // Also nudge targetLane center slightly
+      const targetX = LANE_CENTERS[player.targetLane];
+      player.x = player.x * 0.95 + (targetX + force * 8) * 0.05;
+      player.x = Math.max(16, Math.min(W - 16, player.x));
+    }
+
+    // Asteroid spawning
+    if (!boss) {
+      asteroidSpawnTimer++;
+      const astLvl = currentLevel - 5; // 1-4 for zone 2 levels 6-9
+      const astInterval = [80, 62, 64, 58][astLvl - 1] ?? 70;
+      if (asteroidSpawnTimer >= astInterval) {
+        asteroidSpawnTimer = 0;
+        let atype;
+        if (astLvl === 1) atype = 'normal';
+        else if (astLvl === 2) atype = Math.random() < 0.45 ? 'iron' : 'normal';
+        else if (astLvl === 3) atype = Math.random() < 0.3 ? 'ice' : Math.random() < 0.45 ? 'iron' : 'normal';
+        else atype = ['normal','iron','ice'][Math.floor(Math.random() * 3)];
+        spawnAsteroid(atype);
+        if (Math.random() < 0.28) spawnAsteroid(astLvl <= 2 ? 'normal' : (Math.random() < 0.5 ? 'iron' : 'normal'));
+      }
+    }
+
+    // Asteroid update + collisions
+    const newFragments = [];
+    asteroids = asteroids.filter(a => {
+      a.y += a.speed;
+      a.x += a.vx;
+      a.rotation += a.rotSpeed;
+      if (a.flash > 0) a.flash--;
+      if (a.y > H + 60 || a.x < -60 || a.x > W + 60) return false;
+
+      // Bullet collision
+      if (a.type !== 'iron') {
+        let hit = false;
+        bullets = bullets.filter(b => {
+          if (hit) return true;
+          if (Math.hypot(b.x - a.x, b.y - a.y) < a.size * 0.9) {
+            a.hp--;
+            a.flash = 10;
+            spawnExplosion(b.x, b.y, false);
+            if (a.hp <= 0) {
+              hit = true;
+              spawnExplosion(a.x, a.y, a.size > 22);
+              score += a.type === 'ice' ? 15 : (a.size > 25 ? 20 : 10);
+              if (a.type === 'ice') {
+                iceSlowTimer = 280;
+              } else if (a.type === 'normal' && a.size > 24 && !a.isFragment) {
+                for (let f = 0; f < 2; f++) {
+                  const ns = a.size * 0.52;
+                  const n2 = 8;
+                  newFragments.push({
+                    type: 'normal', x: a.x + (Math.random()-0.5)*16, y: a.y,
+                    size: ns, speed: a.speed * 1.4, hp: 1, maxHp: 1,
+                    vx: (Math.random()-0.5)*2.8, rotation: Math.random()*Math.PI*2,
+                    rotSpeed: (Math.random()-0.5)*0.055,
+                    shape: Array.from({length: n2}, () => 0.55 + Math.random()*0.5),
+                    flash: 0, isFragment: true,
+                  });
+                }
+                if (Math.random() < 0.10) powerups.push({ type: 'fuel', x: a.x, y: a.y, speed: 1.6, bobTimer: 0 });
+              }
+            }
+            return false;
+          }
+          return true;
+        });
+        if (hit) return false;
+      } else {
+        // Iron: bullets bounce off (destroy bullet, spark effect)
+        bullets = bullets.filter(b => {
+          if (Math.hypot(b.x - a.x, b.y - a.y) < a.size * 0.9) {
+            spawnExplosion(b.x, b.y, false);
+            return false;
+          }
+          return true;
+        });
+      }
+
+      // Player collision
+      if (!player.dead && Math.abs(a.x - player.x) < a.size + 16 && Math.abs(a.y - player.y) < a.size + 16) {
+        spawnExplosion(a.x, a.y, true);
+        if (player.shieldTimer > 0) {
+          player.flash = 20;
+        } else {
+          lives--;
+          player.flash = 50;
+          if (lives <= 0) {
+            player.dead = true;
+            spawnExplosion(player.x, player.y, true);
+            spawnExplosion(player.x + 15, player.y - 10, true);
+          }
+        }
+        return false;
+      }
+      return true;
+    });
+    asteroids.push(...newFragments);
+  }
+
   // Normal spawn — boss savaşında ve level bitiş bekleme aşamasında durur
-  const levelEnding = currentLevel < 5 && getWave() > currentLevel * 5;
+  const levelEnding = currentLevel !== currentZone * 5 && getWave() > currentLevel * 5;
   if (!boss && !levelEnding) {
     spawnTimer++;
     const cfg      = getLevelConfig();
@@ -1480,6 +1839,8 @@ function update() {
         player.doubleTimer = POWERUP_DURATION;
       } else if (p.type === 'bomb') {
         activateBomb();
+      } else if (p.type === 'fuel') {
+        fuel = Math.min(FUEL_MAX, fuel + 28);
       }
       // Toplama efekti
       spawnCollectEffect(p.x, p.y, POWERUP_COLORS[p.type]);
@@ -1784,7 +2145,8 @@ function drawMap() {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = 'bold 22px Courier New';
   ctx.fillStyle = '#0ff'; ctx.shadowColor = '#0ff'; ctx.shadowBlur = 14;
-  ctx.fillText('✦ LEVEL MAP ✦', W / 2, 58);
+  const zoneNames = ['', 'SPACE', 'ASTEROID BELT', 'NEBULA', 'BLACK HOLE'];
+  ctx.fillText(`✦ ${zoneNames[currentZone] || 'LEVEL MAP'} ✦`, W / 2, 58);
   ctx.shadowBlur = 0;
   ctx.font = '11px Courier New';
   ctx.fillStyle = '#4af';
@@ -1794,7 +2156,7 @@ function drawMap() {
   // Bağlantı çizgileri
   for (let i = 0; i < 4; i++) {
     const a = MAP_NODES[i], b = MAP_NODES[i + 1];
-    const sa = levelStates[i], sb = levelStates[i + 1];
+    const sa = levelStates[(currentZone-1)*5 + i], sb = levelStates[(currentZone-1)*5 + i + 1];
     ctx.save();
     ctx.lineWidth = 3;
     ctx.setLineDash([7, 6]);
@@ -1811,8 +2173,9 @@ function drawMap() {
 
   // Nodelar
   MAP_NODES.forEach((node, i) => {
-    const st    = levelStates[i];
-    const lvl   = i + 1;
+    const li    = (currentZone - 1) * 5 + i;
+    const st    = levelStates[li];
+    const lvl   = li + 1;
     const isBoss = lvl % 5 === 0;
     const r     = isBoss ? 30 : 24;
     const pulse = 0.65 + 0.35 * Math.sin(frameCount * 0.06 + i * 0.8);
@@ -1871,7 +2234,7 @@ function drawMap() {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = '10px Courier New';
   ctx.fillStyle = '#446';
-  ctx.fillText('Level 5 is a boss fight', W / 2, 650);
+  ctx.fillText(`Level ${currentZone * 5} is a boss fight`, W / 2, 650);
   ctx.restore();
 }
 
@@ -1899,13 +2262,17 @@ function render() {
   if (state === 'menu') { drawMenu(); return; }
   if (state === 'map') { drawMap(); return; }
 
-  ctx.fillStyle = '#000010';
-  ctx.fillRect(0, 0, W, H);
-
-  drawStars();
+  if (currentZone === 2) {
+    drawZone2Background();
+  } else {
+    ctx.fillStyle = '#000010';
+    ctx.fillRect(0, 0, W, H);
+    drawStars();
+  }
   drawLanes();
   drawExplosions();
 
+  asteroids.forEach(drawAsteroid);
   powerups.forEach(drawPowerup);
   bullets.forEach(drawBullet);
   eBullets.forEach(drawEBullet);
@@ -1917,6 +2284,25 @@ function render() {
   }
 
   if (state === 'play' && tutorial) drawTutorial();
+
+  // Zone 2 ice slow screen tint
+  if (currentZone === 2 && iceSlowTimer > 0) {
+    const iceAlpha = Math.min(0.28, iceSlowTimer / 300 * 0.28) * (0.7 + 0.3 * Math.sin(frameCount * 0.12));
+    ctx.fillStyle = `rgba(140,210,255,${iceAlpha})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+  // Zone 2 magnetic field visual (edge arcs)
+  if (currentZone === 2 && currentLevel === 9 && !boss) {
+    const mp = 0.4 + 0.6 * Math.abs(Math.sin(frameCount * 0.04));
+    ctx.save();
+    ctx.globalAlpha = 0.22 * mp;
+    const side = magnetDir > 0 ? W - 1 : 1;
+    const mg = ctx.createLinearGradient(magnetDir > 0 ? W - 40 : 0, 0, magnetDir > 0 ? W : 40, 0);
+    mg.addColorStop(0, 'rgba(0,0,0,0)'); mg.addColorStop(1, 'rgba(140,80,255,0.8)');
+    if (magnetDir < 0) { mg.addColorStop(0, 'rgba(140,80,255,0.8)'); mg.addColorStop(1, 'rgba(0,0,0,0)'); }
+    ctx.fillStyle = mg; ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+  }
 
   if (state === 'gameover') drawOverlay('GAME OVER', 'The enemy reached the ship!');
 
