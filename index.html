@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -92,18 +92,31 @@ const MAP_NODES = [
 
 // --- Menu ---
 const MENU_CARDS = [
-  { name: 'UZAY',            sub: 'Düşmanları Temizle', locked: false, col1: '#001030', col2: '#002860' },
-  { name: 'Asteroid Kuşağı', sub: '',                   locked: true,  col1: '#150e04', col2: '#241808' },
-  { name: 'Nebula',          sub: '',                   locked: true,  col1: '#160020', col2: '#240030' },
-  { name: 'Kara Delik',      sub: '',                   locked: true,  col1: '#040404', col2: '#0c0c0c' },
+  { name: 'SPACE',         sub: 'Clear the Enemies', locked: false, col1: '#001030', col2: '#002860' },
+  { name: 'Asteroid Belt', sub: '',                  locked: true,  col1: '#150e04', col2: '#241808' },
+  { name: 'Nebula',        sub: '',                  locked: true,  col1: '#160020', col2: '#240030' },
+  { name: 'Black Hole',    sub: '',                  locked: true,  col1: '#040404', col2: '#0c0c0c' },
 ];
 let menuIdx  = 0;   // hedef kart indexi
 let menuAnimX = 0;  // smooth scroll x
 let titleTapCount = 0, titleTapTimer = 0; // gizli test modu: başlığa 5x hızlı dokun
 let devMode = false;
 
+// --- Intro Cinematic ---
+const INTRO_PANELS = [
+  "Humanity discovered a new planet — Astra. Thousands of settlers set out with hope.",
+  "Then the Dark Wave came. No one was ready. Two planets. One night.",
+  "Those stranded on Astra transformed. Mutated. They could never return home — they were not welcomed.",
+  "From the ruins, rage was born. They built the Void Colony. First to survive. Then for revenge.",
+  "Now they are coming. The planet is weak. The army is gone.",
+  "Only you remain. And that has to be enough.",
+];
+let introPanelIdx = 0;
+let introAlpha = 0;
+let introPhase = 'fadein'; // 'fadein' | 'show' | 'fadeout'
+
 // --- State ---
-let state = 'menu';
+let state = 'intro';
 
 // --- Tutorial ---
 let tutorial = localStorage.getItem('ss_tutorial') ? null : { step: 0 }; // 0=swipe right, 1=swipe left
@@ -237,6 +250,13 @@ let keyHandled = {};
 document.addEventListener('keydown', e => {
   if (!keys[e.code]) keyHandled[e.code] = false;
   keys[e.code] = true;
+  if (state === 'intro') {
+    if (e.code === 'Escape') { state = 'menu'; return; }
+    if ((e.code === 'Space' || e.code === 'Enter' || e.code === 'ArrowRight') && introPhase === 'show') {
+      introPhase = 'fadeout'; return;
+    }
+    return;
+  }
   if (state === 'menu') {
     if (e.code === 'ArrowLeft')  menuIdx = Math.max(0, menuIdx - 1);
     if (e.code === 'ArrowRight') menuIdx = Math.min(MENU_CARDS.length - 1, menuIdx + 1);
@@ -328,6 +348,14 @@ canvas.addEventListener('click', e => {
   const rect = canvas.getBoundingClientRect();
   const mx = (e.clientX - rect.left) * (W / rect.width);
   const my = (e.clientY - rect.top)  * (H / rect.height);
+
+  if (state === 'intro') {
+    // Skip button: top right
+    if (mx > W - 90 && my < 44) { state = 'menu'; return; }
+    // Anywhere else advances panel
+    if (introPhase === 'show') { introPhase = 'fadeout'; return; }
+    return;
+  }
 
   if (state === 'gameover') {
     const btnY = H / 2 + 58;
@@ -453,6 +481,83 @@ function spawnPowerup(x, y) {
   const types = enemyShoots ? ['shield', 'triple', 'double', 'bomb'] : ['triple', 'double', 'bomb'];
   const type = types[Math.floor(Math.random() * types.length)];
   powerups.push({ type, x, y, speed: 1.8, bobTimer: 0 });
+}
+
+// --- Draw: Intro Cinematic ---
+function drawIntro() {
+  ctx.fillStyle = '#000008';
+  ctx.fillRect(0, 0, W, H);
+  drawStars();
+
+  ctx.save();
+
+  // Fade overlay
+  ctx.fillStyle = `rgba(0,0,8,${1 - introAlpha})`;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.globalAlpha = introAlpha;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // Panel text — word-wrapped, large white
+  const text = INTRO_PANELS[introPanelIdx];
+  ctx.font = 'bold 22px Courier New';
+  ctx.fillStyle = '#ffffff';
+  ctx.shadowColor = 'rgba(200,220,255,0.4)';
+  ctx.shadowBlur = 10;
+
+  const maxWidth = W - 80;
+  const lineH = 36;
+  const words = text.split(' ');
+  const lines = [];
+  let cur = '';
+  words.forEach(w => {
+    const test = cur ? cur + ' ' + w : w;
+    if (ctx.measureText(test).width > maxWidth) { lines.push(cur); cur = w; }
+    else cur = test;
+  });
+  lines.push(cur);
+
+  const totalH = lines.length * lineH;
+  const startY = H / 2 - totalH / 2;
+  lines.forEach((line, i) => ctx.fillText(line, W / 2, startY + i * lineH));
+
+  // Panel counter — bottom left
+  ctx.shadowBlur = 0;
+  ctx.font = '11px Courier New';
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.textAlign = 'left';
+  ctx.fillText(`${introPanelIdx + 1} / ${INTRO_PANELS.length}`, 20, H - 24);
+
+  // Skip button — top right
+  ctx.font = 'bold 12px Courier New';
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'top';
+  ctx.fillText('SKIP ▶▶', W - 16, 14);
+
+  // Next / Start button — bottom right
+  const isLast = introPanelIdx === INTRO_PANELS.length - 1;
+  const btnLabel = isLast ? 'START ▶' : 'NEXT ▶';
+  const pulse = 0.8 + 0.2 * Math.sin(frameCount * 0.07);
+  const bw = 110, bh = 42, bx = W - bw - 14, by = H - bh - 14;
+  ctx.globalAlpha = introAlpha * pulse;
+  const bGrd = ctx.createLinearGradient(bx, by, bx, by + bh);
+  bGrd.addColorStop(0, '#003366');
+  bGrd.addColorStop(1, '#001133');
+  ctx.fillStyle = bGrd;
+  rrect(bx, by, bw, bh, 10); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,200,255,0.65)';
+  ctx.lineWidth = 1.5;
+  rrect(bx, by, bw, bh, 10); ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 14px Courier New';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(btnLabel, bx + bw / 2, by + bh / 2);
+
+  ctx.globalAlpha = 1;
+  ctx.restore();
 }
 
 // --- Draw: Stars ---
@@ -857,14 +962,14 @@ function drawHUD() {
   ctx.fillStyle = '#0ff';
   ctx.shadowColor = '#0ff';
   ctx.textAlign = 'left';
-  ctx.fillText('SKOR: ' + score, 12, 24);
+  ctx.fillText('SCORE: ' + score, 12, 24);
 
   ctx.textAlign = 'center';
-  ctx.fillText('DALGA: ' + getWave(), W / 2, 24);
+  ctx.fillText('WAVE: ' + getWave(), W / 2, 24);
 
   ctx.textAlign = 'right';
   const livesStr = '❤'.repeat(Math.max(0, lives)) + '🖤'.repeat(Math.max(0, 3 - lives));
-  ctx.fillText('CAN: ' + livesStr, W - 12, 24);
+  ctx.fillText('LIVES: ' + livesStr, W - 12, 24);
 
   // Boss HP barı
   if (boss) {
@@ -893,15 +998,15 @@ function drawHUD() {
     ctx.font = 'bold 12px Courier New';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const phaseLabels = ['', ' ◆ FAZ 2', ' ◆◆ FAZ 3'];
+    const phaseLabels = ['', ' ◆ PHASE 2', ' ◆◆ PHASE 3'];
     ctx.fillText(`★ BOSS  ${boss.hp} / ${boss.maxHp}${phaseLabels[bPhase-1]}  ★`, W / 2, by + bh / 2);
   }
 
   // Aktif power-up göstergesi
   const active = [];
-  if (player.shieldTimer > 0) active.push({ type: 'shield', timer: player.shieldTimer, color: '#29f', label: 'KALKAN' });
-  if (player.tripleTimer > 0) active.push({ type: 'triple', timer: player.tripleTimer, color: '#0fa', label: 'ÜÇLÜ ATEŞ' });
-  if (player.doubleTimer > 0) active.push({ type: 'double', timer: player.doubleTimer, color: '#ff0', label: 'ÇİFT ATEŞ' });
+  if (player.shieldTimer > 0) active.push({ type: 'shield', timer: player.shieldTimer, color: '#29f', label: 'SHIELD' });
+  if (player.tripleTimer > 0) active.push({ type: 'triple', timer: player.tripleTimer, color: '#0fa', label: 'TRIPLE SHOT' });
+  if (player.doubleTimer > 0) active.push({ type: 'double', timer: player.doubleTimer, color: '#ff0', label: 'DOUBLE SHOT' });
 
   if (active.length > 0) {
     const barW = 90, barH = 10, pad = 8;
@@ -947,7 +1052,7 @@ function drawHUD() {
   ctx.font = 'bold 12px Courier New';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('◀ GERİ', 32, 57);
+  ctx.fillText('◀ BACK', 32, 57);
 
   ctx.restore();
 }
@@ -976,9 +1081,9 @@ function drawOverlay(title, sub) {
     ctx.font = '12px Courier New';
     ctx.shadowBlur = 4;
     const tips = [
-      '🛡 Mavi kalkan = 5sn dokunulmazlık',
-      '⚡ Sarı ikon = 5sn çift ateş',
-      '💣 Kırmızı bomba = tüm düşmanları patlatır',
+      '🛡 Blue shield = 5s invincibility',
+      '⚡ Yellow icon = 5s double shot',
+      '💣 Red bomb = destroys all enemies',
     ];
     tips.forEach((t, i) => ctx.fillText(t, W / 2, H / 2 + 32 + i * 20));
   }
@@ -986,7 +1091,7 @@ function drawOverlay(title, sub) {
   if (state === 'gameover') {
     ctx.fillStyle = '#0ff';
     ctx.font = '14px Courier New';
-    ctx.fillText('SKOR: ' + score, W / 2, H / 2 + 36);
+    ctx.fillText('SCORE: ' + score, W / 2, H / 2 + 36);
   }
 
   // Haritaya dön butonu
@@ -999,7 +1104,7 @@ function drawOverlay(title, sub) {
   ctx.fillStyle = 'rgba(0,255,200,0.95)';
   ctx.font = 'bold 15px Courier New';
   ctx.shadowBlur = 6;
-  ctx.fillText('HARİTAYA DÖN', W / 2, btnY + 1);
+  ctx.fillText('BACK TO MAP', W / 2, btnY + 1);
   ctx.restore();
 }
 
@@ -1022,6 +1127,26 @@ function update() {
     s.y += s.spd;
     if (s.y > H) { s.y = 0; s.x = Math.random() * W; }
   });
+
+  // Intro cinematic update
+  if (state === 'intro') {
+    if (introPhase === 'fadein') {
+      introAlpha = Math.min(1, introAlpha + 0.033);
+      if (introAlpha >= 1) introPhase = 'show';
+    } else if (introPhase === 'fadeout') {
+      introAlpha = Math.max(0, introAlpha - 0.05);
+      if (introAlpha <= 0) {
+        introPanelIdx++;
+        if (introPanelIdx >= INTRO_PANELS.length) {
+          introPanelIdx = 0; introAlpha = 0; introPhase = 'fadein';
+          state = 'menu';
+        } else {
+          introPhase = 'fadein';
+        }
+      }
+    }
+    return;
+  }
 
   // Menu kart animasyonu
   menuAnimX += (menuIdx * (W - 60) - menuAnimX) * 0.14;
@@ -1397,7 +1522,7 @@ function drawMenu() {
   ctx.fillText('SPACE SHOOTER', W / 2, 46);
   ctx.font = '11px Courier New';
   ctx.fillStyle = devMode ? '#ff0' : '#48a'; ctx.shadowBlur = 0;
-  ctx.fillText(devMode ? '⚡ TEST MODU' : 'Bir bölge seç', W / 2, 70);
+  ctx.fillText(devMode ? '⚡ TEST MODE' : 'Choose a zone', W / 2, 70);
   ctx.restore();
 
   const CW = 280, CH = 420, CR = 16;
@@ -1477,7 +1602,7 @@ function drawMenu() {
       ctx.shadowBlur = 0;
       ctx.fillStyle = '#fff';
       ctx.font = 'bold 15px Courier New';
-      ctx.fillText('OYNA', cx + CW / 2, by + 22);
+      ctx.fillText('PLAY', cx + CW / 2, by + 22);
 
     } else {
       // Kilitli kart
@@ -1502,7 +1627,7 @@ function drawMenu() {
 
       ctx.font = 'bold 10px Courier New';
       ctx.fillStyle = '#2a2a48';
-      ctx.fillText('YAKINDA', cx + CW / 2, CY + CH / 2 + 74);
+      ctx.fillText('COMING SOON', cx + CW / 2, CY + CH / 2 + 74);
     }
 
     ctx.restore();
@@ -1562,11 +1687,11 @@ function drawMap() {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = 'bold 22px Courier New';
   ctx.fillStyle = '#0ff'; ctx.shadowColor = '#0ff'; ctx.shadowBlur = 14;
-  ctx.fillText('✦ LEVEL HARİTASI ✦', W / 2, 58);
+  ctx.fillText('✦ LEVEL MAP ✦', W / 2, 58);
   ctx.shadowBlur = 0;
   ctx.font = '11px Courier New';
   ctx.fillStyle = '#4af';
-  ctx.fillText('Açık bir levele tıkla', W / 2, 82);
+  ctx.fillText('Tap an unlocked level', W / 2, 82);
   ctx.restore();
 
   // Bağlantı çizgileri
@@ -1640,7 +1765,7 @@ function drawMap() {
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   ctx.font = 'bold 13px Courier New';
   ctx.fillStyle = '#0cf'; ctx.shadowColor = '#0cf'; ctx.shadowBlur = 8;
-  ctx.fillText('◀ GERİ', 14, 28);
+  ctx.fillText('◀ BACK', 14, 28);
   ctx.shadowBlur = 0;
   ctx.restore();
 
@@ -1649,7 +1774,7 @@ function drawMap() {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = '10px Courier New';
   ctx.fillStyle = '#446';
-  ctx.fillText('5. level boss savaşı', W / 2, 650);
+  ctx.fillText('Level 5 is a boss fight', W / 2, 650);
   ctx.restore();
 }
 
@@ -1672,6 +1797,7 @@ function spawnCollectEffect(x, y, color) {
 function render() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 
+  if (state === 'intro') { drawIntro(); return; }
   if (state === 'menu') { drawMenu(); return; }
   if (state === 'map') { drawMap(); return; }
 
@@ -1694,7 +1820,7 @@ function render() {
 
   if (state === 'play' && tutorial) drawTutorial();
 
-  if (state === 'gameover') drawOverlay('OYUN BİTTİ', 'Düşman gemiye ulaştı!');
+  if (state === 'gameover') drawOverlay('GAME OVER', 'The enemy reached the ship!');
 
   if (state === 'levelcomplete') {
     if (levelCompleteType === 'clear') {
@@ -1708,14 +1834,14 @@ function render() {
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = 'bold 13px Courier New';
       ctx.fillStyle = '#ffee88'; ctx.shadowColor = '#ff8'; ctx.shadowBlur = 10;
-      ctx.fillText(`BÖLÜM ${currentLevel}`, W / 2, H / 2 - 50);
+      ctx.fillText(`LEVEL ${currentLevel}`, W / 2, H / 2 - 50);
       ctx.font = 'bold 26px Courier New';
       ctx.fillStyle = '#fff'; ctx.shadowColor = '#0ff'; ctx.shadowBlur = 22;
-      ctx.fillText('BÖLGE TEMİZLENDİ!', W / 2, H / 2);
+      ctx.fillText('AREA CLEARED!', W / 2, H / 2);
       ctx.font = '14px Courier New'; ctx.fillStyle = '#0ff'; ctx.shadowBlur = 8;
-      ctx.fillText('SKOR: ' + score, W / 2, H / 2 + 44);
+      ctx.fillText('SCORE: ' + score, W / 2, H / 2 + 44);
       ctx.font = '11px Courier New'; ctx.fillStyle = '#446'; ctx.shadowBlur = 0;
-      ctx.fillText('Haritaya dönülüyor...', W / 2, H / 2 + 80);
+      ctx.fillText('Returning to map...', W / 2, H / 2 + 80);
       ctx.restore();
 
     } else {
@@ -1763,7 +1889,7 @@ function render() {
       ctx.globalAlpha = labelAlpha;
       ctx.font = 'bold 13px Courier New';
       ctx.fillStyle = '#ffee44'; ctx.shadowColor = '#ff8'; ctx.shadowBlur = 12;
-      ctx.fillText(`BÖLÜM ${currentLevel}  ·  BOSS YENİLDİ`, W / 2, H / 2 - 130);
+      ctx.fillText(`LEVEL ${currentLevel}  ·  BOSS DEFEATED`, W / 2, H / 2 - 130);
       ctx.restore();
 
       // "BÖLGE TEMİZLENDİ!" — bounce animasyonu
@@ -1783,7 +1909,7 @@ function render() {
       tGrd.addColorStop(1,   '#00ffff');
       ctx.fillStyle = tGrd;
       ctx.shadowColor = '#ffe040'; ctx.shadowBlur = 30;
-      ctx.fillText('BÖLGE TEMİZLENDİ!', 0, 0);
+      ctx.fillText('AREA CLEARED!', 0, 0);
       ctx.restore();
 
       // Yıldız süslemeler
@@ -1804,7 +1930,7 @@ function render() {
         ctx.save(); ctx.globalAlpha = scoreAlpha;
         ctx.font = 'bold 15px Courier New';
         ctx.fillStyle = '#aaddff'; ctx.shadowColor = '#0cf'; ctx.shadowBlur = 10;
-        ctx.fillText('TOPLAM SKOR', W / 2, H / 2 + 5);
+        ctx.fillText('TOTAL SCORE', W / 2, H / 2 + 5);
         ctx.font = 'bold 38px Courier New';
         ctx.fillStyle = '#ffffff'; ctx.shadowColor = '#0ff'; ctx.shadowBlur = 24;
         ctx.fillText(score, W / 2, H / 2 + 50);
@@ -1828,7 +1954,7 @@ function render() {
         ctx.shadowBlur = 0;
         ctx.fillStyle = '#fff'; ctx.font = 'bold 15px Courier New';
         ctx.globalAlpha = btnAlpha;
-        ctx.fillText('ANA MENÜYE DÖN  ▶', W / 2, by + 25);
+        ctx.fillText('RETURN TO MENU  ▶', W / 2, by + 25);
         ctx.restore();
       }
 
