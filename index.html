@@ -115,6 +115,16 @@ let introPanelIdx = 0;
 let introAlpha = 0;
 let introPhase = 'fadein'; // 'fadein' | 'show' | 'fadeout'
 
+// --- Zone Transition ---
+const ZONE_TRANSITION_MESSAGES = [
+  "The advance fleet has been destroyed. But the main fleet retreated into the asteroid belt. You have no choice but to follow.",
+  "The asteroid belt is clear. But the Void Colony's command center is hidden deep in the nebula. This ends there.",
+  "The command center is down. Only their leader remains. They're waiting for you near the black hole.",
+];
+let zoneTransIdx = 0;
+let zoneTransAlpha = 0;
+let zoneTransPhase = 'fadein'; // 'fadein' | 'show'
+
 // --- State ---
 let state = 'intro';
 
@@ -257,6 +267,12 @@ document.addEventListener('keydown', e => {
     }
     return;
   }
+  if (state === 'zonetransition') {
+    if ((e.code === 'Space' || e.code === 'Enter') && zoneTransPhase === 'show') {
+      state = 'menu'; return;
+    }
+    return;
+  }
   if (state === 'menu') {
     if (e.code === 'ArrowLeft')  menuIdx = Math.max(0, menuIdx - 1);
     if (e.code === 'ArrowRight') menuIdx = Math.min(MENU_CARDS.length - 1, menuIdx + 1);
@@ -383,10 +399,23 @@ canvas.addEventListener('click', e => {
   }
 
   if (state === 'levelcomplete' && levelCompleteType === 'boss' && victoryTime > 90) {
-    // Haritaya dön butonu (orta alt)
     if (mx > W/2 - 100 && mx < W/2 + 100 && my > H - 145 && my < H - 95) {
-      returnToMap = false; state = 'menu'; return;
+      returnToMap = false;
+      const zone = Math.ceil(currentLevel / 5);
+      if (zone >= 1 && zone <= 3) {
+        zoneTransIdx = zone - 1;
+        zoneTransAlpha = 0;
+        zoneTransPhase = 'fadein';
+        state = 'zonetransition';
+      } else {
+        state = 'menu';
+      }
+      return;
     }
+  }
+
+  if (state === 'zonetransition' && zoneTransPhase === 'show') {
+    state = 'menu'; return;
   }
 
   if (state === 'play') {
@@ -481,6 +510,65 @@ function spawnPowerup(x, y) {
   const types = enemyShoots ? ['shield', 'triple', 'double', 'bomb'] : ['triple', 'double', 'bomb'];
   const type = types[Math.floor(Math.random() * types.length)];
   powerups.push({ type, x, y, speed: 1.8, bobTimer: 0 });
+}
+
+// --- Draw: Zone Transition ---
+function drawZoneTransition() {
+  ctx.fillStyle = '#000008';
+  ctx.fillRect(0, 0, W, H);
+  drawStars();
+
+  ctx.save();
+
+  // Fade overlay
+  ctx.fillStyle = `rgba(0,0,8,${1 - zoneTransAlpha})`;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.globalAlpha = zoneTransAlpha;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // Decorative separator line
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(40, H / 2 - 80); ctx.lineTo(W - 40, H / 2 - 80); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(40, H / 2 + 80); ctx.lineTo(W - 40, H / 2 + 80); ctx.stroke();
+
+  // Message text — word-wrapped
+  const text = ZONE_TRANSITION_MESSAGES[zoneTransIdx];
+  ctx.font = '20px Courier New';
+  ctx.fillStyle = '#ffffff';
+  ctx.shadowColor = 'rgba(200,220,255,0.35)';
+  ctx.shadowBlur = 8;
+
+  const maxWidth = W - 80;
+  const lineH = 32;
+  const words = text.split(' ');
+  const lines = [];
+  let cur = '';
+  words.forEach(w => {
+    const test = cur ? cur + ' ' + w : w;
+    if (ctx.measureText(test).width > maxWidth) { lines.push(cur); cur = w; }
+    else cur = test;
+  });
+  lines.push(cur);
+
+  const totalH = lines.length * lineH;
+  const startY = H / 2 - totalH / 2;
+  lines.forEach((line, i) => ctx.fillText(line, W / 2, startY + i * lineH));
+
+  // "Tap to continue" hint
+  if (zoneTransPhase === 'show') {
+    const pulse = 0.5 + 0.5 * Math.sin(frameCount * 0.06);
+    ctx.globalAlpha = zoneTransAlpha * pulse;
+    ctx.font = '11px Courier New';
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.shadowBlur = 0;
+    ctx.fillText('TAP TO CONTINUE', W / 2, H - 38);
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.restore();
 }
 
 // --- Draw: Intro Cinematic ---
@@ -1127,6 +1215,15 @@ function update() {
     s.y += s.spd;
     if (s.y > H) { s.y = 0; s.x = Math.random() * W; }
   });
+
+  // Zone transition update
+  if (state === 'zonetransition') {
+    if (zoneTransPhase === 'fadein') {
+      zoneTransAlpha = Math.min(1, zoneTransAlpha + 0.022);
+      if (zoneTransAlpha >= 1) zoneTransPhase = 'show';
+    }
+    return;
+  }
 
   // Intro cinematic update
   if (state === 'intro') {
@@ -1798,6 +1895,7 @@ function render() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 
   if (state === 'intro') { drawIntro(); return; }
+  if (state === 'zonetransition') { drawZoneTransition(); return; }
   if (state === 'menu') { drawMenu(); return; }
   if (state === 'map') { drawMap(); return; }
 
