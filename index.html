@@ -1796,8 +1796,13 @@ function update() {
         else if (astLvl === 3) atype = capIron(Math.random() < 0.28 ? 'ice' : Math.random() < 0.38 ? 'iron' : 'normal');
         else atype = capIron(['normal','iron','ice'][Math.floor(Math.random() * 3)]);
         spawnAsteroid(atype);
+        // Sabit hız, salınımsız
+        { const a = asteroids[asteroids.length-1]; a.speed = 2.2; a.rotSpeed = 0; }
         // Second asteroid only when no iron on screen and only normal/ice types
-        if (!hasIron && Math.random() < 0.18) spawnAsteroid(astLvl <= 2 ? 'normal' : (Math.random() < 0.4 ? 'ice' : 'normal'));
+        if (!hasIron && Math.random() < 0.18) {
+          spawnAsteroid(astLvl <= 2 ? 'normal' : (Math.random() < 0.4 ? 'ice' : 'normal'));
+          const a2 = asteroids[asteroids.length-1]; a2.speed = 2.2; a2.rotSpeed = 0;
+        }
       }
     }
 
@@ -1869,9 +1874,9 @@ function update() {
     asteroids.push(...newFragments);
   }
 
-  // Normal spawn — boss savaşında ve level bitiş bekleme aşamasında durur
+  // Normal spawn — boss savaşında, level bitiş bekleme aşamasında ve zone 2'de durur
   const levelEnding = currentLevel !== currentZone * 5 && getWave() > currentLevel * 5;
-  if (!boss && !levelEnding) {
+  if (!boss && !levelEnding && currentZone !== 2) {
     spawnTimer++;
     const cfg      = getLevelConfig();
     const interval = cfg ? cfg.interval      : getSpawnInterval();
