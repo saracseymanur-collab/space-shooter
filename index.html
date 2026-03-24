@@ -187,9 +187,6 @@ let asteroidSpawnTimer = 0;
 let fuel = 100;
 const FUEL_MAX = 100;
 const FUEL_DRAIN = 0.016; // per frame
-let iceSlowTimer = 0;
-let magnetDir = 1;
-let magnetSwitchTimer = 320;
 
 // Zorluk: tüm parametreler frameCount'tan türetilir (smooth, ayrık wave yok)
 function gameSec()  { return frameCount / 60; }
@@ -531,7 +528,7 @@ function startLevel(level) {
   asteroids = []; asteroidSpawnTimer = 0;
   boss = null; bossKillTimer = 0; returnToMap = false;
   // Zone 2 mechanics reset
-  fuel = FUEL_MAX; iceSlowTimer = 0; magnetDir = 1; magnetSwitchTimer = 320;
+  fuel = FUEL_MAX;
   player.lane = 1; player.targetLane = 1;
   player.x = LANE_CENTERS[1];
   player.dead = false; player.deathTimer = 0; player.flash = 0;
@@ -618,7 +615,6 @@ function spawnPowerup(x, y) {
 
 function spawnAsteroid(type, ox, oy, osize) {
   const sz = osize ?? (type === 'iron' ? 26 + Math.random() * 14
-                     : type === 'ice'  ? 18 + Math.random() * 14
                                        : 14 + Math.random() * 20);
   const n = 8;
   const shape = Array.from({length: n}, () => 0.55 + Math.random() * 0.5);
@@ -636,7 +632,7 @@ function spawnAsteroid(type, ox, oy, osize) {
         LANE_CENTERS.forEach((lc, li) => { if (Math.abs(a.x - lc) < LANE_W * 0.65) blocked.add(li); });
       }
     });
-    const candidates = (type === 'iron') ? [0, 2] : [0, 1, 2];
+    const candidates = [0, 1, 2];
     const free = candidates.filter(l => !blocked.has(l));
     const pool = free.length > 0 ? free : candidates;
     const lane = pool[Math.floor(Math.random() * pool.length)];
@@ -649,7 +645,7 @@ function spawnAsteroid(type, ox, oy, osize) {
     y: oy ?? -sz - 10,
     size: sz,
     speed: (osize ? 1.6 : 1.0) + Math.random() * 1.2,
-    hp: type === 'normal' ? Math.max(1, Math.floor(sz / 14)) : type === 'ice' ? 1 : Infinity,
+    hp: type === 'normal' ? Math.max(1, Math.floor(sz / 14)) : Infinity,
     maxHp: type === 'normal' ? Math.max(1, Math.floor(sz / 14)) : 1,
     vx: 0,
     rotation: Math.random() * Math.PI * 2,
@@ -697,10 +693,7 @@ function drawAsteroid(a) {
     else ctx.lineTo(Math.cos(angle) * pr, Math.sin(angle) * pr);
   }
   ctx.closePath();
-  if (a.type === 'ice') {
-    ctx.fillStyle = 'rgba(140,210,255,0.78)';
-    ctx.strokeStyle = '#ccecff'; ctx.lineWidth = 2;
-  } else if (a.type === 'iron') {
+  if (a.type === 'iron') {
     ctx.fillStyle = '#4a5a6a';
     ctx.strokeStyle = '#8899aa'; ctx.lineWidth = 2.5;
   } else {
@@ -710,7 +703,7 @@ function drawAsteroid(a) {
   ctx.fill(); ctx.stroke();
   // Highlight
   ctx.globalAlpha *= (a.type === 'iron' ? 0.45 : 0.55);
-  ctx.fillStyle = a.type === 'ice' ? '#ddf4ff' : a.type === 'iron' ? '#aabccc' : '#c09060';
+  ctx.fillStyle = a.type === 'iron' ? '#aabccc' : '#c09060';
   ctx.beginPath(); ctx.arc(-r * 0.18, -r * 0.24, r * 0.22, 0, Math.PI * 2); ctx.fill();
   // Iron: warning X mark
   if (a.type === 'iron') {
@@ -1385,26 +1378,6 @@ function drawHUD() {
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(`⛽ FUEL  ${Math.ceil(fuel)}%`, W / 2, fby + fbh / 2);
 
-    // Magnetic indicator (level 9)
-    if (currentLevel === 9) {
-      const pulse = 0.6 + 0.4 * Math.sin(frameCount * 0.08);
-      ctx.globalAlpha = pulse;
-      ctx.font = 'bold 10px Courier New';
-      ctx.fillStyle = '#aa44ff'; ctx.shadowColor = '#aa44ff'; ctx.shadowBlur = 8;
-      ctx.textAlign = 'right';
-      ctx.fillText(`⚡ MAGNET ${magnetDir > 0 ? '▶' : '◀'}`, W - 10, fby + fbh + 12);
-      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
-    }
-    // Ice slow indicator
-    if (iceSlowTimer > 0) {
-      const pulse2 = 0.6 + 0.4 * Math.sin(frameCount * 0.1);
-      ctx.globalAlpha = pulse2;
-      ctx.font = 'bold 10px Courier New';
-      ctx.fillStyle = '#88ccff'; ctx.shadowColor = '#88ccff'; ctx.shadowBlur = 8;
-      ctx.textAlign = 'left';
-      ctx.fillText(`❄ FROZEN ${Math.ceil(iceSlowTimer/60)}s`, 10, fby + fbh + 12);
-      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
-    }
   }
 
   ctx.restore();
@@ -1555,9 +1528,8 @@ function update() {
     prevTargetLane = player.targetLane;
   }
 
-  // Player slide (ice slow: reduced responsiveness)
   const targetX = LANE_CENTERS[player.targetLane];
-  const slideFactor = (currentZone === 2 && iceSlowTimer > 0) ? 0.10 : 0.35;
+  const slideFactor = 0.35;
   player.x += (targetX - player.x) * slideFactor;
   if (Math.abs(targetX - player.x) < 1) player.x = targetX;
 
@@ -1655,7 +1627,7 @@ function update() {
           eBullets.push(mk(LANE_CENTERS[Math.floor(Math.random()*3)], 5.0));
         } else {
           boss.nextFireIn = 22 + Math.random() * 10;
-          spawnAsteroid('ice', boss.x + (Math.random()-0.5)*60, boss.y + 50, 16 + Math.random()*8);
+          spawnAsteroid('normal', boss.x + (Math.random()-0.5)*60, boss.y + 50, 16 + Math.random()*8);
           asteroids[asteroids.length-1].speed = 4.5; asteroids[asteroids.length-1].vx = 0;
           eBullets.push(mk(LANE_CENTERS[Math.floor(Math.random()*3)], 6.0));
           if (Math.random() < 0.4) eBullets.push(mk(LANE_CENTERS[Math.floor(Math.random()*3)], 5.5));
@@ -1764,44 +1736,56 @@ function update() {
       spawnExplosion(player.x + 15, player.y - 10, true);
     }
 
-    // Ice slow countdown
-    if (iceSlowTimer > 0) iceSlowTimer--;
-
-    // Magnetic field (level 9)
-    if (currentLevel === 9 && !boss) {
-      magnetSwitchTimer--;
-      if (magnetSwitchTimer <= 0) { magnetDir *= -1; magnetSwitchTimer = 240 + Math.floor(Math.random() * 180); }
-      const force = 0.55 * magnetDir;
-      player.x += force;
-      // Also nudge targetLane center slightly
-      const targetX = LANE_CENTERS[player.targetLane];
-      player.x = player.x * 0.95 + (targetX + force * 8) * 0.05;
-      player.x = Math.max(16, Math.min(W - 16, player.x));
-    }
 
     // Asteroid spawning
     if (!boss) {
       asteroidSpawnTimer++;
       const astLvl = currentLevel - 5; // 1-4 for zone 2 levels 6-9
-      const astInterval = [96, 80, 82, 74][astLvl - 1] ?? 80;
+      const astInterval = [38, 28, 20, 15][astLvl - 1] ?? 28;
       if (asteroidSpawnTimer >= astInterval) {
         asteroidSpawnTimer = 0;
-        // Max 1 iron asteroid on screen at any time
-        const hasIron = asteroids.some(a => a.type === 'iron');
-        const capIron = t => (t === 'iron' && hasIron) ? 'normal' : t;
+        // Demir: lane 0 ve 2'de max 2 aynı anda → orta lane (1) her zaman boş (kaçış garantisi)
+        const ironCount = asteroids.filter(a => a.type === 'iron').length;
+        const canIron = ironCount < 2;
+        const spd = [2.2, 2.6, 3.0, 3.4][astLvl - 1] ?? 2.2;
 
+        // Ana asteroid
         let atype;
         if (astLvl === 1) atype = 'normal';
-        else if (astLvl === 2) atype = capIron(Math.random() < 0.40 ? 'iron' : 'normal');
-        else if (astLvl === 3) atype = capIron(Math.random() < 0.28 ? 'ice' : Math.random() < 0.38 ? 'iron' : 'normal');
-        else atype = capIron(['normal','iron','ice'][Math.floor(Math.random() * 3)]);
-        spawnAsteroid(atype);
-        // Sabit hız, salınımsız
-        { const a = asteroids[asteroids.length-1]; a.speed = 2.2; a.rotSpeed = 0; }
-        // Second asteroid only when no iron on screen and only normal/ice types
-        if (!hasIron && Math.random() < 0.18) {
-          spawnAsteroid(astLvl <= 2 ? 'normal' : (Math.random() < 0.4 ? 'ice' : 'normal'));
-          const a2 = asteroids[asteroids.length-1]; a2.speed = 2.2; a2.rotSpeed = 0;
+        else if (astLvl === 2) atype = (canIron && Math.random() < 0.30) ? 'iron' : 'normal';
+        else if (astLvl === 3) atype = (canIron && Math.random() < 0.35) ? 'iron' : 'normal';
+        else                   atype = (canIron && Math.random() < 0.40) ? 'iron' : 'normal';
+        if (atype === 'iron') {
+          // Mevcut demir lane'lerini bul — yeni demir ekleyince en az 1 lane boş kalsın
+          const ironLanes = new Set();
+          asteroids.forEach(a => {
+            if (a.type === 'iron') {
+              let ci = 0;
+              LANE_CENTERS.forEach((lc, li) => { if (Math.abs(a.x - lc) < Math.abs(a.x - LANE_CENTERS[ci])) ci = li; });
+              ironLanes.add(ci);
+            }
+          });
+          const available = [0, 1, 2].filter(l => new Set([...ironLanes, l]).size < 3);
+          if (available.length > 0) {
+            spawnAsteroid('iron', LANE_CENTERS[available[Math.floor(Math.random() * available.length)]]);
+          } else {
+            atype = 'normal'; spawnAsteroid('normal');
+          }
+        } else {
+          spawnAsteroid(atype);
+        }
+        { const a = asteroids[asteroids.length-1]; a.speed = spd; a.rotSpeed = 0; }
+
+        // Ekstra normal/ice asteroidler (lane kısıtlaması yok — vurmazsan çarparsın)
+        const extraChances = [0.35, 0.60, 0.80, 0.95][astLvl - 1] ?? 0.5;
+        const tripleChance = [0,    0.10, 0.35, 0.60][astLvl - 1] ?? 0;
+        if (Math.random() < extraChances) {
+          spawnAsteroid('normal');
+          const a2 = asteroids[asteroids.length-1]; a2.speed = spd; a2.rotSpeed = 0;
+        }
+        if (Math.random() < tripleChance) {
+          spawnAsteroid('normal');
+          const a3 = asteroids[asteroids.length-1]; a3.speed = spd; a3.rotSpeed = 0;
         }
       }
     }
@@ -1826,10 +1810,8 @@ function update() {
             if (a.hp <= 0) {
               hit = true;
               spawnExplosion(a.x, a.y, a.size > 22);
-              score += a.type === 'ice' ? 15 : (a.size > 25 ? 20 : 10);
-              if (a.type === 'ice') {
-                iceSlowTimer = 280;
-              } else if (a.type === 'normal' && a.size > 24 && !a.isFragment) {
+              score += a.size > 25 ? 20 : 10;
+              if (a.type === 'normal' && a.size > 24 && !a.isFragment) {
                 for (let f = 0; f < 2; f++) {
                   const ns = a.size * 0.52;
                   const n2 = 8;
@@ -2352,24 +2334,6 @@ function render() {
 
   if (state === 'play' && tutorial) drawTutorial();
 
-  // Zone 2 ice slow screen tint
-  if (currentZone === 2 && iceSlowTimer > 0) {
-    const iceAlpha = Math.min(0.28, iceSlowTimer / 300 * 0.28) * (0.7 + 0.3 * Math.sin(frameCount * 0.12));
-    ctx.fillStyle = `rgba(140,210,255,${iceAlpha})`;
-    ctx.fillRect(0, 0, W, H);
-  }
-  // Zone 2 magnetic field visual (edge arcs)
-  if (currentZone === 2 && currentLevel === 9 && !boss) {
-    const mp = 0.4 + 0.6 * Math.abs(Math.sin(frameCount * 0.04));
-    ctx.save();
-    ctx.globalAlpha = 0.22 * mp;
-    const side = magnetDir > 0 ? W - 1 : 1;
-    const mg = ctx.createLinearGradient(magnetDir > 0 ? W - 40 : 0, 0, magnetDir > 0 ? W : 40, 0);
-    mg.addColorStop(0, 'rgba(0,0,0,0)'); mg.addColorStop(1, 'rgba(140,80,255,0.8)');
-    if (magnetDir < 0) { mg.addColorStop(0, 'rgba(140,80,255,0.8)'); mg.addColorStop(1, 'rgba(0,0,0,0)'); }
-    ctx.fillStyle = mg; ctx.fillRect(0, 0, W, H);
-    ctx.restore();
-  }
 
   if (state === 'gameover') drawOverlay('GAME OVER', 'The enemy reached the ship!');
 
@@ -2517,10 +2481,21 @@ function render() {
 }
 
 // --- Loop ---
-function loop() {
-  update();
-  render();
+let _lastTime = 0;
+let _accum = 0;
+const _STEP = 1000 / 60;
+
+function loop(timestamp) {
   requestAnimationFrame(loop);
+  if (_lastTime === 0) { _lastTime = timestamp; }
+  const delta = Math.min(timestamp - _lastTime, 100);
+  _lastTime = timestamp;
+  _accum += delta;
+  while (_accum >= _STEP) {
+    update();
+    _accum -= _STEP;
+  }
+  render();
 }
 
 if (BOSS_MODE) {
@@ -2529,7 +2504,7 @@ if (BOSS_MODE) {
   spawnBoss(25);
 }
 
-loop();
+requestAnimationFrame(loop);
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js');
