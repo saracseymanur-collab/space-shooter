@@ -1741,20 +1741,19 @@ function update() {
     if (!boss) {
       asteroidSpawnTimer++;
       const astLvl = currentLevel - 5; // 1-4 for zone 2 levels 6-9
-      const astInterval = [38, 28, 20, 15][astLvl - 1] ?? 28;
+      const astInterval = [55, 44, 35, 28][astLvl - 1] ?? 44;
       if (asteroidSpawnTimer >= astInterval) {
         asteroidSpawnTimer = 0;
-        // Demir: lane 0 ve 2'de max 2 aynı anda → orta lane (1) her zaman boş (kaçış garantisi)
         const ironCount = asteroids.filter(a => a.type === 'iron').length;
         const canIron = ironCount < 2;
         const spd = [2.2, 2.6, 3.0, 3.4][astLvl - 1] ?? 2.2;
 
-        // Ana asteroid
+        // Ana asteroid — demir oranı artırıldı
         let atype;
-        if (astLvl === 1) atype = 'normal';
-        else if (astLvl === 2) atype = (canIron && Math.random() < 0.30) ? 'iron' : 'normal';
-        else if (astLvl === 3) atype = (canIron && Math.random() < 0.35) ? 'iron' : 'normal';
-        else                   atype = (canIron && Math.random() < 0.40) ? 'iron' : 'normal';
+        if (astLvl === 1) atype = (canIron && Math.random() < 0.30) ? 'iron' : 'normal';
+        else if (astLvl === 2) atype = (canIron && Math.random() < 0.45) ? 'iron' : 'normal';
+        else if (astLvl === 3) atype = (canIron && Math.random() < 0.55) ? 'iron' : 'normal';
+        else                   atype = (canIron && Math.random() < 0.60) ? 'iron' : 'normal';
         if (atype === 'iron') {
           // Mevcut demir lane'lerini bul — yeni demir ekleyince en az 1 lane boş kalsın
           const ironLanes = new Set();
@@ -1776,9 +1775,9 @@ function update() {
         }
         { const a = asteroids[asteroids.length-1]; a.speed = spd; a.rotSpeed = 0; }
 
-        // Ekstra normal/ice asteroidler (lane kısıtlaması yok — vurmazsan çarparsın)
-        const extraChances = [0.35, 0.60, 0.80, 0.95][astLvl - 1] ?? 0.5;
-        const tripleChance = [0,    0.10, 0.35, 0.60][astLvl - 1] ?? 0;
+        // Ekstra normal asteroidler
+        const extraChances = [0.20, 0.35, 0.50, 0.65][astLvl - 1] ?? 0.35;
+        const tripleChance = [0,    0,    0.15, 0.30][astLvl - 1] ?? 0;
         if (Math.random() < extraChances) {
           spawnAsteroid('normal');
           const a2 = asteroids[asteroids.length-1]; a2.speed = spd; a2.rotSpeed = 0;
