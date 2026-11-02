@@ -1973,77 +1973,44 @@ function drawScreenFrame() {
   ctx.stroke();
   ctx.restore();
 }
-// Alt köşe altıgen slotu: ikon + süre halkası + isteğe bağlı sayı rozeti
-function drawSlot(x, y, type, ratio, color, badge) {
-  const active = ratio > 0;
-  ngonPath(x, y, 27, 6, 0);
-  ctx.fillStyle = HUD_FILL; ctx.fill();
-  ctx.strokeStyle = active ? color : 'rgba(63,211,255,0.4)'; ctx.lineWidth = 1.8;
-  if (active) { ctx.shadowColor = color; ctx.shadowBlur = 12; }
-  ctx.stroke(); ctx.shadowBlur = 0;
-  // Süre halkası
-  if (active) {
-    ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.arc(x, y, 21, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, ratio)); ctx.stroke();
-    ctx.lineCap = 'butt';
-  }
-  ctx.save(); ctx.translate(x, y); ctx.globalAlpha = active ? 1 : 0.3;
-  if (type === 'bolt') {
-    ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = active ? 8 : 0;
-    ctx.beginPath();
-    ctx.moveTo(4, -14); ctx.lineTo(-8, 2); ctx.lineTo(-1, 2); ctx.lineTo(-5, 14); ctx.lineTo(8, -3); ctx.lineTo(1, -3); ctx.closePath(); ctx.fill();
-    ctx.shadowBlur = 0;
-  } else {
-    drawPowerupIcon(type, 13);
-  }
-  ctx.restore();
-  if (badge != null) {
-    ctx.fillStyle = '#04101e'; ctx.strokeStyle = HUD_COL; ctx.lineWidth = 1.2;
-    ctx.beginPath(); ctx.arc(x + 20, y - 20, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#fff'; ctx.font = `bold 10px ${MONO_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(String(badge), x + 20, y - 19);
-  }
-}
-
 function drawHUD() {
   ctx.save();
   drawScreenFrame();
   ctx.textBaseline = 'middle';
 
-  // Durdurma: sekizgen buton
+  // Durdurma: sekizgen buton (sol üst)
   ngonPath(28, 30, 18, 8, Math.PI / 8);
   ctx.fillStyle = HUD_FILL; ctx.fill();
   ctx.strokeStyle = HUD_COL; ctx.lineWidth = 1.6; ctx.stroke();
   ctx.fillStyle = '#cfefff'; ctx.fillRect(22, 23, 4, 14); ctx.fillRect(30, 23, 4, 14);
 
-  // Can paneli: kalp + segmentler
-  hudPanel([[58, 22], [66, 14], [150, 14], [162, 26], [162, 32], [154, 44], [66, 44], [58, 36]]);
-  drawHeart(78, 30, 7, true);
-  for (let k = 0; k < 3; k++) {
-    const sx = 94 + k * 20;
-    ctx.beginPath(); ctx.moveTo(sx + 4, 24); ctx.lineTo(sx + 18, 24); ctx.lineTo(sx + 14, 36); ctx.lineTo(sx, 36); ctx.closePath();
-    ctx.fillStyle = k < lives ? '#ff5c7a' : 'rgba(255,92,122,0.15)';
-    if (k < lives) { ctx.shadowColor = '#ff3a5c'; ctx.shadowBlur = 6; }
-    ctx.fill(); ctx.shadowBlur = 0;
+  // Canlar: sağ üstte üç kalp
+  hudPanel([[W - 104, 14], [W - 22, 14], [W - 12, 24], [W - 12, 36], [W - 22, 46], [W - 104, 46], [W - 114, 30]]);
+  for (let k = 0; k < 3; k++) drawHeart(W - 86 + k * 26, 31, 8, k < lives);
+
+  // Ortada dalga ilerlemesi: küçük eğik segmentler (yazısız)
+  if (!boss) {
+    const lvT = Math.max(0, gameSec() - (currentLevel - 1) * 70);
+    const segs = currentLevel % 5 === 0 ? 4 : 5;
+    const sw = 18, gap = 4, total = segs * sw + (segs - 1) * gap;
+    for (let k = 0; k < segs; k++) {
+      const sx = W / 2 - total / 2 + k * (sw + gap);
+      const f = Math.max(0, Math.min(1, lvT / 14 - k));
+      ctx.beginPath(); ctx.moveTo(sx + 3, 25); ctx.lineTo(sx + sw, 25); ctx.lineTo(sx + sw - 3, 35); ctx.lineTo(sx, 35); ctx.closePath();
+      ctx.fillStyle = 'rgba(63,211,255,0.14)'; ctx.fill();
+      if (f > 0) {
+        ctx.save(); ctx.clip();
+        ctx.fillStyle = HUD_COL; ctx.shadowColor = HUD_COL; ctx.shadowBlur = 6;
+        ctx.fillRect(sx, 25, sw * f, 10);
+        ctx.restore();
+      }
+    }
   }
 
-  // Konum paneli: bölge + bölüm
-  hudPanel([[W - 168, 14], [W - 24, 14], [W - 12, 26], [W - 12, 34], [W - 22, 44], [W - 156, 44], [W - 172, 28]]);
-  ctx.textAlign = 'right';
-  ctx.fillStyle = ZONE_COLORS[currentZone];
-  ctx.font = `500 9px ${MONO_FONT}`;
-  ctx.fillText(MENU_CARDS[currentZone - 1].name.toUpperCase(), W - 24, 22);
-  ctx.fillStyle = '#eaf6ff';
-  ctx.font = `700 13px ${UI_FONT}`;
-  ctx.fillText(boss ? 'BOSS' : `LEVEL ${currentLevel}`, W - 24, 36);
-
-  // Paneller arası bağlantı çizgisi
-  ctx.strokeStyle = 'rgba(63,211,255,0.5)'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(164, 29); ctx.lineTo(W - 174, 29); ctx.stroke();
-
   // Boss HP barı
+  let barY = HUD_H + 6;
   if (boss) {
-    const bx = 16, by = HUD_H + 6, bw = W - 32, bh = 20;
+    const bx = 16, by = barY, bw = W - 32, bh = 20;
     hudPanel([[bx + 8, by], [bx + bw - 8, by], [bx + bw, by + 8], [bx + bw - 8, by + bh], [bx + 8, by + bh], [bx, by + 8]]);
     const bRatio = boss.hp / boss.maxHp;
     const bPhase = boss.phase || 1;
@@ -2059,45 +2026,24 @@ function drawHUD() {
     const bName = boss.special ? BOSS_NAMES[boss.zone] : 'BOSS';
     ctx.fillText(`${bName}  ·  PHASE ${bPhase}`, W / 2, by + bh / 2 + 1);
     ctx.shadowBlur = 0;
+    barY += bh + 6;
   }
 
-  // Alt orta: bölüm ilerlemesi (dalgalar) — zone 2'de kristal barı
-  {
-    const bx = 92, bw = W - 184, by = H - 40, bh = 16;
-    hudPanel([[bx + 8, by], [bx + bw, by], [bx + bw - 8, by + bh], [bx, by + bh]]);
-    let segs, fill, col;
-    if (currentZone === 2 && overdriveTimer > 0) { segs = 10; fill = overdriveTimer / OVERDRIVE_TIME; col = '#ffc531'; }
-    else if (currentZone === 2) { segs = CRYSTAL_MAX / 2; fill = crystalMeter / CRYSTAL_MAX; col = '#7fe6ff'; }
-    else {
-      const lvT = Math.max(0, gameSec() - (currentLevel - 1) * 70);
-      segs = currentLevel % 5 === 0 ? 4 : 5;
-      fill = boss ? 1 : Math.min(1, lvT / (14 * segs));
-      col = HUD_COL;
-    }
-    const inner = bw - 22, sw = inner / segs;
-    for (let k = 0; k < segs; k++) {
-      const f = Math.max(0, Math.min(1, fill * segs - k));
-      const sx = bx + 12 + k * sw;
-      ctx.beginPath(); ctx.moveTo(sx + 4, by + 4); ctx.lineTo(sx + sw - 2, by + 4); ctx.lineTo(sx + sw - 6, by + bh - 4); ctx.lineTo(sx, by + bh - 4); ctx.closePath();
-      ctx.fillStyle = 'rgba(63,211,255,0.12)'; ctx.fill();
-      if (f > 0) {
-        ctx.save(); ctx.clip();
-        ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 8;
-        ctx.fillRect(sx, by, sw * f, bh);
-        ctx.restore();
-      }
-    }
-    ctx.font = `500 8px ${MONO_FONT}`; ctx.fillStyle = 'rgba(160,225,255,0.7)'; ctx.textAlign = 'center';
-    ctx.fillText(currentZone === 2 ? (overdriveTimer > 0 ? 'OVERDRIVE' : 'CRYSTALS') : (boss ? 'BOSS FIGHT' : 'LEVEL PROGRESS'), W / 2, by - 7);
+  // Zone 2: kristal / overdrive barı (üstte)
+  if (currentZone === 2) {
+    const od = overdriveTimer > 0;
+    drawTimerBar(16, barY, W - 32, od ? overdriveTimer / OVERDRIVE_TIME : crystalMeter / CRYSTAL_MAX,
+      od ? '#ffc531' : '#7fe6ff', od ? 'OVERDRIVE' : `CRYSTALS ${crystalMeter}/${CRYSTAL_MAX}`, od ? 'bolt' : 'crystal');
   }
 
-  // Alt köşe slotları: sol = kalkan, sağ = silah (overdrive > üçlü > çift; zone 2'de boşken kristal)
-  drawSlot(46, H - 50, 'shield', player.shieldTimer / POWERUP_DURATION, '#3aa8ff');
-  if (overdriveTimer > 0) drawSlot(W - 46, H - 50, 'bolt', overdriveTimer / OVERDRIVE_TIME, '#ffc531');
-  else if (player.tripleTimer > 0) drawSlot(W - 46, H - 50, 'triple', player.tripleTimer / POWERUP_DURATION, '#00ffaa');
-  else if (player.doubleTimer > 0) drawSlot(W - 46, H - 50, 'double', player.doubleTimer / POWERUP_DURATION, '#ffee00');
-  else if (currentZone === 2) drawSlot(W - 46, H - 50, 'bolt', crystalMeter / CRYSTAL_MAX, '#7fe6ff', crystalMeter);
-  else drawSlot(W - 46, H - 50, 'bolt', 0, '#ffc531');
+  // Altta: aktif güçlendirmelerin süreleri (yalnızca aktifken)
+  const active = [];
+  if (player.shieldTimer > 0) active.push(['shield', player.shieldTimer / POWERUP_DURATION, '#3aa8ff', 'SHIELD']);
+  if (player.tripleTimer > 0) active.push(['triple', player.tripleTimer / POWERUP_DURATION, '#00ffaa', 'TRIPLE SHOT']);
+  if (player.doubleTimer > 0) active.push(['double', player.doubleTimer / POWERUP_DURATION, '#ffee00', 'DOUBLE SHOT']);
+  active.forEach(([type, ratio, col, label], k) => {
+    drawTimerBar(40, H - 38 - k * 26, W - 80, ratio, col, label, type);
+  });
 
   // Bölüm başı banner'ı: hedef / ipucu
   if (state === 'play' && levelIntroTimer > 0) {
@@ -2120,6 +2066,41 @@ function drawHUD() {
   }
 
   ctx.restore();
+}
+
+// Süre çubuğu: köşeli panel + ikon + eğik segmentli dolgu + etiket
+function drawTimerBar(x, y, w, ratio, col, label, icon) {
+  const h = 18;
+  hudPanel([[x + 8, y], [x + w, y], [x + w - 8, y + h], [x, y + h]]);
+  // İkon
+  ctx.save(); ctx.translate(x + 18, y + h / 2);
+  if (icon === 'bolt') {
+    ctx.fillStyle = col; ctx.beginPath();
+    ctx.moveTo(2, -7); ctx.lineTo(-4, 1); ctx.lineTo(0, 1); ctx.lineTo(-2, 7); ctx.lineTo(4, -2); ctx.lineTo(0, -2); ctx.closePath(); ctx.fill();
+  } else if (icon === 'crystal') {
+    ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(5, 0); ctx.lineTo(0, 7); ctx.lineTo(-5, 0); ctx.closePath(); ctx.fill();
+  } else {
+    drawPowerupIcon(icon, 6);
+  }
+  ctx.restore();
+  // Etiket (ikonun yanında, çubuğun içinde)
+  ctx.font = `500 9px ${MONO_FONT}`; ctx.fillStyle = col; ctx.textAlign = 'left';
+  ctx.fillText(label, x + 30, y + h / 2 + 1);
+  const lw = ctx.measureText(label).width;
+  // Segmentler
+  const sx0 = x + 38 + lw, sw0 = w - 50 - lw, segs = 10, sw = sw0 / segs;
+  for (let k = 0; k < segs; k++) {
+    const f = Math.max(0, Math.min(1, ratio * segs - k));
+    const sx = sx0 + k * sw;
+    ctx.beginPath(); ctx.moveTo(sx + 3, y + 4); ctx.lineTo(sx + sw - 1, y + 4); ctx.lineTo(sx + sw - 4, y + h - 4); ctx.lineTo(sx, y + h - 4); ctx.closePath();
+    ctx.fillStyle = 'rgba(63,211,255,0.10)'; ctx.fill();
+    if (f > 0) {
+      ctx.save(); ctx.clip();
+      ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 6;
+      ctx.fillRect(sx, y, sw * f, h);
+      ctx.restore();
+    }
+  }
 }
 
 // --- Ekran butonu: çizim + dokunma alanı aynı tanımdan ---
@@ -2981,7 +2962,9 @@ function chamferPath(x, y, w, h, c) {
   ctx.lineTo(x + w, y + h - c); ctx.lineTo(x + w - c, y + h); ctx.lineTo(x + c, y + h);
   ctx.lineTo(x, y + h - c); ctx.lineTo(x, y + c); ctx.closePath();
 }
-// Kart çerçevesi: üstte koyu sekme + sağda basamak, altta ortası çıkıntılı kenar, sağ altta //// yuvası
+// Kart çerçevesi (referans çizime göre, 300×560 ölçeğinde):
+// dışta kalın parlak çizgi, içte ona paralel ince çizgi; sol üstte koyu sekme,
+// sağ üstte basamak + üstünde ince çizgi, altta sol taraf yüksek, sağ altta //// yuvası
 function polyPath(x, y, pts) {
   ctx.beginPath();
   pts.forEach(([px, py], k) => k ? ctx.lineTo(x + px, y + py) : ctx.moveTo(x + px, y + py));
@@ -2989,15 +2972,16 @@ function polyPath(x, y, pts) {
 }
 function cardOuterPts(w, h) {
   return [
-    [0, 24], [24, 0], [176, 0], [190, 13], [w - 22, 13], [w, 35],   // üst: sekme + basamak
-    [w, h - 46], [w - 30, h - 15], [212, h - 15], [200, h],           // sağ alt pah + yuva basamağı
-    [104, h], [92, h - 15], [30, h - 15], [0, h - 45],                // alt orta çıkıntı + sol alt pah
+    [0, 32], [31, 0], [180, 0], [193, 15], [w - 22, 15], [w, 35],   // üst: sekme + basamak
+    [w, h - 32], [w - 27, h - 3],                                     // sağ alt pah
+    [101, h - 3], [92, h - 14], [31, h - 14], [0, h - 32],            // alt: sol taraf yüksek
   ];
 }
 function cardInnerPts(w, h) {
   return [
-    [9, 58], [27, 40], [158, 40], [184, 21], [w - 26, 21], [w - 8, 39],
-    [w - 8, h - 50], [w - 34, h - 23], [94, h - 23], [84, h - 23], [32, h - 23], [9, h - 48],
+    [10, 68], [30, 49], [161, 49], [186, 22], [w - 25, 22], [w - 10, 38],
+    [w - 10, h - 36], [w - 31, h - 13],
+    [106, h - 13], [97, h - 23], [35, h - 23], [10, h - 38],
   ];
 }
 function drawCardFrame(cx, CY, CW, CH, col, glow) {
@@ -3006,40 +2990,40 @@ function drawCardFrame(cx, CY, CW, CH, col, glow) {
   const bg = ctx.createLinearGradient(0, CY, 0, CY + CH);
   bg.addColorStop(0, '#071022'); bg.addColorStop(1, '#040814');
   ctx.fillStyle = bg; ctx.fill();
-  // Dış kalın parlak kenar
-  ctx.strokeStyle = col; ctx.lineWidth = 3;
-  if (glow) { ctx.shadowColor = col; ctx.shadowBlur = 16; }
+  // Sol üst koyu sekme (dış ve iç çizgi arasında)
+  polyPath(cx, CY, [[2, 33], [32, 2], [179, 2], [189, 14], [160, 47], [30, 47], [9, 68], [2, 68]]);
+  ctx.fillStyle = '#031017'; ctx.fill();
+  // Dış çizgi: önce geniş parlama, sonra net çekirdek
+  polyPath(cx, CY, cardOuterPts(CW, CH));
+  ctx.strokeStyle = col; ctx.lineJoin = 'miter';
+  ctx.lineWidth = 5; ctx.globalAlpha = glow ? 0.55 : 0.35;
+  ctx.shadowColor = col; ctx.shadowBlur = glow ? 18 : 8;
   ctx.stroke();
-  ctx.shadowBlur = 0;
-  // İç ince kenar
+  ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+  ctx.lineWidth = 2.6; ctx.stroke();
+  // İç ince paralel çizgi
   polyPath(cx, CY, cardInnerPts(CW, CH));
-  ctx.lineWidth = 1.2; ctx.globalAlpha = 0.75; ctx.stroke();
+  ctx.lineWidth = 1.3; ctx.globalAlpha = 0.85; ctx.stroke();
   ctx.globalAlpha = 1;
-  // Sol üst koyu sekme
-  polyPath(cx, CY, [[6, 26], [26, 6], [174, 6], [152, 36], [24, 36], [6, 54]]);
-  ctx.fillStyle = '#04121a'; ctx.fill();
-  ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.globalAlpha = 0.6; ctx.stroke();
-  ctx.globalAlpha = 1;
-  // Sağ üst basamağın üstündeki ince çıkıntı çizgisi
-  ctx.strokeStyle = col; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(cx + 194, CY + 6); ctx.lineTo(cx + 252, CY + 6); ctx.lineTo(cx + 256, CY + 10); ctx.stroke();
-  // Alt kenarın altındaki ince çizgi (sol çıkıntı)
-  ctx.lineWidth = 1.2; ctx.globalAlpha = 0.8;
-  ctx.beginPath(); ctx.moveTo(cx + 66, CY + CH - 7); ctx.lineTo(cx + 96, CY + CH - 7); ctx.stroke();
-  ctx.globalAlpha = 1;
+  // Sağ üst basamağın üstündeki ayrı ince çizgi
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(cx + 196, CY + 7); ctx.lineTo(cx + 248, CY + 7); ctx.lineTo(cx + 252, CY + 10); ctx.stroke();
+  // Sol alttaki ayrı ince çizgi
+  ctx.beginPath(); ctx.moveTo(cx + 34, CY + CH - 6); ctx.lineTo(cx + 66, CY + CH - 6); ctx.stroke();
   // Sağ alt //// yuvası
-  polyPath(cx, CY, [[214, CH - 13], [CW - 74, CH - 13], [CW - 80, CH - 3], [208, CH - 3]]);
-  ctx.fillStyle = '#04121a'; ctx.fill();
+  polyPath(cx, CY, [[206, CH - 13], [244, CH - 13], [238, CH - 3], [200, CH - 3]]);
+  ctx.fillStyle = '#031017'; ctx.fill();
+  ctx.lineWidth = 1; ctx.stroke();
   ctx.fillStyle = col;
   for (let k = 0; k < 4; k++) {
-    const sx = cx + 218 + k * 8;
-    ctx.beginPath(); ctx.moveTo(sx, CY + CH - 4); ctx.lineTo(sx + 4, CY + CH - 4); ctx.lineTo(sx + 9, CY + CH - 12); ctx.lineTo(sx + 5, CY + CH - 12); ctx.closePath(); ctx.fill();
+    const sx = cx + 208 + k * 8;
+    ctx.beginPath(); ctx.moveTo(sx, CY + CH - 5); ctx.lineTo(sx + 4, CY + CH - 5); ctx.lineTo(sx + 8, CY + CH - 11); ctx.lineTo(sx + 4, CY + CH - 11); ctx.closePath(); ctx.fill();
   }
 }
 
 // Kart ölçüleri — çizim ve dokunma alanı aynı yerden
 const CARD = { w: 300, h: 560, y: 118 };
-const CARD_PLAY = { w: 220, h: 48, dy: 484 }; // kart üstünden uzaklık
+const CARD_PLAY = { w: 220, h: 48, dy: 474 }; // kart üstünden uzaklık
 function drawMenu() {
   ctx.fillStyle = '#03040d';
   ctx.fillRect(0, 0, W, H);
@@ -3079,7 +3063,7 @@ function drawMenu() {
     drawCardFrame(cx, CY, CW, CH, col, !locked && i === menuIdx);
 
     // Görsel penceresi
-    const ax = cx + 18, ay = CY + 52, aw = CW - 36, ah = 288;
+    const ax = cx + 20, ay = CY + 60, aw = CW - 40, ah = 318;
     ctx.save();
     chamferPath(ax, ay, aw, ah, 16); ctx.clip();
     ctx.fillStyle = card.col1; ctx.fillRect(ax, ay, aw, ah);
@@ -3114,21 +3098,13 @@ function drawMenu() {
     // "SECTOR 0X" etiketi
     ctx.textBaseline = 'middle';
     ctx.fillStyle = col;
-    drawSpaced(`SECTOR 0${i + 1}`, cx + 32, CY + 22, 12, 500, MONO_FONT, 2.5, null, 'left');
+    drawSpaced(`SECTOR 0${i + 1}`, cx + 34, CY + 25, 12, 500, MONO_FONT, 2.5, null, 'left');
 
     // İsim + alt başlık
     ctx.fillStyle = locked ? '#6a7090' : '#f2f8ff';
-    drawSpaced(card.name.toUpperCase(), cx + CW / 2, CY + 374, 21, 700, UI_FONT, 4, CW - 40);
+    drawSpaced(card.name.toUpperCase(), cx + CW / 2, CY + 412, 21, 700, UI_FONT, 4, CW - 40);
     ctx.fillStyle = locked ? '#4a5070' : col;
-    drawSpaced(locked ? 'Defeat the previous boss' : card.sub, cx + CW / 2, CY + 404, 12, 500, MONO_FONT, 0.6, CW - 40);
-
-    // Bilgi satırı
-    ctx.strokeStyle = col; ctx.globalAlpha = 0.35; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(cx + 34, CY + 426); ctx.lineTo(cx + CW - 34, CY + 426); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx + 44, CY + 460); ctx.lineTo(cx + CW - 44, CY + 460); ctx.stroke();
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = locked ? '#4a5070' : 'rgba(225,240,255,0.85)';
-    drawSpaced('5 LEVELS  •  1 BOSS', cx + CW / 2, CY + 443, 11, 500, MONO_FONT, 1.5);
+    drawSpaced(locked ? 'Defeat the previous boss' : card.sub, cx + CW / 2, CY + 442, 12, 500, MONO_FONT, 0.6, CW - 40);
 
     // PLAY butonu
     const bx = cx + CW / 2 - CARD_PLAY.w / 2, by = CY + CARD_PLAY.dy;
@@ -3140,7 +3116,17 @@ function drawMenu() {
     if (!locked && i === menuIdx) { ctx.shadowColor = '#3fe0f0'; ctx.shadowBlur = 12; }
     ctx.stroke(); ctx.shadowBlur = 0;
     ctx.fillStyle = locked ? '#59607f' : '#eafcff';
-    drawSpaced(locked ? 'LOCKED' : 'PLAY  ▶', bx + CARD_PLAY.w / 2, by + CARD_PLAY.h / 2 + 1, 16, 700, UI_FONT, 3);
+    if (locked) {
+      drawSpaced('LOCKED', bx + CARD_PLAY.w / 2, by + CARD_PLAY.h / 2 + 1, 16, 700, UI_FONT, 3);
+    } else {
+      // "PLAY" + üçgen birlikte tam ortalanır
+      ctx.font = `700 16px ${UI_FONT}`;
+      const tw = ctx.measureText('PLAY').width + 3 * 3, gap = 12, tri = 11;
+      const gx = bx + CARD_PLAY.w / 2 - (tw + gap + tri) / 2, my = by + CARD_PLAY.h / 2 + 1;
+      drawSpaced('PLAY', gx, my, 16, 700, UI_FONT, 3, null, 'left');
+      const tx = gx + tw + gap;
+      ctx.beginPath(); ctx.moveTo(tx, my - 7); ctx.lineTo(tx + tri, my); ctx.lineTo(tx, my + 7); ctx.closePath(); ctx.fill();
+    }
 
     ctx.restore();
   });
