@@ -2867,6 +2867,62 @@ function chamferPath(x, y, w, h, c) {
   ctx.lineTo(x + w, y + h - c); ctx.lineTo(x + w - c, y + h); ctx.lineTo(x + c, y + h);
   ctx.lineTo(x, y + h - c); ctx.lineTo(x, y + c); ctx.closePath();
 }
+// Kart çerçevesi: üstte koyu sekme + sağda basamak, altta ortası çıkıntılı kenar, sağ altta //// yuvası
+function polyPath(x, y, pts) {
+  ctx.beginPath();
+  pts.forEach(([px, py], k) => k ? ctx.lineTo(x + px, y + py) : ctx.moveTo(x + px, y + py));
+  ctx.closePath();
+}
+function cardOuterPts(w, h) {
+  return [
+    [0, 24], [24, 0], [176, 0], [190, 13], [w - 22, 13], [w, 35],   // üst: sekme + basamak
+    [w, h - 46], [w - 30, h - 15], [212, h - 15], [200, h],           // sağ alt pah + yuva basamağı
+    [104, h], [92, h - 15], [30, h - 15], [0, h - 45],                // alt orta çıkıntı + sol alt pah
+  ];
+}
+function cardInnerPts(w, h) {
+  return [
+    [9, 58], [27, 40], [158, 40], [184, 21], [w - 26, 21], [w - 8, 39],
+    [w - 8, h - 50], [w - 34, h - 23], [94, h - 23], [84, h - 23], [32, h - 23], [9, h - 48],
+  ];
+}
+function drawCardFrame(cx, CY, CW, CH, col, glow) {
+  // Gövde
+  polyPath(cx, CY, cardOuterPts(CW, CH));
+  const bg = ctx.createLinearGradient(0, CY, 0, CY + CH);
+  bg.addColorStop(0, '#071022'); bg.addColorStop(1, '#040814');
+  ctx.fillStyle = bg; ctx.fill();
+  // Dış kalın parlak kenar
+  ctx.strokeStyle = col; ctx.lineWidth = 3;
+  if (glow) { ctx.shadowColor = col; ctx.shadowBlur = 16; }
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  // İç ince kenar
+  polyPath(cx, CY, cardInnerPts(CW, CH));
+  ctx.lineWidth = 1.2; ctx.globalAlpha = 0.75; ctx.stroke();
+  ctx.globalAlpha = 1;
+  // Sol üst koyu sekme
+  polyPath(cx, CY, [[6, 26], [26, 6], [174, 6], [152, 36], [24, 36], [6, 54]]);
+  ctx.fillStyle = '#04121a'; ctx.fill();
+  ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.globalAlpha = 0.6; ctx.stroke();
+  ctx.globalAlpha = 1;
+  // Sağ üst basamağın üstündeki ince çıkıntı çizgisi
+  ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(cx + 194, CY + 6); ctx.lineTo(cx + 252, CY + 6); ctx.lineTo(cx + 256, CY + 10); ctx.stroke();
+  // Alt kenarın altındaki ince çizgi (sol çıkıntı)
+  ctx.lineWidth = 1.2; ctx.globalAlpha = 0.8;
+  ctx.beginPath(); ctx.moveTo(cx + 66, CY + CH - 7); ctx.lineTo(cx + 96, CY + CH - 7); ctx.stroke();
+  ctx.globalAlpha = 1;
+  // Sağ alt //// yuvası
+  polyPath(cx, CY, [[214, CH - 13], [CW - 74, CH - 13], [CW - 80, CH - 3], [208, CH - 3]]);
+  ctx.fillStyle = '#04121a'; ctx.fill();
+  ctx.fillStyle = col;
+  for (let k = 0; k < 4; k++) {
+    const sx = cx + 218 + k * 8;
+    ctx.beginPath(); ctx.moveTo(sx, CY + CH - 4); ctx.lineTo(sx + 4, CY + CH - 4); ctx.lineTo(sx + 9, CY + CH - 12); ctx.lineTo(sx + 5, CY + CH - 12); ctx.closePath(); ctx.fill();
+  }
+}
+
 // Kart ölçüleri — çizim ve dokunma alanı aynı yerden
 const CARD = { w: 300, h: 560, y: 118 };
 const CARD_PLAY = { w: 220, h: 48, dy: 484 }; // kart üstünden uzaklık
@@ -2905,22 +2961,11 @@ function drawMenu() {
     const col = locked ? '#3a3f5c' : SECTOR_COLORS[i];
     ctx.save();
 
-    // Kart gövdesi
-    chamferPath(cx, CY, CW, CH, 22);
-    const bg = ctx.createLinearGradient(0, CY, 0, CY + CH);
-    bg.addColorStop(0, '#071022'); bg.addColorStop(1, '#040814');
-    ctx.fillStyle = bg; ctx.fill();
-    ctx.strokeStyle = col; ctx.lineWidth = 2;
-    if (!locked && i === menuIdx) { ctx.shadowColor = col; ctx.shadowBlur = 16; }
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-    // İç ince çerçeve
-    chamferPath(cx + 7, CY + 7, CW - 14, CH - 14, 18);
-    ctx.strokeStyle = col; ctx.globalAlpha = 0.35; ctx.lineWidth = 1; ctx.stroke();
-    ctx.globalAlpha = 1;
+    // Çerçeve
+    drawCardFrame(cx, CY, CW, CH, col, !locked && i === menuIdx);
 
     // Görsel penceresi
-    const ax = cx + 16, ay = CY + 46, aw = CW - 32, ah = 292;
+    const ax = cx + 18, ay = CY + 52, aw = CW - 36, ah = 288;
     ctx.save();
     chamferPath(ax, ay, aw, ah, 16); ctx.clip();
     ctx.fillStyle = card.col1; ctx.fillRect(ax, ay, aw, ah);
@@ -2955,10 +3000,7 @@ function drawMenu() {
     // "SECTOR 0X" etiketi
     ctx.textBaseline = 'middle';
     ctx.fillStyle = col;
-    drawSpaced(`SECTOR 0${i + 1}`, cx + 28, CY + 25, 12, 500, MONO_FONT, 2.5, null, 'left');
-    ctx.strokeStyle = col; ctx.lineWidth = 1.2; ctx.globalAlpha = 0.8;
-    ctx.beginPath(); ctx.moveTo(cx + 18, CY + 38); ctx.lineTo(cx + 132, CY + 38); ctx.lineTo(cx + 150, CY + 16); ctx.lineTo(cx + 190, CY + 16); ctx.stroke();
-    ctx.globalAlpha = 1;
+    drawSpaced(`SECTOR 0${i + 1}`, cx + 32, CY + 22, 12, 500, MONO_FONT, 2.5, null, 'left');
 
     // İsim + alt başlık
     ctx.fillStyle = locked ? '#6a7090' : '#f2f8ff';
@@ -2986,13 +3028,6 @@ function drawMenu() {
     ctx.fillStyle = locked ? '#59607f' : '#eafcff';
     drawSpaced(locked ? 'LOCKED' : 'PLAY  ▶', bx + CARD_PLAY.w / 2, by + CARD_PLAY.h / 2 + 1, 16, 700, UI_FONT, 3);
 
-    // Sağ alt köşe çizgileri
-    ctx.fillStyle = col; ctx.globalAlpha = 0.8;
-    for (let k = 0; k < 4; k++) {
-      const sx = cx + CW - 70 + k * 9;
-      ctx.beginPath(); ctx.moveTo(sx, CY + CH - 4); ctx.lineTo(sx + 5, CY + CH - 4); ctx.lineTo(sx + 10, CY + CH - 10); ctx.lineTo(sx + 5, CY + CH - 10); ctx.closePath(); ctx.fill();
-    }
-    ctx.globalAlpha = 1;
     ctx.restore();
   });
 
