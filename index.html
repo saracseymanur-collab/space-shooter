@@ -2033,22 +2033,19 @@ function drawHUD() {
     ctx.fill(); ctx.shadowBlur = 0;
   }
 
-  // Skor paneli + yıldız
+  // Konum paneli: bölge + bölüm
   hudPanel([[W - 168, 14], [W - 24, 14], [W - 12, 26], [W - 12, 34], [W - 22, 44], [W - 156, 44], [W - 172, 28]]);
-  ctx.fillStyle = '#eaf6ff'; ctx.textAlign = 'right';
-  ctx.font = `700 15px ${UI_FONT}`;
-  ctx.fillText(score.toLocaleString('en-US'), W - 44, 30);
-  ctx.fillStyle = '#ffd040'; ctx.shadowColor = '#ffb000'; ctx.shadowBlur = 8;
-  drawStarShape(W - 30, 29, 8); ctx.fill(); ctx.shadowBlur = 0;
+  ctx.textAlign = 'right';
+  ctx.fillStyle = ZONE_COLORS[currentZone];
+  ctx.font = `500 9px ${MONO_FONT}`;
+  ctx.fillText(MENU_CARDS[currentZone - 1].name.toUpperCase(), W - 24, 22);
+  ctx.fillStyle = '#eaf6ff';
+  ctx.font = `700 13px ${UI_FONT}`;
+  ctx.fillText(boss ? 'BOSS' : `LEVEL ${currentLevel}`, W - 24, 36);
 
-  // Ortada bölüm etiketi
-  ctx.textAlign = 'center';
+  // Paneller arası bağlantı çizgisi
   ctx.strokeStyle = 'rgba(63,211,255,0.5)'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(164, 29); ctx.lineTo(W - 174, 29); ctx.stroke();
-  ctx.fillStyle = '#03040d'; ctx.fillRect(W / 2 - 22, 22, 44, 14);
-  ctx.fillStyle = 'rgba(160,225,255,0.85)';
-  ctx.font = `500 10px ${MONO_FONT}`;
-  ctx.fillText(boss ? 'BOSS' : `LV ${currentLevel}`, W / 2, 29);
 
   // Boss HP barı
   if (boss) {
