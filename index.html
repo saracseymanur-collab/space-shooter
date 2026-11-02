@@ -9,6 +9,9 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Space Shooter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
@@ -231,7 +234,7 @@ const MAP_NODES = [
 
 // --- Menu ---
 const MENU_CARDS = [
-  { name: 'SPACE',         sub: 'Clear the Enemies',       locked: false, col1: '#001030', col2: '#002860' },
+  { name: 'Deep Space',    sub: 'Clear the Enemy Patrols', locked: false, col1: '#001030', col2: '#002860' },
   { name: 'Asteroid Belt', sub: 'Chase the Main Fleet',    locked: true,  col1: '#150e04', col2: '#241808' },
   { name: 'Nebula',        sub: 'Find the Command Center', locked: true,  col1: '#160020', col2: '#240030' },
   { name: 'Black Hole',    sub: 'Face Their Leader',       locked: true,  col1: '#040404', col2: '#0c0c0c' },
@@ -717,10 +720,9 @@ canvas.addEventListener('click', e => {
   }
 
   if (state === 'menu') {
-    // Sol ok
-    if (mx < 52 && my > 100 && my < H - 80) { menuIdx = Math.max(0, menuIdx - 1); return; }
-    // Sağ ok
-    if (mx > W - 52 && my > 100 && my < H - 80) { menuIdx = Math.min(MENU_CARDS.length - 1, menuIdx + 1); return; }
+    // Sol / sağ ok (kart kenarının dışı)
+    if (mx < 48 && my > CARD.y && my < CARD.y + CARD.h) { menuIdx = Math.max(0, menuIdx - 1); return; }
+    if (mx > W - 48 && my > CARD.y && my < CARD.y + CARD.h) { menuIdx = Math.min(MENU_CARDS.length - 1, menuIdx + 1); return; }
     // Ses butonu (sol alt)
     if (mx < 60 && my > H - 40) { Sound.toggle(); Sound.sfx.click(); return; }
     // DEV butonu (sağ alt)
@@ -731,7 +733,8 @@ canvas.addEventListener('click', e => {
     }
     // OYNA butonu (merkez kart, kilitli değilse)
     if (!isZoneLocked(menuIdx)) {
-      if (mx > W/2 - 65 && mx < W/2 + 65 && my > 450 && my < 494) { Sound.sfx.click(); currentZone = menuIdx + 1; state = 'map'; return; }
+      const py = CARD.y + CARD_PLAY.dy;
+      if (Math.abs(mx - W / 2) < CARD_PLAY.w / 2 && my > py && my < py + CARD_PLAY.h) { Sound.sfx.click(); currentZone = menuIdx + 1; state = 'map'; return; }
     }
     return;
   }
@@ -2840,154 +2843,222 @@ function drawCardArt(i, cx, CY, CW) {
   });
 }
 
-// --- Draw: Ana Menü ---
+// --- Ana menü: sektör kartları ---
+const UI_FONT = "'Orbitron', 'Courier New', monospace";
+const MONO_FONT = "'Share Tech Mono', 'Courier New', monospace";
+const SECTOR_COLORS = ['#3fd3ff', '#ffc531', '#ff4fd8', '#ff7a2f'];
+const SHIP_TINTS = [null, '#ffd23a', '#ff3048', '#5cff4a']; // kartlardaki gemi renkleri
+// Kart görselleri (yoksa çizimle yedeklenir)
+const CARD_IMG_SRC = ['ASSETS/cards/deep-space.jpg', null, null, null];
+const cardImgs = CARD_IMG_SRC.map(src => { if (!src) return null; const im = new Image(); im.src = src; return im; });
+const tintedShips = {};
+function getTintedShip(i) {
+  const tint = SHIP_TINTS[i];
+  if (!tint || !spaceshipImg.complete || !spaceshipImg.naturalWidth) return spaceshipImg;
+  if (!tintedShips[i]) {
+    const c = document.createElement('canvas');
+    c.width = spaceshipImg.naturalWidth; c.height = spaceshipImg.naturalHeight;
+    const g = c.getContext('2d');
+    g.drawImage(spaceshipImg, 0, 0);
+    g.globalCompositeOperation = 'source-atop';
+    g.globalAlpha = 0.62; g.fillStyle = tint; g.fillRect(0, 0, c.width, c.height);
+    tintedShips[i] = c;
+  }
+  return tintedShips[i];
+}
+// Harf aralıklı metin; maxW'ya sığmazsa yazı küçülür
+function drawSpaced(text, x, y, size, weight, family, spacing, maxW, align = 'center') {
+  let sz = size;
+  const width = s => { ctx.font = `${weight} ${s}px ${family}`; return ctx.measureText(text).width + spacing * (s / size) * (text.length - 1); };
+  while (maxW && width(sz) > maxW && sz > 8) sz -= 0.5;
+  const total = width(sz), sp = spacing * (sz / size);
+  let cx = align === 'center' ? x - total / 2 : x;
+  ctx.textAlign = 'left';
+  for (const ch of text) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+}
+// Köşeleri kesik çerçeve
+function chamferPath(x, y, w, h, c) {
+  ctx.beginPath();
+  ctx.moveTo(x + c, y); ctx.lineTo(x + w - c, y); ctx.lineTo(x + w, y + c);
+  ctx.lineTo(x + w, y + h - c); ctx.lineTo(x + w - c, y + h); ctx.lineTo(x + c, y + h);
+  ctx.lineTo(x, y + h - c); ctx.lineTo(x, y + c); ctx.closePath();
+}
+// Kart ölçüleri — çizim ve dokunma alanı aynı yerden
+const CARD = { w: 300, h: 560, y: 118 };
+const CARD_PLAY = { w: 220, h: 48, dy: 484 }; // kart üstünden uzaklık
 function drawMenu() {
-  ctx.fillStyle = '#00001a';
+  ctx.fillStyle = '#03040d';
   ctx.fillRect(0, 0, W, H);
   drawStars();
 
-  // Başlık
+  // Başlık + kanat çizgileri
   ctx.save();
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.font = 'bold 26px Courier New';
-  ctx.fillStyle = '#0ff'; ctx.shadowColor = '#0ff'; ctx.shadowBlur = 16;
-  ctx.fillText('SPACE SHOOTER', W / 2, 46);
-  ctx.font = '11px Courier New';
-  ctx.fillStyle = devMode ? '#ff0' : '#48a'; ctx.shadowBlur = 0;
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#8ef0ff'; ctx.shadowColor = '#3fd3ff'; ctx.shadowBlur = 16;
+  drawSpaced('SPACE SHOOTER', W / 2, 46, 26, 700, UI_FONT, 2, W - 110);
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(63,211,255,0.75)'; ctx.lineWidth = 1.5;
+  [-1, 1].forEach(s => {
+    ctx.beginPath();
+    ctx.moveTo(W / 2 + s * 140, 34); ctx.lineTo(W / 2 + s * 160, 50); ctx.lineTo(W / 2 + s * 186, 50);
+    ctx.moveTo(W / 2 + s * 150, 41); ctx.lineTo(W / 2 + s * 184, 41);
+    ctx.stroke();
+  });
+  ctx.beginPath(); ctx.moveTo(W / 2 - 140, 60); ctx.lineTo(W / 2 + 140, 60); ctx.strokeStyle = 'rgba(63,211,255,0.35)'; ctx.stroke();
   let gameDone = false;
   try { gameDone = localStorage.getItem('ss_complete') === '1'; } catch(e) {}
-  ctx.fillText(devMode ? '⚡ TEST MODE' : gameDone ? '★ GAME COMPLETE ★' : 'Choose a zone', W / 2, 70);
+  ctx.fillStyle = devMode ? '#ffd23a' : gameDone ? '#ffd23a' : 'rgba(220,240,255,0.75)';
+  drawSpaced(devMode ? 'TEST MODE' : gameDone ? 'GAME COMPLETE' : 'SELECT A SECTOR', W / 2, 80, 11, 500, MONO_FONT, 5);
   ctx.restore();
 
-  const CW = 280, CH = 420, CR = 16;
-  const GAP = W - 60;   // kart başlangıçları arası mesafe (menuAnimX ile aynı birim)
-  const CY = 108;       // kartın üst y'si
+  const { w: CW, h: CH, y: CY } = CARD;
+  const GAP = W - 60; // kartlar arası mesafe (menuAnimX ile aynı birim)
 
   MENU_CARDS.forEach((card, i) => {
-    const cx = W / 2 - CW / 2 + i * GAP - menuAnimX; // sol kenar x
-    if (cx > W + CW || cx < -CW) return;          // ekran dışı, çizme
-
+    const cx = W / 2 - CW / 2 + i * GAP - menuAnimX;
+    if (cx > W + CW || cx < -CW) return;
     const locked = isZoneLocked(i);
+    const col = locked ? '#3a3f5c' : SECTOR_COLORS[i];
     ctx.save();
 
-    // Kart arka planı
-    const bg = ctx.createLinearGradient(cx, CY, cx, CY + CH);
-    bg.addColorStop(0, card.col1);
-    bg.addColorStop(1, card.col2);
-    ctx.fillStyle = bg;
-    rrect(cx, CY, CW, CH, CR); ctx.fill();
-
-    // Kart kenarlığı
-    ctx.strokeStyle = locked ? '#1e2040' : (i === menuIdx ? '#0cf' : '#1a3060');
-    ctx.lineWidth   = i === menuIdx && !locked ? 2.5 : 1.5;
-    if (!locked && i === menuIdx) { ctx.shadowColor = '#0cf'; ctx.shadowBlur = 14; }
-    rrect(cx, CY, CW, CH, CR); ctx.stroke();
+    // Kart gövdesi
+    chamferPath(cx, CY, CW, CH, 22);
+    const bg = ctx.createLinearGradient(0, CY, 0, CY + CH);
+    bg.addColorStop(0, '#071022'); bg.addColorStop(1, '#040814');
+    ctx.fillStyle = bg; ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = 2;
+    if (!locked && i === menuIdx) { ctx.shadowColor = col; ctx.shadowBlur = 16; }
+    ctx.stroke();
     ctx.shadowBlur = 0;
+    // İç ince çerçeve
+    chamferPath(cx + 7, CY + 7, CW - 14, CH - 14, 18);
+    ctx.strokeStyle = col; ctx.globalAlpha = 0.35; ctx.lineWidth = 1; ctx.stroke();
+    ctx.globalAlpha = 1;
 
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-
-    if (!locked) {
-      // — İllüstrasyon alanı (gezegen + yıldızlar) —
-      ctx.save();
-      ctx.beginPath(); ctx.rect(cx, CY, CW, CH); ctx.clip();
-
-      drawCardArt(i, cx, CY, CW);
-      ctx.restore();
-
-      // Başlık
-      ctx.font = 'bold 22px Courier New';
-      ctx.fillStyle = '#fff'; ctx.shadowColor = '#0cf'; ctx.shadowBlur = 10;
-      ctx.fillText(card.name, cx + CW / 2, CY + CH - 145);
-      ctx.shadowBlur = 0;
-
-      ctx.font = '12px Courier New';
-      ctx.fillStyle = '#7df';
-      ctx.fillText(card.sub, cx + CW / 2, CY + CH - 118);
-
-      ctx.font = '10px Courier New';
-      ctx.fillStyle = '#46a';
-      ctx.fillText('5 Level  •  1 Boss', cx + CW / 2, CY + CH - 97);
-
-      // OYNA butonu
-      const bx = cx + CW / 2 - 65, by = CY + CH - 78;
-      const bGrd = ctx.createLinearGradient(bx, by, bx, by + 44);
-      bGrd.addColorStop(0, '#0088cc');
-      bGrd.addColorStop(1, '#0044aa');
-      ctx.fillStyle = bGrd;
-      ctx.shadowColor = '#0cf'; ctx.shadowBlur = 12;
-      rrect(bx, by, 130, 44, 10); ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 15px Courier New';
-      ctx.fillText('PLAY', cx + CW / 2, by + 22);
-
+    // Görsel penceresi
+    const ax = cx + 16, ay = CY + 46, aw = CW - 32, ah = 292;
+    ctx.save();
+    chamferPath(ax, ay, aw, ah, 16); ctx.clip();
+    ctx.fillStyle = card.col1; ctx.fillRect(ax, ay, aw, ah);
+    const img = cardImgs[i];
+    if (img && img.complete && img.naturalWidth) {
+      // cover: pencereyi doldur, ortala
+      const sc = Math.max(aw / img.naturalWidth, ah / img.naturalHeight);
+      const iw = img.naturalWidth * sc, ih = img.naturalHeight * sc;
+      ctx.drawImage(img, ax + (aw - iw) / 2, ay + (ah - ih) / 2, iw, ih);
     } else {
-      // Kilitli kart
-      ctx.fillStyle = 'rgba(0,0,0,0.45)';
-      rrect(cx, CY, CW, CH, CR); ctx.fill();
+      drawCardArt(i, cx, CY + 40, CW);
+    }
+    // Alttan karartma: gemi ve yazı öne çıksın
+    const fade = ctx.createLinearGradient(0, ay + ah * 0.55, 0, ay + ah);
+    fade.addColorStop(0, 'rgba(4,8,20,0)'); fade.addColorStop(1, 'rgba(4,8,20,0.65)');
+    ctx.fillStyle = fade; ctx.fillRect(ax, ay, aw, ah);
+    if (locked) { ctx.fillStyle = 'rgba(3,4,13,0.72)'; ctx.fillRect(ax, ay, aw, ah); }
+    ctx.restore();
+    chamferPath(ax, ay, aw, ah, 16);
+    ctx.strokeStyle = col; ctx.globalAlpha = 0.7; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.globalAlpha = 1;
 
-      // Kilit ikonu (çizimle)
-      const lx = cx + CW / 2, ly = CY + CH / 2 - 20;
-      ctx.fillStyle = '#2a2a50';
-      rrect(lx - 28, ly - 14, 56, 46, 8); ctx.fill();
-      ctx.strokeStyle = '#2a2a50'; ctx.lineWidth = 10;
-      ctx.beginPath(); ctx.arc(lx, ly - 18, 20, Math.PI, 0); ctx.stroke();
-      ctx.strokeStyle = '#1a1a38'; ctx.lineWidth = 8;
-      ctx.beginPath(); ctx.arc(lx, ly - 18, 20, Math.PI, 0); ctx.stroke();
-      ctx.fillStyle = '#3a3a6a';
-      ctx.beginPath(); ctx.arc(lx, ly + 8, 6, 0, Math.PI * 2); ctx.fill();
-      ctx.fillRect(lx - 2, ly + 8, 4, 10);
-
-      ctx.font = 'bold 16px Courier New';
-      ctx.fillStyle = '#3a3a60';
-      ctx.fillText(card.name, cx + CW / 2, CY + CH / 2 + 50);
-
-      ctx.font = 'bold 10px Courier New';
-      ctx.fillStyle = '#2a2a48';
-      ctx.fillText('COMING SOON', cx + CW / 2, CY + CH / 2 + 74);
+    // Gemi + motor alevleri
+    const shipY = ay + ah - 78;
+    if (!locked && spaceshipImg.complete && spaceshipImg.naturalWidth) {
+      const flick = 0.75 + 0.25 * Math.sin(frameCount * 0.5 + i);
+      [[-15, 30], [0, 42], [15, 30]].forEach(([fx, fl]) => {
+        const fg = ctx.createLinearGradient(0, shipY + 30, 0, shipY + 30 + fl * flick);
+        fg.addColorStop(0, i === 0 ? 'rgba(160,230,255,0.95)' : SHIP_TINTS[i]);
+        fg.addColorStop(1, 'rgba(0,120,255,0)');
+        ctx.fillStyle = fg;
+        ctx.beginPath(); ctx.moveTo(cx + CW / 2 + fx - 5, shipY + 30); ctx.lineTo(cx + CW / 2 + fx + 5, shipY + 30);
+        ctx.lineTo(cx + CW / 2 + fx, shipY + 30 + fl * flick); ctx.closePath(); ctx.fill();
+      });
+      ctx.drawImage(getTintedShip(i), cx + CW / 2 - 42, shipY - 42, 84, 84);
+    }
+    if (locked) {
+      // Kilit
+      const lx = cx + CW / 2, ly = ay + ah / 2;
+      ctx.strokeStyle = '#59607f'; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.arc(lx, ly - 12, 14, Math.PI, 0); ctx.stroke();
+      ctx.fillStyle = '#59607f'; rrect(lx - 22, ly - 12, 44, 34, 6); ctx.fill();
+      ctx.fillStyle = '#03040d'; ctx.beginPath(); ctx.arc(lx, ly + 2, 5, 0, Math.PI * 2); ctx.fill();
     }
 
+    // "SECTOR 0X" etiketi
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = col;
+    drawSpaced(`SECTOR 0${i + 1}`, cx + 28, CY + 25, 12, 500, MONO_FONT, 2.5, null, 'left');
+    ctx.strokeStyle = col; ctx.lineWidth = 1.2; ctx.globalAlpha = 0.8;
+    ctx.beginPath(); ctx.moveTo(cx + 18, CY + 38); ctx.lineTo(cx + 132, CY + 38); ctx.lineTo(cx + 150, CY + 16); ctx.lineTo(cx + 190, CY + 16); ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // İsim + alt başlık
+    ctx.fillStyle = locked ? '#6a7090' : '#f2f8ff';
+    drawSpaced(card.name.toUpperCase(), cx + CW / 2, CY + 374, 21, 700, UI_FONT, 4, CW - 40);
+    ctx.fillStyle = locked ? '#4a5070' : col;
+    drawSpaced(locked ? 'Defeat the previous boss' : card.sub, cx + CW / 2, CY + 404, 12, 500, MONO_FONT, 0.6, CW - 40);
+
+    // Bilgi satırı
+    ctx.strokeStyle = col; ctx.globalAlpha = 0.35; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx + 34, CY + 426); ctx.lineTo(cx + CW - 34, CY + 426); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx + 44, CY + 460); ctx.lineTo(cx + CW - 44, CY + 460); ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = locked ? '#4a5070' : 'rgba(225,240,255,0.85)';
+    drawSpaced('5 LEVELS  •  1 BOSS', cx + CW / 2, CY + 443, 11, 500, MONO_FONT, 1.5);
+
+    // PLAY butonu
+    const bx = cx + CW / 2 - CARD_PLAY.w / 2, by = CY + CARD_PLAY.dy;
+    chamferPath(bx, by, CARD_PLAY.w, CARD_PLAY.h, 14);
+    const pg = ctx.createLinearGradient(0, by, 0, by + CARD_PLAY.h);
+    pg.addColorStop(0, locked ? '#0b0e1c' : '#0c3a48'); pg.addColorStop(1, locked ? '#080a14' : '#06202c');
+    ctx.fillStyle = pg; ctx.fill();
+    ctx.strokeStyle = locked ? '#3a3f5c' : '#3fe0f0'; ctx.lineWidth = 2;
+    if (!locked && i === menuIdx) { ctx.shadowColor = '#3fe0f0'; ctx.shadowBlur = 12; }
+    ctx.stroke(); ctx.shadowBlur = 0;
+    ctx.fillStyle = locked ? '#59607f' : '#eafcff';
+    drawSpaced(locked ? 'LOCKED' : 'PLAY  ▶', bx + CARD_PLAY.w / 2, by + CARD_PLAY.h / 2 + 1, 16, 700, UI_FONT, 3);
+
+    // Sağ alt köşe çizgileri
+    ctx.fillStyle = col; ctx.globalAlpha = 0.8;
+    for (let k = 0; k < 4; k++) {
+      const sx = cx + CW - 70 + k * 9;
+      ctx.beginPath(); ctx.moveTo(sx, CY + CH - 4); ctx.lineTo(sx + 5, CY + CH - 4); ctx.lineTo(sx + 10, CY + CH - 10); ctx.lineTo(sx + 5, CY + CH - 10); ctx.closePath(); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
     ctx.restore();
   });
 
-  // Sol ok
-  if (menuIdx > 0) {
-    ctx.save(); ctx.globalAlpha = 0.7;
-    ctx.fillStyle = 'rgba(0,180,255,0.18)';
-    ctx.beginPath(); ctx.arc(28, H / 2 + 30, 22, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#0cf'; ctx.font = 'bold 18px Courier New';
+  // Oklar
+  [[menuIdx > 0, 22, '‹'], [menuIdx < MENU_CARDS.length - 1, W - 22, '›']].forEach(([show, ax, ch]) => {
+    if (!show) return;
+    ctx.save(); ctx.globalAlpha = 0.75;
+    ctx.fillStyle = 'rgba(63,211,255,0.15)';
+    ctx.beginPath(); ctx.arc(ax, CY + CH / 2, 17, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#3fd3ff'; ctx.font = 'bold 22px Courier New';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('‹', 28, H / 2 + 30);
+    ctx.fillText(ch, ax, CY + CH / 2 - 1);
     ctx.restore();
-  }
-  // Sağ ok
-  if (menuIdx < MENU_CARDS.length - 1) {
-    ctx.save(); ctx.globalAlpha = 0.7;
-    ctx.fillStyle = 'rgba(0,180,255,0.18)';
-    ctx.beginPath(); ctx.arc(W - 28, H / 2 + 30, 22, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#0cf'; ctx.font = 'bold 18px Courier New';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('›', W - 28, H / 2 + 30);
-    ctx.restore();
-  }
+  });
 
-  // Nokta göstergesi
+  // Sayfa göstergesi
   ctx.save();
+  let dx = W / 2 - (22 + 3 * 12 + 3 * 8) / 2;
   MENU_CARDS.forEach((_, i) => {
-    ctx.fillStyle = i === menuIdx ? '#0cf' : '#224';
-    ctx.beginPath(); ctx.arc(W / 2 + (i - 1.5) * 18, 626, i === menuIdx ? 5 : 3.5, 0, Math.PI * 2); ctx.fill();
+    const active = i === menuIdx, w = active ? 22 : 12;
+    ctx.fillStyle = active ? SECTOR_COLORS[i] : '#2a3350';
+    if (active) { ctx.shadowColor = SECTOR_COLORS[i]; ctx.shadowBlur = 8; }
+    rrect(dx, CY + CH + 24, w, 6, 3); ctx.fill();
+    ctx.shadowBlur = 0;
+    dx += w + 8;
   });
 
   // DEV butonu (sağ alt köşe)
+  ctx.font = 'bold 11px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillStyle = devMode ? 'rgba(255,200,0,0.25)' : 'rgba(255,255,255,0.08)';
   ctx.fillRect(W - 52, H - 36, 44, 26);
   ctx.strokeStyle = devMode ? 'rgba(255,200,0,0.6)' : 'rgba(255,255,255,0.2)';
   ctx.lineWidth = 1;
   ctx.strokeRect(W - 52, H - 36, 44, 26);
   ctx.fillStyle = devMode ? '#fc0' : 'rgba(255,255,255,0.4)';
-  ctx.font = 'bold 11px Courier New';
-  ctx.textAlign = 'center';
-  ctx.fillText('DEV', W - 30, H - 19);
+  ctx.fillText('DEV', W - 30, H - 23);
 
   // Ses butonu (sol alt köşe)
   ctx.fillStyle = 'rgba(255,255,255,0.08)';
@@ -2995,8 +3066,7 @@ function drawMenu() {
   ctx.strokeStyle = 'rgba(255,255,255,0.2)';
   ctx.strokeRect(8, H - 36, 52, 26);
   ctx.fillStyle = Sound.muted ? 'rgba(255,255,255,0.35)' : '#0cf';
-  ctx.fillText(Sound.muted ? '♪ OFF' : '♪ ON', 34, H - 22);
-
+  ctx.fillText(Sound.muted ? '♪ OFF' : '♪ ON', 34, H - 23);
   ctx.restore();
 }
 
@@ -3012,7 +3082,7 @@ function drawMap() {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = 'bold 22px Courier New';
   ctx.fillStyle = '#0ff'; ctx.shadowColor = '#0ff'; ctx.shadowBlur = 14;
-  const zoneNames = ['', 'SPACE', 'ASTEROID BELT', 'NEBULA', 'BLACK HOLE'];
+  const zoneNames = ['', 'DEEP SPACE', 'ASTEROID BELT', 'NEBULA', 'BLACK HOLE'];
   ctx.fillText(`✦ ${zoneNames[currentZone] || 'LEVEL MAP'} ✦`, W / 2, 58);
   ctx.shadowBlur = 0;
   ctx.font = '11px Courier New';
@@ -3285,6 +3355,9 @@ if (BOSS_MODE) {
 }
 
 requestAnimationFrame(loop);
+
+// Canvas yazı tiplerini önceden yükle (yüklenene kadar Courier ile çizilir)
+if (document.fonts) ['700 20px Orbitron', '500 20px Orbitron', '12px "Share Tech Mono"'].forEach(f => document.fonts.load(f).catch(() => {}));
 
 // Uygulama arka plana geçince oyunu durdur
 document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play') state = 'paused'; });
