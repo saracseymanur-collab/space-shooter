@@ -274,6 +274,14 @@ function startCinematic(panels) {
   introPanelIdx = 0; introAlpha = 0; introPhase = 'fadein';
   state = 'intro';
 }
+// Sinematikte ileri / geri (dokunma ve kaydırma)
+function cineNext() {
+  if (introPhase !== 'fadeout') introPhase = 'fadeout';
+}
+function cinePrev() {
+  if (introPanelIdx === 0) return;
+  introPanelIdx--; introAlpha = 0; introPhase = 'fadein';
+}
 function endCinematic() {
   if (cinePanels === ENDING_PANELS) menuIdx = MENU_CARDS.length - 1;
   cinePanels = INTRO_PANELS;
@@ -554,6 +562,7 @@ document.addEventListener('keydown', e => {
   keys[e.code] = true;
   if (state === 'intro') {
     if (e.code === 'Escape') { endCinematic(); return; }
+    if (e.code === 'ArrowLeft') { cinePrev(); return; }
     if ((e.code === 'Space' || e.code === 'Enter' || e.code === 'ArrowRight') && introPhase === 'show') {
       introPhase = 'fadeout'; return;
     }
@@ -652,6 +661,12 @@ canvas.addEventListener('touchend', e => {
     return;
   }
 
+  // Sinematikte yatay kaydırma: sola → sonraki, sağa → önceki
+  if (state === 'intro' && absDx > absDy && absDx > 30) {
+    if (dx < 0) cineNext(); else cinePrev();
+    return;
+  }
+
   // Menüde yatay swipe → kart değiştir
   if (state === 'menu' && absDx > absDy && absDx > 20) {
     if (dx < 0) menuIdx = Math.min(MENU_CARDS.length - 1, menuIdx + 1);
@@ -683,11 +698,18 @@ canvas.addEventListener('mousemove', e => {
   }
 });
 
+let suppressClick = false;
 canvas.addEventListener('mouseup', e => {
   mouseSwipeFired = false;
+  const dx = e.clientX - mouseStartX, dy = e.clientY - mouseStartY;
+  if (state === 'intro' && Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 30) {
+    if (dx < 0) cineNext(); else cinePrev();
+    suppressClick = true;
+  }
 });
 
 canvas.addEventListener('click', e => {
+  if (suppressClick) { suppressClick = false; return; } // kaydırmanın ardından gelen tıklamayı yut
   const rect = canvas.getBoundingClientRect();
   const mx = (e.clientX - rect.left) * (W / rect.width);
   const my = (e.clientY - rect.top)  * (H / rect.height);
@@ -696,7 +718,7 @@ canvas.addEventListener('click', e => {
     // Skip button: top right
     if (mx > W - 90 && my < 44) { endCinematic(); return; }
     // Anywhere else advances panel
-    if (introPhase === 'show') { introPhase = 'fadeout'; return; }
+    cineNext(); return;
     return;
   }
 
@@ -1380,20 +1402,13 @@ function drawIntro() {
   ctx.shadowBlur = 0;
   const below = H / 2 + textH / 2;
 
-  // Metnin altında: yanıp sönen dokunma ipucu + panel noktaları
-  const isLast = introPanelIdx === cinePanels.length - 1;
-  const hint = isLast ? (cinePanels === ENDING_PANELS ? 'TAP TO RETURN' : 'TAP TO START') : 'TAP TO CONTINUE';
-  if (introPhase === 'show') {
-    ctx.globalAlpha = introAlpha * (0.75 + 0.25 * Math.sin(frameCount * 0.07));
-    ctx.fillStyle = '#bfe9ff';
-    drawSpaced(hint, W / 2, below + 52, 12, 500, MONO_FONT, 3);
-  }
+  // Metnin altında panel noktaları
   ctx.globalAlpha = introAlpha;
   const n = cinePanels.length, dg = 14;
   for (let k = 0; k < n; k++) {
     const dx = W / 2 + (k - (n - 1) / 2) * dg;
     ctx.fillStyle = k === introPanelIdx ? '#3fd3ff' : 'rgba(255,255,255,0.22)';
-    ctx.beginPath(); ctx.arc(dx, below + 82, k === introPanelIdx ? 3.5 : 2.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(dx, below + 50, k === introPanelIdx ? 3.5 : 2.5, 0, Math.PI * 2); ctx.fill();
   }
 
   // Skip — sağ üst
