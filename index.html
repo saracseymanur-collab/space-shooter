@@ -1004,6 +1004,13 @@ function spawnAmbusher(rock, lane) {
     breakTo: lane === 1 ? (Math.random() < 0.5 ? 0 : 2) : 1,
   });
 }
+// Mermi–kaya çarpışması: vurulma alanı görselle uyumlu (en az 18px yarıçap),
+// mermi karede 10px ilerlediği için aradaki yol da taranır (küçük kayadan atlamasın)
+function bulletHitsRock(b, a) {
+  const r = Math.max(18, a.size * 1.05);
+  if (Math.abs(b.x - a.x) > r) return false;
+  return a.y > b.y - r && a.y < b.y + (b.speed || 0) + a.speed + r;
+}
 // Kaya yok edildi: kombo puanı, kristal, parçalanma, patlama
 function destroyRock(a, frags, blasts) {
   Sound.sfx.explode();
@@ -2640,14 +2647,14 @@ function update() {
       if (a.type === 'iron') {
         // Demir kaya: kırılmaz ve mermileri durdurur (siper)
         bullets = bullets.filter(b => {
-          if (Math.hypot(b.x - a.x, b.y - a.y) < a.size * 0.9) { a.flash = 4; spawnExplosion(b.x, b.y, false); return false; }
+          if (bulletHitsRock(b, a)) { a.flash = 4; spawnExplosion(b.x, b.y, false); return false; }
           return true;
         });
       } else if (!a.meteor) { // meteorlar mermiyle kırılmaz — tek çare kaçmak
         let hit = false;
         bullets = bullets.filter(b => {
           if (hit) return true;
-          if (Math.hypot(b.x - a.x, b.y - a.y) < a.size * 0.9) {
+          if (bulletHitsRock(b, a)) {
             a.hp--;
             a.flash = 10;
             spawnExplosion(b.x, b.y, false);
