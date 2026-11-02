@@ -3279,13 +3279,6 @@ function drawMap() {
   ctx.shadowBlur = 0;
   ctx.restore();
 
-  // Alt bilgi
-  ctx.save();
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.font = '10px Courier New';
-  ctx.fillStyle = '#446';
-  ctx.fillText(`Level ${currentZone * 5} is a boss fight`, W / 2, 650);
-  ctx.restore();
 }
 
 // --- Collect effect ---
