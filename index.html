@@ -444,19 +444,19 @@ function getLevelConfig() {
       canShoot: false, zigzag: false,
     };
     case 7: return { // pusu: düşmanlar demir kayaların arkasından çıkar
-      interval: 125, doubleChance: 0.1,
+      interval: 140, doubleChance: 0.05,
       speed: () => 1.6 + Math.random() * 0.4,
       hp: () => Math.random() < 0.4 ? 2 : 1,
       canShoot: true, zigzag: false,
     };
     case 8: return { // meteor yağmuru
-      interval: 105, doubleChance: 0.15,
+      interval: 125, doubleChance: 0.1,
       speed: () => 1.7 + Math.random() * 0.4,
       hp: () => Math.random() < 0.4 ? 2 : 1,
       canShoot: true, zigzag: false,
     };
     case 9: case 10: return { // patlayıcı kayalar
-      interval: 95, doubleChance: 0.25,
+      interval: 115, doubleChance: 0.15,
       speed: () => 1.7 + Math.random() * 0.4,
       hp: () => { const r = Math.random(); return r < 0.15 ? 3 : r < 0.55 ? 2 : 1; },
       canShoot: true, zigzag: false,
@@ -936,7 +936,7 @@ function spawnPowerup(x, y) {
 }
 
 function spawnAsteroid(type, ox, oy, osize) {
-  const sz = osize ?? (type === 'iron' ? 26 + Math.random() * 14
+  const sz = osize ?? (type === 'iron' ? 24 + Math.random() * 8
                                        : 14 + Math.random() * 20);
   const n = 8;
   const shape = Array.from({length: n}, () => 0.55 + Math.random() * 0.5);
@@ -2601,7 +2601,7 @@ function update() {
         asteroidSpawnTimer = 0;
         const spd = [2.2, 2.4, 2.6, 2.8, 2.6][astLvl - 1];
         const ironCount = asteroids.filter(a => a.type === 'iron').length;
-        const ironChance = [0.15, 0.4, 0.25, 0.25, 0.25][astLvl - 1];
+        const ironChance = [0.15, 0.3, 0.2, 0.2, 0.2][astLvl - 1];
         let atype = (ironCount < 2 && Math.random() < ironChance) ? 'iron' : 'normal';
         if (atype === 'normal' && currentLevel >= 9 && Math.random() < 0.3) atype = 'explosive';
 
@@ -2616,7 +2616,7 @@ function update() {
             const rock = asteroids[asteroids.length - 1];
             rock.speed = spd; rock.rotSpeed = 0.01;
             // Pusu (L7+): düşman demir kayanın arkasına saklanır, kaya ilerleyince yan şeride fırlar
-            if (currentLevel >= 7 && Math.random() < (currentLevel === 7 ? 0.75 : 0.45)) spawnAmbusher(rock, lane);
+            if (currentLevel >= 7 && Math.random() < (currentLevel === 7 ? 0.6 : 0.35)) spawnAmbusher(rock, lane);
           } else {
             spawnAsteroid('normal');
           }
@@ -2667,7 +2667,8 @@ function update() {
       }
 
       // Player collision (bir meteor yağmuru en fazla 1 can alır)
-      if (!player.dead && Math.abs(a.x - player.x) < a.size + 16 && Math.abs(a.y - player.y) < a.size + 16) {
+      // Çarpma alanı görselle uyumlu (önceden görselden ~10px büyüktü)
+      if (!player.dead && Math.abs(a.x - player.x) < a.size * 0.9 + 12 && Math.abs(a.y - player.y) < a.size * 0.9 + 16) {
         spawnExplosion(a.x, a.y, true);
         if (!(a.meteor && frameCount < meteorImmuneUntil)) {
           damagePlayer(a.meteor ? 'Hit by a meteor!' : 'Hit by an asteroid!');
