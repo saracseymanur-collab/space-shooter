@@ -1376,41 +1376,32 @@ function drawIntro() {
     ctx.font = 'bold 21px Courier New';
     ctx.fillStyle = '#ffffff'; ctx.shadowColor = 'rgba(200,220,255,0.4)'; ctx.shadowBlur = 10;
   }
-  drawWrapped(text, W / 2, H / 2, W - 70, 34);
-
-  // Panel counter — bottom left
+  const textH = drawWrapped(text, W / 2, H / 2, W - 70, 34);
   ctx.shadowBlur = 0;
-  ctx.font = '11px Courier New';
-  ctx.fillStyle = 'rgba(255,255,255,0.35)';
-  ctx.textAlign = 'left';
-  ctx.fillText(`${introPanelIdx + 1} / ${cinePanels.length}`, 20, H - 24);
+  const below = H / 2 + textH / 2;
 
-  // Skip button — top right
+  // Metnin altında: yanıp sönen dokunma ipucu + panel noktaları
+  const isLast = introPanelIdx === cinePanels.length - 1;
+  const hint = isLast ? (cinePanels === ENDING_PANELS ? 'TAP TO RETURN' : 'TAP TO START') : 'TAP TO CONTINUE';
+  if (introPhase === 'show') {
+    ctx.globalAlpha = introAlpha * (0.75 + 0.25 * Math.sin(frameCount * 0.07));
+    ctx.fillStyle = '#bfe9ff';
+    drawSpaced(hint, W / 2, below + 52, 12, 500, MONO_FONT, 3);
+  }
+  ctx.globalAlpha = introAlpha;
+  const n = cinePanels.length, dg = 14;
+  for (let k = 0; k < n; k++) {
+    const dx = W / 2 + (k - (n - 1) / 2) * dg;
+    ctx.fillStyle = k === introPanelIdx ? '#3fd3ff' : 'rgba(255,255,255,0.22)';
+    ctx.beginPath(); ctx.arc(dx, below + 82, k === introPanelIdx ? 3.5 : 2.5, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Skip — sağ üst
   ctx.font = 'bold 12px Courier New';
   ctx.fillStyle = 'rgba(255,255,255,0.5)';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'top';
   ctx.fillText('SKIP ▶▶', W - 16, 14);
-
-  // Next / Start button — bottom right
-  const isLast = introPanelIdx === cinePanels.length - 1;
-  const btnLabel = isLast ? (cinePanels === ENDING_PANELS ? 'MENU ▶' : 'START ▶') : 'NEXT ▶';
-  const pulse = 0.8 + 0.2 * Math.sin(frameCount * 0.07);
-  const bw = 110, bh = 42, bx = W - bw - 14, by = H - bh - 14;
-  ctx.globalAlpha = introAlpha * pulse;
-  const bGrd = ctx.createLinearGradient(bx, by, bx, by + bh);
-  bGrd.addColorStop(0, '#003366');
-  bGrd.addColorStop(1, '#001133');
-  ctx.fillStyle = bGrd;
-  rrect(bx, by, bw, bh, 10); ctx.fill();
-  ctx.strokeStyle = 'rgba(0,200,255,0.65)';
-  ctx.lineWidth = 1.5;
-  rrect(bx, by, bw, bh, 10); ctx.stroke();
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 14px Courier New';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(btnLabel, bx + bw / 2, by + bh / 2);
 
   ctx.globalAlpha = 1;
   ctx.restore();
