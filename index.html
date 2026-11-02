@@ -1165,6 +1165,31 @@ function drawLasers() {
   });
 }
 
+// --- Kaya görselleri: 3 boyut × 3 çeşit; tipler renklendirilmiş kopyalarla ayrılır ---
+const ROCK_CLASSES = ['small', 'medium', 'large'];
+const rockImgs = {};
+ROCK_CLASSES.forEach(c => { rockImgs[c] = [1, 2, 3].map(n => { const im = new Image(); im.src = `ASSETS/rocks/rock-${c}-${n}.png`; return im; }); });
+const ROCK_TINTS = { iron: '#8aa2bb', explosive: '#ff2a10', debris: '#a070e0' };
+const rockSprites = {};
+function getRockSprite(cls, idx, tint) {
+  const img = rockImgs[cls][idx];
+  if (!img.complete || !img.naturalWidth) return null;
+  if (!tint) return img;
+  const key = `${cls}${idx}${tint}`;
+  if (!rockSprites[key]) {
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const g = c.getContext('2d');
+    g.drawImage(img, 0, 0);
+    g.globalCompositeOperation = 'color';          // gölgelendirme korunur, renk değişir
+    g.fillStyle = ROCK_TINTS[tint]; g.fillRect(0, 0, c.width, c.height);
+    g.globalCompositeOperation = 'destination-in'; // şeffaf alanları geri getir
+    g.drawImage(img, 0, 0);
+    rockSprites[key] = c;
+  }
+  return rockSprites[key];
+}
+
 // --- Draw: Asteroid ---
 function drawAsteroid(a) {
   if (a.meteor) {
@@ -1174,6 +1199,42 @@ function drawAsteroid(a) {
     ctx.fillStyle = tg;
     ctx.beginPath(); ctx.moveTo(a.x - a.size * 0.8, a.y); ctx.lineTo(a.x, a.y - 110); ctx.lineTo(a.x + a.size * 0.8, a.y); ctx.closePath(); ctx.fill();
   }
+
+  // Görselli kaya
+  const cls = a.size > 25 ? 'large' : a.size >= 17 ? 'medium' : 'small';
+  if (a.spr == null) a.spr = Math.floor(Math.random() * 3);
+  const tint = a.type === 'iron' ? 'iron' : a.type === 'explosive' ? 'explosive' : currentZone === 4 ? 'debris' : null;
+  const spr = getRockSprite(cls, a.spr, tint);
+  if (spr) {
+    const long = a.size * 2.35;
+    const k = long / Math.max(spr.width, spr.height);
+    const dw = spr.width * k, dh = spr.height * k;
+    ctx.save();
+    ctx.translate(a.x, a.y);
+    ctx.globalAlpha = a.flash > 0 ? (a.flash % 4 < 2 ? 0.45 : 1) : 1;
+    if (a.type === 'explosive') {
+      const pulse = 0.6 + 0.4 * Math.sin(frameCount * 0.2 + a.x);
+      ctx.shadowColor = '#ff3a10'; ctx.shadowBlur = 22 * pulse;
+    } else if (a.type === 'iron') {
+      ctx.shadowColor = 'rgba(150,200,255,0.8)'; ctx.shadowBlur = 10;
+    }
+    ctx.save();
+    ctx.rotate(a.rotation);
+    ctx.drawImage(spr, -dw / 2, -dh / 2, dw, dh);
+    ctx.restore();
+    ctx.shadowBlur = 0;
+    // Çok canlı kayalarda can barı
+    if (a.type === 'normal' && a.maxHp > 1) {
+      ctx.globalAlpha = 0.85;
+      const bw = a.size * 1.2, bh = 4, bx = -bw / 2, by = a.size + 4;
+      ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(bx, by, bw, bh);
+      ctx.fillStyle = '#ff9a40'; ctx.fillRect(bx, by, bw * (a.hp / a.maxHp), bh);
+    }
+    ctx.restore();
+    return;
+  }
+
+  // Görseller yüklenmediyse çizimle yedekle
   ctx.save();
   ctx.translate(a.x, a.y);
   ctx.rotate(a.rotation);
