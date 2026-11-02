@@ -76,6 +76,145 @@ function updateScale() {
 updateScale();
 window.addEventListener('resize', updateScale);
 
+// --- Ses: Web Audio ile üretilen efektler + bölgeye göre basit müzik (dosya gerekmez) ---
+const Sound = (() => {
+  let ac = null, master = null, sfxBus = null, musicBus = null;
+  let muted = false;
+  try { muted = localStorage.getItem('ss_muted') === '1'; } catch(e) {}
+
+  function init() {
+    if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
+    try {
+      ac = new (window.AudioContext || window.webkitAudioContext)();
+      master = ac.createGain(); master.gain.value = muted ? 0 : 0.7; master.connect(ac.destination);
+      sfxBus = ac.createGain(); sfxBus.gain.value = 0.9; sfxBus.connect(master);
+      musicBus = ac.createGain(); musicBus.gain.value = 0.32; musicBus.connect(master);
+    } catch(e) { ac = null; }
+  }
+  const ready = () => ac && ac.state === 'running' && !muted;
+
+  function tone({ type = 'square', f = 440, f2 = null, dur = 0.1, vol = 0.2, delay = 0, bus = sfxBus, attack = 0.005 }) {
+    if (!ready()) return;
+    const t = ac.currentTime + delay;
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f, t);
+    if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(bus);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+  let noiseBuf = null;
+  function noise({ dur = 0.3, vol = 0.3, freq = 1200, delay = 0 }) {
+    if (!ready()) return;
+    if (!noiseBuf) {
+      noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const t = ac.currentTime + delay;
+    const src = ac.createBufferSource(), flt = ac.createBiquadFilter(), g = ac.createGain();
+    src.buffer = noiseBuf;
+    flt.type = 'lowpass'; flt.frequency.setValueAtTime(freq, t); flt.frequency.exponentialRampToValueAtTime(80, t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(flt); flt.connect(g); g.connect(sfxBus);
+    src.start(t); src.stop(t + dur);
+  }
+
+  let lastShot = 0;
+  const sfx = {
+    shoot()     { const n = performance.now(); if (n - lastShot < 90) return; lastShot = n; tone({ type: 'square', f: 1200, f2: 600, dur: 0.05, vol: 0.025 }); },
+    hit()       { tone({ type: 'square', f: 260, f2: 140, dur: 0.05, vol: 0.05 }); },
+    explode()   { noise({ dur: 0.3, vol: 0.22, freq: 1400 }); tone({ type: 'triangle', f: 180, f2: 50, dur: 0.25, vol: 0.12 }); },
+    bigBoom()   { noise({ dur: 1.1, vol: 0.45, freq: 900 }); tone({ type: 'sine', f: 110, f2: 30, dur: 0.9, vol: 0.35 }); },
+    hurt()      { tone({ type: 'sawtooth', f: 320, f2: 60, dur: 0.35, vol: 0.18 }); noise({ dur: 0.25, vol: 0.2, freq: 2500 }); },
+    shield()    { tone({ type: 'sine', f: 900, f2: 1400, dur: 0.12, vol: 0.08 }); },
+    powerup()   { [523, 659, 784, 1047].forEach((f, i) => tone({ type: 'triangle', f, dur: 0.1, vol: 0.12, delay: i * 0.055 })); },
+    bomb()      { noise({ dur: 0.9, vol: 0.4, freq: 3000 }); tone({ type: 'sine', f: 200, f2: 40, dur: 0.7, vol: 0.3 }); },
+    swipe()     { tone({ type: 'sine', f: 420, f2: 700, dur: 0.06, vol: 0.035 }); },
+    crystal()   { tone({ type: 'triangle', f: 1500, f2: 2100, dur: 0.07, vol: 0.06 }); },
+    click()     { tone({ type: 'square', f: 660, f2: 990, dur: 0.05, vol: 0.05 }); },
+    laserWarn() { tone({ type: 'square', f: 880, dur: 0.07, vol: 0.06 }); tone({ type: 'square', f: 880, dur: 0.07, vol: 0.06, delay: 0.14 }); },
+    laserFire() { tone({ type: 'sawtooth', f: 220, f2: 70, dur: 0.5, vol: 0.16 }); noise({ dur: 0.45, vol: 0.18, freq: 4000 }); },
+    bossIn()    { tone({ type: 'sawtooth', f: 55, f2: 110, dur: 1.4, vol: 0.22, attack: 0.3 }); tone({ type: 'sawtooth', f: 82, f2: 165, dur: 1.4, vol: 0.14, attack: 0.3 }); },
+    star(i)     { tone({ type: 'triangle', f: [784, 988, 1175][i] || 784, dur: 0.18, vol: 0.14 }); },
+    clear()     { [523, 659, 784].forEach((f, i) => tone({ type: 'triangle', f, dur: 0.22, vol: 0.13, delay: i * 0.1 })); tone({ type: 'triangle', f: 1047, dur: 0.5, vol: 0.13, delay: 0.3 }); },
+    victory()   { [392, 523, 659, 784, 659, 784, 1047].forEach((f, i) => tone({ type: 'square', f, dur: i === 6 ? 0.7 : 0.14, vol: 0.07, delay: i * 0.13 })); },
+    gameover()  { [392, 330, 262, 196].forEach((f, i) => tone({ type: 'triangle', f, dur: 0.3, vol: 0.13, delay: i * 0.2 })); },
+  };
+
+  // Müzik: 16'lık adım sıralayıcı, update() içinden her 8 karede bir çağrılır (~112 BPM)
+  const ZONE_MUSIC = {
+    1: { root: 57, chords: [0, -4, 3, -2], scale: [0, 3, 7, 10, 12] },   // La minör, enerjik
+    2: { root: 50, chords: [0, 3, -2, 5],  scale: [0, 2, 3, 7, 9] },     // Re dorian, sert
+    3: { root: 52, chords: [0, 1, -2, 1],  scale: [0, 1, 5, 7, 10] },    // Mi frig, gizemli
+    4: { root: 48, chords: [0, -4, -5, -2], scale: [0, 3, 6, 7, 10] },   // Do minör, karanlık
+  };
+  const midi = n => 440 * Math.pow(2, (n - 69) / 12);
+  let step = 0;
+  function musicStep(zone, intense) {
+    if (!ready()) return;
+    const m = ZONE_MUSIC[zone] || ZONE_MUSIC[1];
+    const chord = m.chords[Math.floor(step / 32) % m.chords.length];
+    const r = m.root + chord;
+    const s16 = step % 16;
+    if (s16 % 4 === 0) tone({ type: 'triangle', f: midi(r - 12), dur: 0.22, vol: 0.5, bus: musicBus });
+    if (intense && s16 % 4 === 2) tone({ type: 'triangle', f: midi(r - 12), dur: 0.12, vol: 0.35, bus: musicBus });
+    if (s16 % 2 === 0) {
+      const deg = m.scale[[0, 2, 1, 3, 4, 3, 1, 2][(s16 / 2) | 0]];
+      tone({ type: 'square', f: midi(r + 12 + deg), dur: 0.09, vol: 0.07, bus: musicBus });
+    }
+    if (s16 === 0 || s16 === 8 || (intense && s16 % 4 === 0)) noise({ dur: 0.06, vol: intense ? 0.08 : 0.05, freq: 6000 });
+    step++;
+  }
+
+  return {
+    init, sfx, musicStep,
+    get muted() { return muted; },
+    toggle() {
+      muted = !muted;
+      try { localStorage.setItem('ss_muted', muted ? '1' : '0'); } catch(e) {}
+      if (master) master.gain.value = muted ? 0 : 0.7;
+    },
+  };
+})();
+// iOS/Android: ses ancak ilk dokunuştan sonra açılabilir
+['touchstart', 'mousedown', 'keydown'].forEach(ev => document.addEventListener(ev, () => Sound.init(), { passive: true }));
+
+// --- Metin sarma: her cümle yeni satırdan başlar, satır sonunda tek kelime kalmaz ---
+function wrapText(text, maxWidth) {
+  const sentences = (text.match(/[^.!?]+[.!?]+["”]?|[^.!?]+$/g) || [text]).map(t => t.trim()).filter(Boolean);
+  const lines = []; // { text, gap } — gap: yeni cümlenin ilk satırı
+  sentences.forEach((sen, si) => {
+    const words = sen.split(' ');
+    const out = [];
+    let cur = [];
+    words.forEach(w => {
+      if (cur.length && ctx.measureText([...cur, w].join(' ')).width > maxWidth) { out.push(cur); cur = [w]; }
+      else cur.push(w);
+    });
+    out.push(cur);
+    // Yetim kelime: son satır tek kelimeyse önceki satırdan bir kelime indir
+    if (out.length > 1 && out[out.length - 1].length === 1 && out[out.length - 2].length > 2) {
+      const moved = out[out.length - 2].pop();
+      out[out.length - 1].unshift(moved);
+    }
+    out.forEach((l, li) => lines.push({ text: l.join(' '), gap: si > 0 && li === 0 }));
+  });
+  return lines;
+}
+// Satırları dikeyde ortalayarak çizer; cümleler arasında küçük boşluk bırakır
+function drawWrapped(text, cx, cy, maxWidth, lineH) {
+  const lines = wrapText(text, maxWidth);
+  const gapH = lineH * 0.35;
+  const totalH = lines.length * lineH + lines.filter(l => l.gap).length * gapH;
+  let y = cy - totalH / 2 + lineH / 2;
+  lines.forEach(l => { if (l.gap) y += gapH; ctx.fillText(l.text, cx, y); y += lineH; });
+  return totalH;
+}
+
 // --- Lanes ---
 const LANE_COUNT = 3;
 const LANE_W = W / LANE_COUNT;
@@ -170,6 +309,7 @@ let levelCompleteType = 'boss'; // 'boss' | 'clear'
 let victoryTime = 0;
 let victoryParticles = [];
 let deathCause = '';
+let levelStars = 3;
 let lasers = [];     // Void Leader şerit lazerleri
 let fogClouds = [];  // Nebula sis bulutları
 
@@ -223,9 +363,17 @@ let currentZone = 1;
 // --- Zone 2 mechanics ---
 let asteroids = [];
 let asteroidSpawnTimer = 0;
-let fuel = 100;
-const FUEL_MAX = 100;
-const FUEL_DRAIN = 0.016; // per frame
+// Kristal madenciliği: kayalardan kristal düşer, bar dolunca OVERDRIVE
+let crystals = [];
+let crystalMeter = 0;
+const CRYSTAL_MAX = 14;
+let overdriveTimer = 0;
+const OVERDRIVE_TIME = 360; // 6 sn
+let combo = 0, comboTimer = 0;
+let meteorTimer = 0;
+let meteorImmuneUntil = 0;
+let floatTexts = [];
+const BLAST_R = 150; // patlayıcı kaya etki yarıçapı (yan şeride yetişir)
 
 // Zorluk: tüm parametreler frameCount'tan türetilir (smooth, ayrık wave yok)
 function gameSec()  { return frameCount / 60; }
@@ -287,29 +435,30 @@ function getLevelConfig() {
       hp: () => Math.random() < 0.4 ? 2 : 1,
       canShoot: false, zigzag: true,
     };
-    case 6: return { // Zone 2 L1: light enemies
-      interval: 75, doubleChance: 0.15,
-      speed: () => 1.5 + Math.random() * 0.4,
-      hp: () => Math.random() < 0.35 ? 2 : 1,
+    // ── Zone 2: Asteroid Belt — kayalarla birlikte daha seyrek düşman ──
+    case 6: return { // kristal madenciliği + hafif düşmanlar
+      interval: 115, doubleChance: 0,
+      speed: () => 1.5 + Math.random() * 0.3,
+      hp: () => Math.random() < 0.3 ? 2 : 1,
       canShoot: false, zigzag: false,
     };
-    case 7: return { // Zone 2 L2: iron asteroids + enemies
-      interval: 68, doubleChance: 0.25,
+    case 7: return { // pusu: düşmanlar demir kayaların arkasından çıkar
+      interval: 125, doubleChance: 0.1,
+      speed: () => 1.6 + Math.random() * 0.4,
+      hp: () => Math.random() < 0.4 ? 2 : 1,
+      canShoot: true, zigzag: false,
+    };
+    case 8: return { // meteor yağmuru
+      interval: 105, doubleChance: 0.15,
       speed: () => 1.7 + Math.random() * 0.4,
       hp: () => Math.random() < 0.4 ? 2 : 1,
       canShoot: true, zigzag: false,
     };
-    case 8: return { // Zone 2 L3 (zone 2'de düşman spawn'ı kapalı, sadece asteroid)
-      interval: 65, doubleChance: 0.28,
-      speed: () => 1.8 + Math.random() * 0.5,
-      hp: () => Math.random() < 0.45 ? 2 : 1,
+    case 9: case 10: return { // patlayıcı kayalar
+      interval: 95, doubleChance: 0.25,
+      speed: () => 1.7 + Math.random() * 0.4,
+      hp: () => { const r = Math.random(); return r < 0.15 ? 3 : r < 0.55 ? 2 : 1; },
       canShoot: true, zigzag: false,
-    };
-    case 9: return { // Zone 2 L4
-      interval: 70, doubleChance: 0.22,
-      speed: () => 1.6 + Math.random() * 0.4,
-      hp: () => Math.random() < 0.4 ? 2 : 1,
-      canShoot: true, zigzag: true,
     };
     // ── Zone 3: Nebula — sis bulutları + görünmez olabilen hayalet düşmanlar ──
     case 11: return {
@@ -425,9 +574,15 @@ document.addEventListener('keydown', e => {
     if (e.code === 'Escape') state = 'menu';
   }
   if (state === 'gameover') {
-    if (e.code === 'Space' || e.code === 'Enter') state = 'map';
+    if (e.code === 'Space' || e.code === 'Enter') startLevel(currentLevel);
+    if (e.code === 'Escape') state = 'map';
     return;
   }
+  if (state === 'paused') {
+    if (e.code === 'Escape' || e.code === 'KeyP' || e.code === 'Space') state = 'play';
+    return;
+  }
+  if (state === 'play' && (e.code === 'Escape' || e.code === 'KeyP')) { state = 'paused'; return; }
   if (state === 'play') {
     if (e.code === 'ArrowLeft' && !keyHandled[e.code]) {
       keyHandled[e.code] = true;
@@ -545,10 +700,20 @@ canvas.addEventListener('click', e => {
   }
 
   if (state === 'gameover') {
-    const btnY = H / 2 + 58;
-    if (mx > W / 2 - 100 && mx < W / 2 + 100 && my > btnY - 20 && my < btnY + 20) {
-      state = 'map'; return;
-    }
+    const b = GAMEOVER_BTNS.find(b => inBtn(b, mx, my));
+    if (b) { Sound.sfx.click(); if (b.act === 'retry') startLevel(currentLevel); else state = 'map'; }
+    return;
+  }
+
+  if (state === 'paused') {
+    const b = PAUSE_BTNS.find(b => inBtn(b, mx, my));
+    if (!b) return;
+    Sound.sfx.click();
+    if (b.act === 'resume') state = 'play';
+    else if (b.act === 'retry') startLevel(currentLevel);
+    else if (b.act === 'map') state = 'map';
+    else if (b.act === 'sound') { Sound.toggle(); Sound.sfx.click(); }
+    return;
   }
 
   if (state === 'menu') {
@@ -556,6 +721,8 @@ canvas.addEventListener('click', e => {
     if (mx < 52 && my > 100 && my < H - 80) { menuIdx = Math.max(0, menuIdx - 1); return; }
     // Sağ ok
     if (mx > W - 52 && my > 100 && my < H - 80) { menuIdx = Math.min(MENU_CARDS.length - 1, menuIdx + 1); return; }
+    // Ses butonu (sol alt)
+    if (mx < 60 && my > H - 40) { Sound.toggle(); Sound.sfx.click(); return; }
     // DEV butonu (sağ alt)
     if (mx > W - 52 && my > H - 36) {
       devMode = !devMode;
@@ -564,14 +731,16 @@ canvas.addEventListener('click', e => {
     }
     // OYNA butonu (merkez kart, kilitli değilse)
     if (!isZoneLocked(menuIdx)) {
-      if (mx > W/2 - 65 && mx < W/2 + 65 && my > 450 && my < 494) { currentZone = menuIdx + 1; state = 'map'; return; }
+      if (mx > W/2 - 65 && mx < W/2 + 65 && my > 450 && my < 494) { Sound.sfx.click(); currentZone = menuIdx + 1; state = 'map'; return; }
     }
     return;
   }
 
-  if (state === 'levelcomplete' && levelCompleteType === 'boss' && victoryTime > 90) {
-    if (mx > W/2 - 100 && mx < W/2 + 100 && my > H - 145 && my < H - 95) {
+  if (state === 'levelcomplete' && victoryTime > RESULT_BTN_AT) {
+    if (inBtn(RESULT_BTN, mx, my)) {
+      Sound.sfx.click();
       returnToMap = false;
+      if (levelCompleteType === 'clear') { state = 'map'; return; }
       const zone = Math.ceil(currentLevel / 5);
       if (zone >= 1 && zone <= 3) {
         zoneTransIdx = zone - 1;
@@ -590,8 +759,8 @@ canvas.addEventListener('click', e => {
   }
 
   if (state === 'play') {
-    // Geri butonu (sol üst, HUD altı)
-    if (mx > 6 && mx < 58 && my > 44 && my < 70) { state = 'map'; return; }
+    // Durdurma butonu (sol üst)
+    if (mx < 48 && my < HUD_H) { Sound.sfx.click(); state = 'paused'; return; }
   }
 
   if (state === 'map') {
@@ -617,11 +786,13 @@ function startLevel(level) {
   asteroids = []; asteroidSpawnTimer = 0;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
+  levelIntroTimer = LEVEL_INTRO_TIME;
   // Zone 3: sis bulutları ekranı baştan kaplasın
   const _cfg = getLevelConfig();
   fogClouds = Array.from({ length: _cfg && _cfg.fog ? _cfg.fog : 0 }, () => makeFogCloud(Math.random() * H));
   // Zone 2 mechanics reset
-  fuel = FUEL_MAX;
+  crystals = []; crystalMeter = 0; overdriveTimer = 0;
+  combo = 0; comboTimer = 0; meteorTimer = 0; floatTexts = [];
   player.lane = 1; player.targetLane = 1;
   player.x = LANE_CENTERS[1];
   player.dead = false; player.deathTimer = 0; player.flash = 0;
@@ -682,7 +853,8 @@ function spawnDrone(x, phantom) {
 // Oyuncuya hasar — kalkan varsa emer
 function damagePlayer(cause) {
   if (player.dead) return;
-  if (player.shieldTimer > 0) { player.flash = 20; return; }
+  if (player.shieldTimer > 0) { player.flash = 20; Sound.sfx.shield(); return; }
+  Sound.sfx.hurt();
   lives--;
   player.flash = 50;
   if (lives <= 0) {
@@ -728,6 +900,7 @@ function spawnBoss(wave) {
   enemies = [];
   asteroids = []; // clear asteroids during boss fight
   lasers = [];
+  Sound.sfx.bossIn();
 }
 
 function spawnExplosion(x, y, big) {
@@ -747,8 +920,8 @@ function spawnExplosion(x, y, big) {
 
 function spawnPowerup(x, y) {
   if (currentZone === 2) {
-    if (Math.random() > 0.10) return;
-    const types = ['fuel', 'fuel', 'fuel', 'shield', 'triple', 'double', 'bomb'];
+    if (Math.random() > 0.06) return;
+    const types = ['shield', 'triple', 'double', 'bomb'];
     const type = types[Math.floor(Math.random() * types.length)];
     powerups.push({ type, x, y, speed: 1.8, bobTimer: 0 });
     return;
@@ -793,8 +966,8 @@ function spawnAsteroid(type, ox, oy, osize) {
     y: oy ?? -sz - 10,
     size: sz,
     speed: (osize ? 1.6 : 1.0) + Math.random() * 1.2,
-    hp: type === 'normal' ? Math.max(1, Math.floor(sz / 14)) : Infinity,
-    maxHp: type === 'normal' ? Math.max(1, Math.floor(sz / 14)) : 1,
+    hp: type === 'iron' ? Infinity : type === 'explosive' ? 1 : Math.max(1, Math.floor(sz / 14)),
+    maxHp: type === 'iron' ? 1 : type === 'explosive' ? 1 : Math.max(1, Math.floor(sz / 14)),
     vx: 0,
     rotation: Math.random() * Math.PI * 2,
     rotSpeed: (Math.random() - 0.5) * 0.032,
@@ -802,6 +975,61 @@ function spawnAsteroid(type, ox, oy, osize) {
     flash: 0,
     isFragment: !!osize,
   });
+}
+
+// --- Zone 2 yardımcıları ---
+function nearestLane(x) {
+  let best = 0;
+  LANE_CENTERS.forEach((lc, i) => { if (Math.abs(x - lc) < Math.abs(x - LANE_CENTERS[best])) best = i; });
+  return best;
+}
+function addFloat(x, y, text, color, big) { floatTexts.push({ x, y, text, color, big: !!big, t: 0 }); }
+function dropCrystals(x, y, n) {
+  for (let i = 0; i < n; i++) crystals.push({ x, y, vx: (Math.random() - 0.5) * 3.5, vy: 1.7 + Math.random() * 0.6, t: Math.random() * 100 });
+}
+// Demir kayanın arkasına saklanan düşman
+function spawnAmbusher(rock, lane) {
+  const cfg = getLevelConfig();
+  const hp = cfg ? cfg.hp() : 1;
+  const fireRate = hp === 3 ? 180 : hp === 2 ? 110 : 140;
+  enemies.push({
+    lane, x: rock.x, y: rock.y - 58, w: 38, h: 44,
+    hp, maxHp: hp, speed: (cfg ? cfg.speed() : 1.8) * 1.1, flash: 0,
+    fireTimer: 0, fireRate, canShoot: cfg ? cfg.canShoot : true,
+    zigzag: false, zigzagPhase: 0,
+    phantom: false, cloakT: 0, alpha: 1,
+    shiftAt: null, shiftTo: lane, curveShots: false,
+    escort: rock, breakAt: H * (0.22 + Math.random() * 0.16),
+    breakTo: lane === 1 ? (Math.random() < 0.5 ? 0 : 2) : 1,
+  });
+}
+// Kaya yok edildi: kombo puanı, kristal, parçalanma, patlama
+function destroyRock(a, frags, blasts) {
+  Sound.sfx.explode();
+  spawnExplosion(a.x, a.y, a.size > 22);
+  combo = Math.min(5, combo + 1); comboTimer = 110;
+  const pts = (a.size > 25 ? 20 : 10) * combo;
+  score += pts;
+  addFloat(a.x, a.y - 10, combo > 1 ? `+${pts}  x${combo}` : `+${pts}`, combo > 1 ? '#ffd040' : '#bfefff');
+  if (currentZone === 2 && !a.meteor) dropCrystals(a.x, a.y, a.isFragment ? 1 : a.size > 24 ? 3 : 2);
+  if (a.type === 'explosive') {
+    blasts.push({ x: a.x, y: a.y });
+    Sound.sfx.bomb();
+    for (let i = 0; i < 6; i++) spawnExplosion(a.x + Math.cos(i) * 50, a.y + Math.sin(i) * 50, true);
+    explosions.push({ x: a.x, y: a.y, vx: 0, vy: 0, life: 1, decay: 0.06, r: BLAST_R, color: 'rgba(255,120,40,0.25)', isBombFlash: true });
+  }
+  if (a.type === 'normal' && a.size > 24 && !a.isFragment) {
+    for (let f = 0; f < 2; f++) {
+      frags.push({
+        type: 'normal', x: a.x + (f ? 14 : -14), y: a.y,
+        size: a.size * 0.52, speed: a.speed * 1.3, hp: 1, maxHp: 1,
+        vx: 0, rotation: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.055,
+        shape: Array.from({ length: 8 }, () => 0.55 + Math.random() * 0.5),
+        flash: 0, isFragment: true,
+      });
+    }
+  }
 }
 
 // --- Draw: Zone 2 Background ---
@@ -905,7 +1133,8 @@ function drawZone4Background() {
 function drawLasers() {
   lasers.forEach(L => {
     const x = LANE_CENTERS[L.lane];
-    const top = boss ? boss.y + 40 : 0;
+    const top = boss ? boss.y + 40 : HUD_H;
+    if (L.meteor && L.t > L.warn) return; // meteorların kendisi çizilir
     ctx.save();
     if (L.t <= L.warn) {
       // Uyarı: yanıp sönen şerit + ünlem
@@ -935,6 +1164,13 @@ function drawLasers() {
 
 // --- Draw: Asteroid ---
 function drawAsteroid(a) {
+  if (a.meteor) {
+    // Meteor: arkasında alev izi
+    const tg = ctx.createLinearGradient(a.x, a.y - 110, a.x, a.y);
+    tg.addColorStop(0, 'rgba(255,90,20,0)'); tg.addColorStop(1, 'rgba(255,170,60,0.75)');
+    ctx.fillStyle = tg;
+    ctx.beginPath(); ctx.moveTo(a.x - a.size * 0.8, a.y); ctx.lineTo(a.x, a.y - 110); ctx.lineTo(a.x + a.size * 0.8, a.y); ctx.closePath(); ctx.fill();
+  }
   ctx.save();
   ctx.translate(a.x, a.y);
   ctx.rotate(a.rotation);
@@ -952,6 +1188,12 @@ function drawAsteroid(a) {
   if (a.type === 'iron') {
     ctx.fillStyle = '#4a5a6a';
     ctx.strokeStyle = '#8899aa'; ctx.lineWidth = 2.5;
+  } else if (a.type === 'explosive') {
+    // Patlayıcı kaya: kızgın kırmızı, nabız gibi parlayan
+    const pulse = 0.6 + 0.4 * Math.sin(frameCount * 0.2 + a.x);
+    ctx.fillStyle = '#7a1a10';
+    ctx.strokeStyle = `rgba(255,${90 + 60 * pulse},40,1)`; ctx.lineWidth = 2.5;
+    ctx.shadowColor = '#ff4020'; ctx.shadowBlur = 14 * pulse;
   } else if (currentZone === 4) {
     // Kara deliğe çekilen enkaz: koyu metal, sıcak kenar
     ctx.fillStyle = '#3a2a40';
@@ -961,6 +1203,15 @@ function drawAsteroid(a) {
     ctx.strokeStyle = '#9a7050'; ctx.lineWidth = 1.5;
   }
   ctx.fill(); ctx.stroke();
+  ctx.shadowBlur = 0;
+  if (a.type === 'explosive') {
+    // Çatlaklardan sızan ışık
+    ctx.strokeStyle = 'rgba(255,200,80,0.9)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(-r * 0.4, -r * 0.1); ctx.lineTo(0, r * 0.15); ctx.lineTo(r * 0.35, -r * 0.25); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, r * 0.15); ctx.lineTo(r * 0.05, r * 0.45); ctx.stroke();
+    ctx.restore();
+    return;
+  }
   // Highlight
   ctx.globalAlpha *= (a.type === 'iron' ? 0.45 : 0.55);
   ctx.fillStyle = a.type === 'iron' ? '#aabccc' : currentZone === 4 ? '#8a6a90' : '#c09060';
@@ -984,61 +1235,53 @@ function drawAsteroid(a) {
 }
 
 // --- Draw: Zone Transition ---
+const ZONE_COLORS = ['', '#4af', '#ffaa55', '#d58cff', '#ff7a4a'];
 function drawZoneTransition() {
   ctx.fillStyle = '#000008';
   ctx.fillRect(0, 0, W, H);
   drawStars();
 
+  const nextZone = zoneTransIdx + 2;
+  const col = ZONE_COLORS[nextZone];
+  const a = zoneTransAlpha;
   ctx.save();
+  ctx.globalAlpha = a;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
 
-  // Fade overlay
-  ctx.fillStyle = `rgba(0,0,8,${1 - zoneTransAlpha})`;
-  ctx.fillRect(0, 0, W, H);
+  // Başlık: sıradaki bölge
+  ctx.font = 'bold 12px Courier New';
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.fillText(`ZONE ${nextZone}`, W / 2, H * 0.24);
+  ctx.font = 'bold 30px Courier New';
+  ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 18;
+  ctx.fillText(MENU_CARDS[nextZone - 1].name.toUpperCase(), W / 2, H * 0.24 + 32);
+  ctx.shadowBlur = 0;
 
-  ctx.globalAlpha = zoneTransAlpha;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  // Mesaj — iki çizgi metnin gerçek yüksekliğine göre yerleşir
+  ctx.font = '18px Courier New';
+  ctx.fillStyle = '#fff';
+  const lineH = 28;
+  const cy = H * 0.53;
+  const textH = wrapText(ZONE_TRANSITION_MESSAGES[zoneTransIdx], W - 80).length * lineH + 30;
+  const pad = 26;
+  const top = cy - textH / 2 - pad, bot = cy + textH / 2 + pad;
+  const grd = ctx.createLinearGradient(40, 0, W - 40, 0);
+  grd.addColorStop(0, 'rgba(255,255,255,0)'); grd.addColorStop(0.5, col); grd.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.strokeStyle = grd; ctx.lineWidth = 1; ctx.globalAlpha = a * 0.6;
+  ctx.beginPath(); ctx.moveTo(40, top); ctx.lineTo(W - 40, top); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(40, bot); ctx.lineTo(W - 40, bot); ctx.stroke();
+  ctx.globalAlpha = a;
+  ctx.shadowColor = 'rgba(200,220,255,0.3)'; ctx.shadowBlur = 6;
+  drawWrapped(ZONE_TRANSITION_MESSAGES[zoneTransIdx], W / 2, cy, W - 80, lineH);
 
-  // Decorative separator line
-  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(40, H / 2 - 80); ctx.lineTo(W - 40, H / 2 - 80); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(40, H / 2 + 80); ctx.lineTo(W - 40, H / 2 + 80); ctx.stroke();
-
-  // Message text — word-wrapped
-  const text = ZONE_TRANSITION_MESSAGES[zoneTransIdx];
-  ctx.font = '20px Courier New';
-  ctx.fillStyle = '#ffffff';
-  ctx.shadowColor = 'rgba(200,220,255,0.35)';
-  ctx.shadowBlur = 8;
-
-  const maxWidth = W - 80;
-  const lineH = 32;
-  const words = text.split(' ');
-  const lines = [];
-  let cur = '';
-  words.forEach(w => {
-    const test = cur ? cur + ' ' + w : w;
-    if (ctx.measureText(test).width > maxWidth) { lines.push(cur); cur = w; }
-    else cur = test;
-  });
-  lines.push(cur);
-
-  const totalH = lines.length * lineH;
-  const startY = H / 2 - totalH / 2;
-  lines.forEach((line, i) => ctx.fillText(line, W / 2, startY + i * lineH));
-
-  // "Tap to continue" hint
   if (zoneTransPhase === 'show') {
     const pulse = 0.5 + 0.5 * Math.sin(frameCount * 0.06);
-    ctx.globalAlpha = zoneTransAlpha * pulse;
-    ctx.font = '11px Courier New';
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.globalAlpha = a * pulse;
+    ctx.font = 'bold 12px Courier New';
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.shadowBlur = 0;
-    ctx.fillText('TAP TO CONTINUE', W / 2, H - 38);
+    ctx.fillText('TAP TO CONTINUE', W / 2, H - 60);
   }
-
-  ctx.globalAlpha = 1;
   ctx.restore();
 }
 
@@ -1058,32 +1301,17 @@ function drawIntro() {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // Panel text — word-wrapped, large white
+  // Panel metni — cümle bazlı satır kırma
   const text = cinePanels[introPanelIdx];
   const isTheEnd = text === 'THE END';
-  ctx.font = isTheEnd ? 'bold 40px Courier New' : 'bold 22px Courier New';
-  if (isTheEnd) { ctx.fillStyle = '#ffe040'; ctx.shadowColor = '#ff8'; ctx.shadowBlur = 24; }
-  if (!isTheEnd) {
-    ctx.fillStyle = '#ffffff';
-    ctx.shadowColor = 'rgba(200,220,255,0.4)';
-    ctx.shadowBlur = 10;
+  if (isTheEnd) {
+    ctx.font = 'bold 40px Courier New';
+    ctx.fillStyle = '#ffe040'; ctx.shadowColor = '#ff8'; ctx.shadowBlur = 24;
+  } else {
+    ctx.font = 'bold 21px Courier New';
+    ctx.fillStyle = '#ffffff'; ctx.shadowColor = 'rgba(200,220,255,0.4)'; ctx.shadowBlur = 10;
   }
-
-  const maxWidth = W - 80;
-  const lineH = 36;
-  const words = text.split(' ');
-  const lines = [];
-  let cur = '';
-  words.forEach(w => {
-    const test = cur ? cur + ' ' + w : w;
-    if (ctx.measureText(test).width > maxWidth) { lines.push(cur); cur = w; }
-    else cur = test;
-  });
-  lines.push(cur);
-
-  const totalH = lines.length * lineH;
-  const startY = H / 2 - totalH / 2;
-  lines.forEach((line, i) => ctx.fillText(line, W / 2, startY + i * lineH));
+  drawWrapped(text, W / 2, H / 2, W - 70, 34);
 
   // Panel counter — bottom left
   ctx.shadowBlur = 0;
@@ -1147,6 +1375,14 @@ function drawShip(x, y) {
 
   // Hasar yanıp sönme
   ctx.globalAlpha = player.flash > 0 ? (Math.sin(player.flash * 1.5) > 0 ? 0.25 : 1) : 1;
+
+  // Overdrive: altın alev halesi
+  if (overdriveTimer > 0) {
+    const op = 0.6 + 0.4 * Math.sin(frameCount * 0.4);
+    const og = ctx.createRadialGradient(0, 10, 10, 0, 10, 60);
+    og.addColorStop(0, `rgba(255,200,60,${0.45 * op})`); og.addColorStop(1, 'rgba(255,140,0,0)');
+    ctx.fillStyle = og; ctx.beginPath(); ctx.arc(0, 10, 60, 0, Math.PI * 2); ctx.fill();
+  }
 
   // Spaceship görseli (altta)
   if (spaceshipImg.complete && spaceshipImg.naturalWidth > 0) {
@@ -1399,6 +1635,7 @@ function drawBullet(b) {
     triple: ['rgba(180,255,200,1)', 'rgba(0,220,100,0.8)'],  // yeşil
     double: ['rgba(255,255,80,1)',  'rgba(255,180,0,0.8)'],   // sarı
     normal: ['rgba(255,255,180,1)', 'rgba(0,220,255,0.8)'],   // mavi/beyaz
+    overdrive: ['rgba(255,250,200,1)', 'rgba(255,190,40,0.9)'], // altın
   };
   const color = BULLET_COLORS[b.color] ?? BULLET_COLORS.normal;
   const grd = ctx.createRadialGradient(0, 0, 0, 0, 0, 7);
@@ -1541,6 +1778,42 @@ function drawPowerup(p) {
   ctx.restore();
 }
 
+// --- Draw: Kristaller ---
+function drawCrystals() {
+  crystals.forEach(c => {
+    const bob = Math.sin(c.t * 0.15) * 0.25;
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.rotate(bob);
+    ctx.fillStyle = 'rgba(80,220,255,0.25)';
+    ctx.beginPath(); ctx.arc(0, 0, 11, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(0, -9); ctx.lineTo(6, 0); ctx.lineTo(0, 9); ctx.lineTo(-6, 0); ctx.closePath();
+    const g = ctx.createLinearGradient(-6, -9, 6, 9);
+    g.addColorStop(0, '#e8fbff'); g.addColorStop(0.5, '#4fd8ff'); g.addColorStop(1, '#9a6bff');
+    ctx.fillStyle = g; ctx.fill();
+    ctx.restore();
+  });
+}
+// --- Draw: Uçan puan yazıları ---
+function drawFloatTexts() {
+  ctx.save();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  floatTexts.forEach(f => {
+    const life = f.big ? 90 : 50;
+    ctx.globalAlpha = Math.min(1, (life - f.t) / 15);
+    ctx.font = f.big ? 'bold 30px Courier New' : 'bold 12px Courier New';
+    ctx.fillStyle = f.color;
+    if (f.big) { ctx.shadowColor = f.color; ctx.shadowBlur = 18; }
+    const sc = f.big ? 1 + 0.3 * Math.max(0, 1 - f.t / 12) : 1;
+    ctx.save(); ctx.translate(f.x, f.y); ctx.scale(sc, sc);
+    ctx.fillText(f.text, 0, 0);
+    ctx.restore();
+    ctx.shadowBlur = 0;
+  });
+  ctx.restore();
+}
+
 // --- Draw: Explosions ---
 function drawExplosions() {
   // shadowBlur per-particle yerine toplu: önce büyük glow circle'lar, sonra core circle'lar
@@ -1560,33 +1833,91 @@ function drawExplosions() {
 }
 
 // --- Draw: HUD ---
+// Bölüm hedefleri — bölüm başında kısa banner olarak gösterilir
+const LEVEL_TIPS = [
+  '',
+  "Swipe to change lanes. Don't let enemies pass!",
+  'Enemies shoot back now. Dodge the red shots!',
+  'Watch out for fast enemies!',
+  'Zigzag enemies. Time your shots!',
+  'Survive the waves, then defeat the boss!',
+  'Shoot rocks for crystals. Fill the bar for OVERDRIVE!',
+  'Ambush! Enemies hide behind grey iron rocks.',
+  'Meteor shower! Red lane warning means: move!',
+  'Red rocks explode. Use them to blow up enemies!',
+  'The Rock Titan! There is always one safe lane.',
+  "Fog hides enemies, but never their shots.",
+  "Phantoms turn invisible. Shots pass through them!",
+  'Thicker fog, tougher phantoms.',
+  'Zigzagging phantoms. Stay sharp!',
+  'Find and destroy the Command Center!',
+  'Gravity pulls enemies into other lanes.',
+  'Enemy shots now curve toward the center.',
+  'Debris is falling into the black hole. Dodge it!',
+  'Everything at once. Hold on!',
+  'Red warning = a beam is coming. Move!',
+];
+let levelIntroTimer = 0;
+const LEVEL_INTRO_TIME = 200;
+
+function drawHeart(x, y, r, filled) {
+  ctx.beginPath();
+  ctx.moveTo(x, y + r * 0.9);
+  ctx.bezierCurveTo(x - r * 1.6, y - r * 0.1, x - r * 0.7, y - r * 1.2, x, y - r * 0.35);
+  ctx.bezierCurveTo(x + r * 0.7, y - r * 1.2, x + r * 1.6, y - r * 0.1, x, y + r * 0.9);
+  ctx.closePath();
+  if (filled) { ctx.fillStyle = '#ff4d6d'; ctx.shadowColor = '#ff4d6d'; ctx.shadowBlur = 6; ctx.fill(); ctx.shadowBlur = 0; }
+  else { ctx.strokeStyle = 'rgba(255,77,109,0.45)'; ctx.lineWidth = 1.5; ctx.stroke(); }
+}
+
+const HUD_H = 46;
 function drawHUD() {
   ctx.save();
 
-  // Üst çubuk arka planı
-  ctx.fillStyle = 'rgba(0,0,20,0.55)';
-  ctx.fillRect(0, 0, W, 36);
+  // Üst bar
+  const tg = ctx.createLinearGradient(0, 0, 0, HUD_H);
+  tg.addColorStop(0, 'rgba(0,0,20,0.85)'); tg.addColorStop(1, 'rgba(0,0,20,0.35)');
+  ctx.fillStyle = tg; ctx.fillRect(0, 0, W, HUD_H);
+  ctx.fillStyle = 'rgba(0,200,255,0.18)'; ctx.fillRect(0, HUD_H, W, 1);
 
-  ctx.font = 'bold 19px Courier New';
-  ctx.textBaseline = 'middle';
-  ctx.shadowBlur = 8;
+  // Durdurma butonu (sol üst)
+  ctx.fillStyle = 'rgba(255,255,255,0.1)';
+  ctx.beginPath(); ctx.arc(24, 23, 15, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#cfefff';
+  ctx.fillRect(18.5, 16, 4, 14); ctx.fillRect(25.5, 16, 4, 14);
 
-  ctx.fillStyle = '#0ff';
-  ctx.shadowColor = '#0ff';
-  ctx.textAlign = 'left';
-  ctx.fillText('SCORE: ' + score, 12, 24);
+  // Skor
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  ctx.font = 'bold 9px Courier New'; ctx.fillStyle = 'rgba(160,220,255,0.6)';
+  ctx.fillText('SCORE', 50, 14);
+  ctx.font = 'bold 18px Courier New'; ctx.fillStyle = '#fff';
+  ctx.fillText(String(score), 50, 31);
 
+  // Orta: bölüm + dalga ilerlemesi
   ctx.textAlign = 'center';
-  const lvWave = Math.max(1, Math.min(5, getWave() - (currentLevel - 1) * 5));
-  ctx.fillText(boss ? `LV ${currentLevel}` : `WAVE ${lvWave}/5`, W / 2, 24);
+  ctx.font = 'bold 9px Courier New'; ctx.fillStyle = 'rgba(160,220,255,0.6)';
+  ctx.fillText(`LEVEL ${currentLevel}`, W / 2, 14);
+  if (boss) {
+    ctx.font = 'bold 14px Courier New'; ctx.fillStyle = '#ff6a88';
+    ctx.fillText('BOSS', W / 2, 31);
+  } else {
+    const lvT = Math.max(0, gameSec() - (currentLevel - 1) * 70);
+    const waves = currentLevel % 5 === 0 ? 4 : 5;
+    const segW = 16, gap = 4, total = waves * segW + (waves - 1) * gap;
+    for (let i = 0; i < waves; i++) {
+      const x = W / 2 - total / 2 + i * (segW + gap);
+      const fill = Math.max(0, Math.min(1, lvT / 14 - i));
+      ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(x, 27, segW, 6);
+      ctx.fillStyle = '#0cf'; ctx.fillRect(x, 27, segW * fill, 6);
+    }
+  }
 
-  ctx.textAlign = 'right';
-  const livesStr = '❤'.repeat(Math.max(0, lives)) + '🖤'.repeat(Math.max(0, 3 - lives));
-  ctx.fillText('LIVES: ' + livesStr, W - 12, 24);
+  // Canlar
+  for (let i = 0; i < 3; i++) drawHeart(W - 20 - i * 22, 23, 7, i < lives);
 
   // Boss HP barı
   if (boss) {
-    const bx = 64, by = 48, bw = W - 76, bh = 22;
+    const bx = 16, by = HUD_H + 8, bw = W - 32, bh = 16;
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.fillRect(bx, by, bw, bh);
     const bRatio = boss.hp / boss.maxHp;
@@ -1594,26 +1925,31 @@ function drawHUD() {
     const barColors = [['#aa00ff','#ff44ff','#cc44ff'], ['#cc0066','#ff44aa','#ff22aa'], ['#cc2200','#ff6600','#ff4400']];
     const [bc0, bc1, bshadow] = barColors[bPhase - 1];
     const bGrd = ctx.createLinearGradient(bx, 0, bx + bw, 0);
-    bGrd.addColorStop(0, bc0);
-    bGrd.addColorStop(1, bc1);
-    ctx.fillStyle = bGrd;
-    ctx.shadowColor = bshadow;
-    ctx.shadowBlur = 10;
+    bGrd.addColorStop(0, bc0); bGrd.addColorStop(1, bc1);
+    ctx.fillStyle = bGrd; ctx.shadowColor = bshadow; ctx.shadowBlur = 10;
     ctx.fillRect(bx, by, bw * bRatio, bh);
     ctx.shadowBlur = 0;
-    // Faz sınır çizgileri
     ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1;
-    [0.6, 0.3].forEach(pct => {
-      const lx = bx + bw * pct;
-      ctx.beginPath(); ctx.moveTo(lx, by); ctx.lineTo(lx, by + bh); ctx.stroke();
-    });
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 12px Courier New';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const phaseLabels = ['', ' ◆ PHASE 2', ' ◆◆ PHASE 3'];
+    [0.6, 0.3].forEach(pct => { const lx = bx + bw * pct; ctx.beginPath(); ctx.moveTo(lx, by); ctx.lineTo(lx, by + bh); ctx.stroke(); });
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 11px Courier New'; ctx.textAlign = 'center';
     const bName = boss.special ? BOSS_NAMES[boss.zone] : 'BOSS';
-    ctx.fillText(`★ ${bName}  ${boss.hp}/${boss.maxHp}${phaseLabels[bPhase-1]} ★`, W / 2, by + bh / 2);
+    ctx.fillText(`${bName}  ·  PHASE ${bPhase}`, W / 2, by + bh / 2 + 1);
+  }
+
+  // Zone 2: kristal / overdrive barı
+  if (currentZone === 2) {
+    const oy = boss ? HUD_H + 30 : HUD_H + 8, ox = 16, ow = W - 32, oh = 12;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(ox, oy, ow, oh);
+    const od = overdriveTimer > 0;
+    const fr = od ? overdriveTimer / OVERDRIVE_TIME : crystalMeter / CRYSTAL_MAX;
+    const og = ctx.createLinearGradient(ox, 0, ox + ow, 0);
+    if (od) { og.addColorStop(0, '#ff9a00'); og.addColorStop(1, '#ffe46a'); }
+    else { og.addColorStop(0, '#2fd6ff'); og.addColorStop(1, '#b07bff'); }
+    ctx.fillStyle = og; ctx.shadowColor = od ? '#ffb000' : '#5cf'; ctx.shadowBlur = od ? 12 : 4;
+    ctx.fillRect(ox, oy, ow * fr, oh);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 9px Courier New'; ctx.textAlign = 'center';
+    ctx.fillText(od ? '★ OVERDRIVE ★' : `◆ CRYSTALS ${crystalMeter}/${CRYSTAL_MAX}`, W / 2, oy + oh / 2 + 1);
   }
 
   // Aktif power-up göstergesi
@@ -1621,120 +1957,104 @@ function drawHUD() {
   if (player.shieldTimer > 0) active.push({ type: 'shield', timer: player.shieldTimer, color: '#29f', label: 'SHIELD' });
   if (player.tripleTimer > 0) active.push({ type: 'triple', timer: player.tripleTimer, color: '#0fa', label: 'TRIPLE SHOT' });
   if (player.doubleTimer > 0) active.push({ type: 'double', timer: player.doubleTimer, color: '#ff0', label: 'DOUBLE SHOT' });
-
   if (active.length > 0) {
     const barW = 90, barH = 10, pad = 8;
     const totalW = active.length * (barW + pad * 2 + 26) - pad;
     let sx = W / 2 - totalW / 2;
-
     active.forEach(a => {
-      // Icon
-      ctx.save();
-      ctx.translate(sx + 13, H - 22);
-      drawPowerupIcon(a.type, 8);
-      ctx.restore();
-
-      // Bar bg
-      ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      ctx.fillRect(sx + 26, H - 28, barW, barH);
-
-      // Bar fill
-      const ratio = a.timer / POWERUP_DURATION;
-      ctx.fillStyle = a.color;
-      ctx.shadowColor = a.color;
-      ctx.shadowBlur = 6;
+      ctx.save(); ctx.translate(sx + 13, H - 22); drawPowerupIcon(a.type, 8); ctx.restore();
+      ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(sx + 26, H - 28, barW, barH);
+      const ratio = Math.min(1, a.timer / POWERUP_DURATION);
+      ctx.fillStyle = a.color; ctx.shadowColor = a.color; ctx.shadowBlur = 6;
       ctx.fillRect(sx + 26, H - 28, barW * ratio, barH);
-
-      // Label
-      ctx.fillStyle = a.color;
-      ctx.font = '9px Courier New';
-      ctx.textAlign = 'left';
-      ctx.shadowBlur = 4;
-      ctx.fillText(a.label, sx + 26, H - 32);
-
+      ctx.fillStyle = a.color; ctx.font = '9px Courier New'; ctx.textAlign = 'left'; ctx.shadowBlur = 4;
+      ctx.fillText(a.label, sx + 26, H - 34);
       sx += barW + pad * 2 + 26;
     });
   }
 
-  // Geri butonu (sol üst, HUD'ın hemen altı)
-  ctx.fillStyle = 'rgba(255,255,255,0.08)';
-  ctx.fillRect(6, 44, 52, 26);
-  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(6, 44, 52, 26);
-  ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  ctx.font = 'bold 12px Courier New';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('◀ BACK', 32, 57);
-
-  // Zone 2 extras: fuel bar
-  if (currentZone === 2) {
-    const fby = boss ? 76 : 48, fbx = 64, fbw = W - 76, fbh = 14;
-    ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(fbx, fby, fbw, fbh);
-    const fr = fuel / FUEL_MAX;
-    const fc = fr > 0.5 ? '#44ff66' : fr > 0.25 ? '#ffcc00' : '#ff4444';
-    ctx.fillStyle = fc; ctx.shadowColor = fc; ctx.shadowBlur = fr < 0.25 ? 10 : 4;
-    ctx.fillRect(fbx, fby, fbw * fr, fbh);
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 8px Courier New';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(`⛽ FUEL  ${Math.ceil(fuel)}%`, W / 2, fby + fbh / 2);
-
+  // Bölüm başı banner'ı: hedef / ipucu
+  if (state === 'play' && levelIntroTimer > 0) {
+    const t = LEVEL_INTRO_TIME - levelIntroTimer;
+    const al = Math.min(1, t / 20, levelIntroTimer / 25);
+    const by = H * 0.36;
+    ctx.globalAlpha = al;
+    ctx.fillStyle = 'rgba(0,10,30,0.72)';
+    rrect(24, by - 46, W - 48, 92, 12); ctx.fill();
+    ctx.strokeStyle = ZONE_COLORS[currentZone]; ctx.lineWidth = 1.2;
+    rrect(24, by - 46, W - 48, 92, 12); ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 11px Courier New'; ctx.fillStyle = ZONE_COLORS[currentZone];
+    ctx.fillText(`${MENU_CARDS[currentZone - 1].name.toUpperCase()}  ·  LEVEL ${currentLevel}`, W / 2, by - 26);
+    ctx.font = 'bold 15px Courier New'; ctx.fillStyle = '#fff';
+    drawWrapped(LEVEL_TIPS[currentLevel] || '', W / 2, by + 10, W - 80, 20);
+    ctx.globalAlpha = 1;
   }
 
   ctx.restore();
 }
 
-// --- Draw: Overlay ---
+// --- Ekran butonu: çizim + dokunma alanı aynı tanımdan ---
+function drawButton(b, primary) {
+  ctx.save();
+  const g = ctx.createLinearGradient(b.x, b.y, b.x, b.y + b.h);
+  if (primary) { g.addColorStop(0, '#0088cc'); g.addColorStop(1, '#0050a0'); }
+  else { g.addColorStop(0, 'rgba(255,255,255,0.10)'); g.addColorStop(1, 'rgba(255,255,255,0.04)'); }
+  ctx.fillStyle = g;
+  if (primary) { ctx.shadowColor = '#0cf'; ctx.shadowBlur = 12; }
+  rrect(b.x, b.y, b.w, b.h, 10); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = primary ? 'rgba(120,220,255,0.9)' : 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1.2;
+  rrect(b.x, b.y, b.w, b.h, 10); ctx.stroke();
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 15px Courier New';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2 + 1);
+  ctx.restore();
+}
+const inBtn = (b, mx, my) => mx > b.x && mx < b.x + b.w && my > b.y && my < b.y + b.h;
+const BTN_W = 210, BTN_H = 46, BTN_X = W / 2 - 105;
+const GAMEOVER_BTNS = [
+  { label: 'RETRY',       x: BTN_X, y: H / 2 + 40,  w: BTN_W, h: BTN_H, act: 'retry' },
+  { label: 'BACK TO MAP', x: BTN_X, y: H / 2 + 100, w: BTN_W, h: BTN_H, act: 'map' },
+];
+const PAUSE_BTNS = [
+  { label: 'RESUME',      x: BTN_X, y: H / 2 - 70, w: BTN_W, h: BTN_H, act: 'resume' },
+  { label: 'RESTART',     x: BTN_X, y: H / 2 - 12, w: BTN_W, h: BTN_H, act: 'retry' },
+  { label: 'BACK TO MAP', x: BTN_X, y: H / 2 + 46, w: BTN_W, h: BTN_H, act: 'map' },
+  { label: 'SOUND',       x: BTN_X, y: H / 2 + 104, w: BTN_W, h: BTN_H, act: 'sound' },
+];
+
+// --- Draw: Overlay (oyun bitti) ---
 function drawOverlay(title, sub) {
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,20,0.8)';
+  ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ff5577'; ctx.font = 'bold 36px Courier New';
+  ctx.shadowColor = '#ff2255'; ctx.shadowBlur = 20;
+  ctx.fillText(title, W / 2, H / 2 - 110);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#fff'; ctx.font = '15px Courier New';
+  drawWrapped(sub, W / 2, H / 2 - 66, W - 60, 20);
+  ctx.font = 'bold 9px Courier New'; ctx.fillStyle = 'rgba(160,220,255,0.6)';
+  ctx.fillText('SCORE', W / 2, H / 2 - 22);
+  ctx.font = 'bold 24px Courier New'; ctx.fillStyle = '#0ff';
+  ctx.fillText(String(score), W / 2, H / 2 + 2);
+  ctx.restore();
+  GAMEOVER_BTNS.forEach((b, i) => drawButton(b, i === 0));
+}
+
+// --- Draw: Durdurma ekranı ---
+function drawPause() {
   ctx.save();
   ctx.fillStyle = 'rgba(0,0,20,0.78)';
   ctx.fillRect(0, 0, W, H);
-
-  ctx.fillStyle = '#0ff';
-  ctx.font = 'bold 36px Courier New';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.shadowColor = '#0ff';
-  ctx.shadowBlur = 20;
-  ctx.fillText(title, W / 2, H / 2 - 50);
-
-  ctx.fillStyle = '#fff';
-  ctx.font = '15px Courier New';
-  ctx.shadowBlur = 6;
-  ctx.fillText(sub, W / 2, H / 2 + 0);
-
-  if (state === 'start') {
-    ctx.fillStyle = '#adf';
-    ctx.font = '12px Courier New';
-    ctx.shadowBlur = 4;
-    const tips = [
-      '🛡 Blue shield = 5s invincibility',
-      '⚡ Yellow icon = 5s double shot',
-      '💣 Red bomb = destroys all enemies',
-    ];
-    tips.forEach((t, i) => ctx.fillText(t, W / 2, H / 2 + 32 + i * 20));
-  }
-
-  if (state === 'gameover') {
-    ctx.fillStyle = '#0ff';
-    ctx.font = '14px Courier New';
-    ctx.fillText('SCORE: ' + score, W / 2, H / 2 + 36);
-  }
-
-  // Haritaya dön butonu
-  const btnY = H / 2 + 58;
-  ctx.fillStyle = 'rgba(0,40,30,0.85)';
-  ctx.fillRect(W / 2 - 100, btnY - 20, 200, 40);
-  ctx.strokeStyle = 'rgba(0,255,200,0.7)';
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-  ctx.fillStyle = 'rgba(0,255,200,0.95)';
-  ctx.font = 'bold 15px Courier New';
-  ctx.shadowBlur = 6;
-  ctx.fillText('BACK TO MAP', W / 2, btnY + 1);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#0ff'; ctx.font = 'bold 34px Courier New';
+  ctx.shadowColor = '#0ff'; ctx.shadowBlur = 18;
+  ctx.fillText('PAUSED', W / 2, H / 2 - 140);
   ctx.restore();
+  PAUSE_BTNS.forEach((b, i) => drawButton(b.act === 'sound' ? { ...b, label: Sound.muted ? 'SOUND: OFF' : 'SOUND: ON' } : b, i === 0));
 }
 
 // --- Bomb: patlat hepsini ---
@@ -1789,24 +2109,25 @@ function update() {
   menuAnimX += (menuIdx * (W - 60) - menuAnimX) * 0.14;
 
   if (state === 'levelcomplete') {
-    if (levelCompleteType === 'clear') {
-      if (bossKillTimer > 0) { bossKillTimer--; if (bossKillTimer === 0) { state = 'map'; } }
-    } else {
-      // Boss zaferi: zamanı say, parçacıkları oluştur ve güncelle
-      victoryTime++;
-      const spawnCount = victoryTime < 90 ? 5 : victoryTime < 200 ? 2 : (victoryTime % 20 < 3 ? 2 : 0);
+    victoryTime++;
+    // Yıldızlar sırayla belirir
+    STAR_TIMES.forEach((t, i) => { if (victoryTime === t && i < levelStars) Sound.sfx.star(i); });
+    {
+      // Tek seferlik konfeti patlaması (boss zaferinde daha büyük)
+      const burst = levelCompleteType === 'boss' ? 70 : 34;
+      const spawnCount = victoryTime === 8 ? burst : 0;
       const VCOLORS = ['#ffe040','#00ffff','#ff44ff','#44ff88','#ff8800','#ffffff','#88aaff','#ffaaff'];
       for (let i = 0; i < spawnCount; i++) {
         const a = Math.random() * Math.PI * 2;
         const spd = 2.5 + Math.random() * 7;
         victoryParticles.push({
-          x: W * 0.2 + Math.random() * W * 0.6,
-          y: H * 0.25 + Math.random() * H * 0.45,
+          x: W / 2,
+          y: RESULT_CARD.y + 40,
           vx: Math.cos(a) * spd,
           vy: Math.sin(a) * spd - 3.5,
           life: 1,
-          decay: 0.006 + Math.random() * 0.014,
-          r: 2.5 + Math.random() * 6,
+          decay: 0.008 + Math.random() * 0.01,
+          r: 2 + Math.random() * 4,
           color: VCOLORS[Math.floor(Math.random() * VCOLORS.length)],
           star: Math.random() < 0.35,
         });
@@ -1824,7 +2145,11 @@ function update() {
   if (state !== 'play') return;
 
   // Tutorial progress on lane change
+  if (levelIntroTimer > 0) levelIntroTimer--;
+  if (frameCount % 8 === 0) Sound.musicStep(currentZone, !!boss);
+
   if (player.targetLane !== prevTargetLane) {
+    Sound.sfx.swipe();
     if (player.targetLane > prevTargetLane && tutorial && tutorial.step === 0) tutorial.step = 1;
     else if (player.targetLane < prevTargetLane && tutorial && tutorial.step === 1) { localStorage.setItem('ss_tutorial', '1'); tutorial = null; }
     prevTargetLane = player.targetLane;
@@ -1843,16 +2168,17 @@ function update() {
   // Death animation
   if (player.dead) {
     player.deathTimer++;
-    if (player.deathTimer > 80) state = 'gameover';
+    if (player.deathTimer > 80) { state = 'gameover'; Sound.sfx.gameover(); }
     return;
   }
 
   // Auto fire
   player.fireTimer++;
-  if (player.fireTimer >= player.fireRate) {
+  if (player.fireTimer >= (overdriveTimer > 0 ? 5 : player.fireRate)) {
     player.fireTimer = 0;
-    const bColor = player.tripleTimer > 0 ? 'triple' : player.doubleTimer > 0 ? 'double' : 'normal';
-    if (player.tripleTimer > 0) {
+    Sound.sfx.shoot();
+    const bColor = overdriveTimer > 0 ? 'overdrive' : player.tripleTimer > 0 ? 'triple' : player.doubleTimer > 0 ? 'double' : 'normal';
+    if (player.tripleTimer > 0 || overdriveTimer > 0) {
       bullets.push({ x: player.x - 13, y: player.y - 20, speed: 10, color: bColor });
       bullets.push({ x: player.x,      y: player.y - 28, speed: 10, color: bColor });
       bullets.push({ x: player.x + 13, y: player.y - 20, speed: 10, color: bColor });
@@ -1880,8 +2206,10 @@ function update() {
     levelStates[currentLevel - 1] = 'completed';
     levelStates[currentLevel] = 'unlocked';
     saveLevelStates();
-    bossKillTimer = 180;
     levelCompleteType = 'clear';
+    levelStars = Math.max(1, lives);
+    victoryTime = 0; victoryParticles = [];
+    Sound.sfx.clear();
     state = 'levelcomplete';
   }
 
@@ -1977,24 +2305,24 @@ function update() {
         }
         targets.forEach(l => eBullets.push(aimed(l, vy)));
       } else if (boss.zone === 2) {
-        // Zone 2 boss: fires asteroids + bullets by phase
+        // Rock Titan: her atışta 1 şerit daima güvenli; kayalar şerit ortasına düşer
         const phase = boss.phase || 1;
+        boss.nextFireIn = phase === 1 ? 72 + Math.random() * 18 : phase === 2 ? 58 + Math.random() * 14 : 46 + Math.random() * 12;
+        const safe = Math.floor(Math.random() * 3);
+        const danger = [0, 1, 2].filter(l => l !== safe).sort(() => Math.random() - 0.5);
+        const rock = (lane, type, spd) => {
+          spawnAsteroid(type, LANE_CENTERS[lane], boss.y + 50, type === 'iron' ? 24 : 18 + Math.random() * 8);
+          const ra = asteroids[asteroids.length - 1];
+          ra.speed = spd; ra.vx = 0; ra.rotSpeed = 0.02;
+        };
         if (phase === 1) {
-          boss.nextFireIn = 55 + Math.random() * 20;
-          spawnAsteroid('normal', boss.x + (Math.random()-0.5)*80, boss.y + 50, 18 + Math.random()*10);
-          asteroids[asteroids.length-1].speed = 3.5; asteroids[asteroids.length-1].vx = 0;
+          rock(danger[0], 'normal', 3.2);
         } else if (phase === 2) {
-          boss.nextFireIn = 40 + Math.random() * 15;
-          const atype = Math.random() < 0.45 ? 'iron' : 'normal';
-          spawnAsteroid(atype, boss.x + (Math.random()-0.5)*100, boss.y + 50, 20 + Math.random()*12);
-          asteroids[asteroids.length-1].speed = 4.0; asteroids[asteroids.length-1].vx = 0;
-          eBullets.push(mk(LANE_CENTERS[Math.floor(Math.random()*3)], 5.0));
+          rock(danger[0], Math.random() < 0.4 ? 'iron' : 'normal', 3.6);
+          eBullets.push(mk(LANE_CENTERS[danger[1]], 5.0));
         } else {
-          boss.nextFireIn = 22 + Math.random() * 10;
-          spawnAsteroid('normal', boss.x + (Math.random()-0.5)*60, boss.y + 50, 16 + Math.random()*8);
-          asteroids[asteroids.length-1].speed = 4.5; asteroids[asteroids.length-1].vx = 0;
-          eBullets.push(mk(LANE_CENTERS[Math.floor(Math.random()*3)], 6.0));
-          if (Math.random() < 0.4) eBullets.push(mk(LANE_CENTERS[Math.floor(Math.random()*3)], 5.5));
+          rock(danger[0], Math.random() < 0.35 ? 'iron' : 'normal', 4.0);
+          rock(danger[1], 'normal', 4.0);
         }
       } else if (boss.phase === 1) {
         // ── FAZ 1: tek mermi, yavaş ──
@@ -2060,6 +2388,7 @@ function update() {
       if (hit) {
         boss.hp--;
         boss.flash = 8;
+        Sound.sfx.hit();
         spawnExplosion(b.x, b.y, false);
         if (boss.hp <= 0) {
           for (let i = 0; i < 8; i++)
@@ -2082,7 +2411,8 @@ function update() {
           lasers = []; eBullets = [];
           saveLevelStates();
           boss = null;
-          bossKillTimer = 180;
+          levelStars = Math.max(1, lives);
+          Sound.sfx.bigBoom(); Sound.sfx.victory();
           levelCompleteType = 'boss';
           returnToMap = true;
           victoryTime = 0;
@@ -2097,6 +2427,18 @@ function update() {
   // Lazerler: uyarı süresi bitince ışın, oyuncu o şeritteyse tek sefer hasar
   lasers = lasers.filter(L => {
     L.t++;
+    if (L.t === 1 && L === lasers[0]) Sound.sfx.laserWarn();
+    if (L.meteor) {
+      // Meteor yağmuru: uyarıdan sonra şeritten 3 hızlı meteor geçer
+      if ([1, 10, 19].includes(L.t - L.warn)) {
+        spawnAsteroid('normal', LANE_CENTERS[L.lane], -30, 15 + Math.random() * 5);
+        const m = asteroids[asteroids.length - 1];
+        m.speed = 10; m.rotSpeed = 0.2; m.meteor = true;
+        if (L.t - L.warn === 1) Sound.sfx.explode();
+      }
+      return L.t <= L.warn + L.fire;
+    }
+    if (L.t === L.warn + 1 && L === lasers[0]) Sound.sfx.laserFire();
     if (L.t > L.warn && !L.hit && !player.dead && playerLaneNow() === L.lane) {
       L.hit = true;
       damagePlayer('Vaporized by the void beam!');
@@ -2112,16 +2454,18 @@ function update() {
     });
   }
 
-  // --- Zone 2 mechanics ---
-  if (currentZone === 2 && state === 'play' && !player.dead) {
-    // Fuel drain
-    fuel = Math.max(0, fuel - FUEL_DRAIN);
-    if (fuel <= 0) {
-      lives = 0;
-      deathCause = 'Out of fuel!';
-      player.dead = true;
-      spawnExplosion(player.x, player.y, true);
-      spawnExplosion(player.x + 15, player.y - 10, true);
+  // --- Zone 2: Asteroid Belt — kristal madenciliği, pusu, meteor yağmuru, patlayıcı kayalar ---
+  // Kombo süresi
+  if (comboTimer > 0 && --comboTimer === 0) combo = 0;
+  if (overdriveTimer > 0) overdriveTimer--;
+
+  // Meteor yağmuru (L8-L10): bir şerit uyarı verir, sonra hızlı meteorlar geçer
+  if (currentZone === 2 && !boss && state === 'play' && !player.dead && currentLevel >= 8) {
+    meteorTimer++;
+    const every = currentLevel === 8 ? 480 : 600;
+    if (meteorTimer >= every && !lasers.some(L => L.meteor)) {
+      meteorTimer = 0;
+      lasers.push({ lane: Math.floor(Math.random() * 3), t: 0, warn: 75, fire: 30, hit: true, meteor: true });
     }
   }
 
@@ -2140,67 +2484,65 @@ function update() {
 
   if ((currentZone === 2 || currentZone === 4) && state === 'play' && !player.dead) {
     // Asteroid spawning (zone 2)
-    if (currentZone === 2 && !boss) {
+    const levelEnd = currentLevel % 5 !== 0 && getWave() > currentLevel * 5;
+    if (currentZone === 2 && !boss && !levelEnd) {
       asteroidSpawnTimer++;
-      const astLvl = currentLevel - 5; // 1-4 for zone 2 levels 6-9
-      const astInterval = [55, 44, 35, 28][astLvl - 1] ?? 44;
+      const astLvl = Math.min(5, currentLevel - 5); // 1-5: L6-L10
+      const astInterval = [64, 60, 58, 56, 60][astLvl - 1];
       if (asteroidSpawnTimer >= astInterval) {
         asteroidSpawnTimer = 0;
+        const spd = [2.2, 2.4, 2.6, 2.8, 2.6][astLvl - 1];
         const ironCount = asteroids.filter(a => a.type === 'iron').length;
-        const canIron = ironCount < 2;
-        const spd = [2.2, 2.6, 3.0, 3.4][astLvl - 1] ?? 2.2;
+        const ironChance = [0.15, 0.4, 0.25, 0.25, 0.25][astLvl - 1];
+        let atype = (ironCount < 2 && Math.random() < ironChance) ? 'iron' : 'normal';
+        if (atype === 'normal' && currentLevel >= 9 && Math.random() < 0.3) atype = 'explosive';
 
-        // Ana asteroid — demir oranı artırıldı
-        let atype;
-        if (astLvl === 1) atype = (canIron && Math.random() < 0.30) ? 'iron' : 'normal';
-        else if (astLvl === 2) atype = (canIron && Math.random() < 0.45) ? 'iron' : 'normal';
-        else if (astLvl === 3) atype = (canIron && Math.random() < 0.55) ? 'iron' : 'normal';
-        else                   atype = (canIron && Math.random() < 0.60) ? 'iron' : 'normal';
         if (atype === 'iron') {
-          // Mevcut demir lane'lerini bul — yeni demir ekleyince en az 1 lane boş kalsın
+          // Yeni demir eklenince en az 1 şerit boş kalsın
           const ironLanes = new Set();
-          asteroids.forEach(a => {
-            if (a.type === 'iron') {
-              let ci = 0;
-              LANE_CENTERS.forEach((lc, li) => { if (Math.abs(a.x - lc) < Math.abs(a.x - LANE_CENTERS[ci])) ci = li; });
-              ironLanes.add(ci);
-            }
-          });
+          asteroids.forEach(a => { if (a.type === 'iron') ironLanes.add(nearestLane(a.x)); });
           const available = [0, 1, 2].filter(l => new Set([...ironLanes, l]).size < 3);
           if (available.length > 0) {
-            spawnAsteroid('iron', LANE_CENTERS[available[Math.floor(Math.random() * available.length)]]);
+            const lane = available[Math.floor(Math.random() * available.length)];
+            spawnAsteroid('iron', LANE_CENTERS[lane]);
+            const rock = asteroids[asteroids.length - 1];
+            rock.speed = spd; rock.rotSpeed = 0.01;
+            // Pusu (L7+): düşman demir kayanın arkasına saklanır, kaya ilerleyince yan şeride fırlar
+            if (currentLevel >= 7 && Math.random() < (currentLevel === 7 ? 0.75 : 0.45)) spawnAmbusher(rock, lane);
           } else {
-            atype = 'normal'; spawnAsteroid('normal');
+            spawnAsteroid('normal');
           }
         } else {
           spawnAsteroid(atype);
         }
-        { const a = asteroids[asteroids.length-1]; a.speed = spd; a.rotSpeed = 0; }
+        { const a = asteroids[asteroids.length - 1]; if (a.type !== 'iron') { a.speed = spd; a.rotSpeed = (Math.random() - 0.5) * 0.03; } }
 
-        // Ekstra normal asteroidler
-        const extraChances = [0.20, 0.35, 0.50, 0.65][astLvl - 1] ?? 0.35;
-        const tripleChance = [0,    0,    0.15, 0.30][astLvl - 1] ?? 0;
-        if (Math.random() < extraChances) {
+        // Ekstra normal kayalar (madencilik için)
+        const extra = [0.25, 0.15, 0.2, 0.25, 0.2][astLvl - 1];
+        if (Math.random() < extra) {
           spawnAsteroid('normal');
-          const a2 = asteroids[asteroids.length-1]; a2.speed = spd; a2.rotSpeed = 0;
-        }
-        if (Math.random() < tripleChance) {
-          spawnAsteroid('normal');
-          const a3 = asteroids[asteroids.length-1]; a3.speed = spd; a3.rotSpeed = 0;
+          const a2 = asteroids[asteroids.length - 1]; a2.speed = spd; a2.rotSpeed = 0.02;
         }
       }
     }
 
     // Asteroid update + collisions
     const newFragments = [];
+    const blasts = []; // patlayıcı kaya patlamaları
     asteroids = asteroids.filter(a => {
       a.y += a.speed;
       a.rotation += a.rotSpeed;
       if (a.flash > 0) a.flash--;
       if (a.y > H + 60 || a.x < -60 || a.x > W + 60) return false;
+      if (a.blasted) { destroyRock(a, newFragments, blasts); return false; }
 
-      // Bullet collision
-      if (a.type !== 'iron') {
+      if (a.type === 'iron') {
+        // Demir kaya: kırılmaz ve mermileri durdurur (siper)
+        bullets = bullets.filter(b => {
+          if (Math.hypot(b.x - a.x, b.y - a.y) < a.size * 0.9) { a.flash = 4; spawnExplosion(b.x, b.y, false); return false; }
+          return true;
+        });
+      } else if (!a.meteor) { // meteorlar mermiyle kırılmaz — tek çare kaçmak
         let hit = false;
         bullets = bullets.filter(b => {
           if (hit) return true;
@@ -2208,48 +2550,74 @@ function update() {
             a.hp--;
             a.flash = 10;
             spawnExplosion(b.x, b.y, false);
-            if (a.hp <= 0) {
-              hit = true;
-              spawnExplosion(a.x, a.y, a.size > 22);
-              score += a.size > 25 ? 20 : 10;
-              if (a.type === 'normal' && a.size > 24 && !a.isFragment) {
-                for (let f = 0; f < 2; f++) {
-                  const ns = a.size * 0.52;
-                  const n2 = 8;
-                  newFragments.push({
-                    type: 'normal', x: a.x, y: a.y,
-                    size: ns, speed: a.speed * 1.3, hp: 1, maxHp: 1,
-                    vx: 0, rotation: Math.random()*Math.PI*2,
-                    rotSpeed: (Math.random()-0.5)*0.055,
-                    shape: Array.from({length: n2}, () => 0.55 + Math.random()*0.5),
-                    flash: 0, isFragment: true,
-                  });
-                }
-                if (currentZone === 2 && Math.random() < 0.10) powerups.push({ type: 'fuel', x: a.x, y: a.y, speed: 1.6, bobTimer: 0 });
-              }
-            }
+            if (a.hp <= 0) hit = true;
             return false;
           }
           return true;
         });
-        if (hit) return false;
+        if (hit) { destroyRock(a, newFragments, blasts); return false; }
       }
-      // Iron asteroids: bullets pass through (invincible, but doesn't block shots)
 
-      // Player collision
+      // Player collision (bir meteor yağmuru en fazla 1 can alır)
       if (!player.dead && Math.abs(a.x - player.x) < a.size + 16 && Math.abs(a.y - player.y) < a.size + 16) {
         spawnExplosion(a.x, a.y, true);
-        damagePlayer('Hit by an asteroid!');
+        if (!(a.meteor && frameCount < meteorImmuneUntil)) {
+          damagePlayer(a.meteor ? 'Hit by a meteor!' : 'Hit by an asteroid!');
+          if (a.meteor) meteorImmuneUntil = frameCount + 45;
+        }
         return false;
       }
       return true;
     });
     asteroids.push(...newFragments);
+
+    // Patlayıcı kaya: yakındaki düşmanları ve kayaları da patlatır (zincirleme)
+    blasts.forEach(bl => {
+      enemies.forEach(e => {
+        if (Math.hypot(e.x - bl.x, e.y - bl.y) < BLAST_R) {
+          e.hp = 0; score += e.maxHp * 10 * Math.max(1, combo);
+          spawnExplosion(e.x, e.y, true);
+          addFloat(e.x, e.y - 20, `+${e.maxHp * 10 * Math.max(1, combo)}`, '#ff8844');
+        }
+      });
+      enemies = enemies.filter(e => e.hp > 0);
+      asteroids.forEach(a => { if (a.type !== 'iron' && Math.hypot(a.x - bl.x, a.y - bl.y) < BLAST_R) a.blasted = true; });
+    });
   }
 
-  // Normal spawn — boss savaşında, level bitiş bekleme aşamasında ve zone 2'de durur
+  // Kristaller: düşer, overdrive'da gemiye çekilir, toplanınca barı doldurur
+  crystals = crystals.filter(c => {
+    c.t++;
+    if (overdriveTimer > 0 || Math.hypot(c.x - player.x, c.y - player.y) < 90) {
+      const dx = player.x - c.x, dy = player.y - c.y, d = Math.hypot(dx, dy) || 1;
+      c.x += dx / d * 7; c.y += dy / d * 7;
+    } else {
+      c.x += c.vx; c.vx *= 0.94;
+      c.y += c.vy;
+    }
+    if (c.y > H + 20) return false;
+    if (!player.dead && Math.abs(c.x - player.x) < 34 && Math.abs(c.y - player.y) < 40) {
+      score += 5;
+      Sound.sfx.crystal();
+      if (overdriveTimer === 0) {
+        crystalMeter = Math.min(CRYSTAL_MAX, crystalMeter + 1);
+        if (crystalMeter >= CRYSTAL_MAX) {
+          crystalMeter = 0;
+          overdriveTimer = OVERDRIVE_TIME;
+          Sound.sfx.powerup();
+          addFloat(W / 2, H * 0.45, 'OVERDRIVE!', '#ffd040', true);
+        }
+      }
+      return false;
+    }
+    return true;
+  });
+
+  floatTexts = floatTexts.filter(f => { f.t++; f.y -= f.big ? 0.4 : 0.9; return f.t < (f.big ? 90 : 50); });
+
+  // Normal spawn — boss savaşında ve level bitiş bekleme aşamasında durur
   const levelEnding = currentLevel !== currentZone * 5 && getWave() > currentLevel * 5;
-  if (!boss && !levelEnding && currentZone !== 2) {
+  if (!boss && !levelEnding) {
     spawnTimer++;
     const cfg      = getLevelConfig();
     const interval = cfg ? cfg.interval      : getSpawnInterval();
@@ -2267,6 +2635,10 @@ function update() {
   powerups = powerups.filter(p => {
     p.y += p.speed;
     p.bobTimer++;
+    // Güçlendirmeler her zaman bir şeridin ortasına kayar (zikzak düşmandan düşse bile)
+    let nl = 0;
+    LANE_CENTERS.forEach((lc, i) => { if (Math.abs(p.x - lc) < Math.abs(p.x - LANE_CENTERS[nl])) nl = i; });
+    p.x += (LANE_CENTERS[nl] - p.x) * 0.2;
     if (p.y > H + 20) return false;
 
     // Oyuncu topladı mı?
@@ -2279,10 +2651,9 @@ function update() {
         player.doubleTimer = POWERUP_DURATION;
       } else if (p.type === 'bomb') {
         activateBomb();
-      } else if (p.type === 'fuel') {
-        fuel = Math.min(FUEL_MAX, fuel + 28);
       }
       // Toplama efekti
+      if (p.type === 'bomb') Sound.sfx.bomb(); else Sound.sfx.powerup();
       spawnCollectEffect(p.x, p.y, POWERUP_COLORS[p.type]);
       return false;
     }
@@ -2298,6 +2669,8 @@ function update() {
     b.x += b.vx;
     b.y += b.vy;
     if (b.y > H + 10) return false;
+    // Demir kayalar düşman mermisini de durdurur
+    if (currentZone === 2 && asteroids.some(a => a.type === 'iron' && Math.hypot(b.x - a.x, b.y - a.y) < a.size)) return false;
 
     if (!player.dead && Math.abs(b.x - player.x) < 24 && Math.abs(b.y - player.y) < 40) {
       damagePlayer('Your ship was destroyed!');
@@ -2308,6 +2681,15 @@ function update() {
 
   // Enemies
   enemies = enemies.filter(e => {
+    // Pusu: demir kayanın arkasında saklanır (bu sırada vurulamaz, ateş etmez)
+    if (e.escort) {
+      if (asteroids.includes(e.escort) && e.escort.y < e.breakAt) {
+        e.y = e.escort.y - 58; e.x = e.escort.x;
+        return true;
+      }
+      e.escort = null; e.lane = e.breakTo; e.shifting = 40;
+      if (e.canShoot) e.fireTimer = e.fireRate - 25;
+    }
     e.y += e.speed;
     // Black Hole: çekim düşmanı komşu şeride savurur
     if (e.shiftAt !== null && e.y > e.shiftAt) { e.lane = e.shiftTo; e.shiftAt = null; e.shifting = 40; }
@@ -2355,10 +2737,12 @@ function update() {
         e.flash = 14;
         if (e.hp <= 0) {
           spawnExplosion(e.x, e.y, true);
+          Sound.sfx.explode();
           score += e.maxHp * 10;
           spawnPowerup(e.x, e.y);
         } else {
           spawnExplosion(e.x, e.y, false);
+          Sound.sfx.hit();
         }
       }
       return !hit;
@@ -2605,6 +2989,14 @@ function drawMenu() {
   ctx.textAlign = 'center';
   ctx.fillText('DEV', W - 30, H - 19);
 
+  // Ses butonu (sol alt köşe)
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  ctx.fillRect(8, H - 36, 52, 26);
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.strokeRect(8, H - 36, 52, 26);
+  ctx.fillStyle = Sound.muted ? 'rgba(255,255,255,0.35)' : '#0cf';
+  ctx.fillText(Sound.muted ? '♪ OFF' : '♪ ON', 34, H - 22);
+
   ctx.restore();
 }
 
@@ -2728,6 +3120,97 @@ function spawnCollectEffect(x, y, color) {
   }
 }
 
+// --- Draw: Bölüm sonucu (normal bölüm ve boss zaferi aynı kart) ---
+const RESULT_CARD = { x: 30, y: H / 2 - 190, w: W - 60, h: 360 };
+const RESULT_BTN  = { label: 'CONTINUE  ▶', x: BTN_X, y: H / 2 + 92, w: BTN_W, h: BTN_H };
+const STAR_TIMES  = [34, 46, 58];
+const RESULT_BTN_AT = 75;
+function drawStarShape(x, y, r) {
+  ctx.beginPath();
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 - Math.PI / 2, b2 = a + Math.PI / 5;
+    i === 0 ? ctx.moveTo(x + Math.cos(a) * r, y + Math.sin(a) * r) : ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+    ctx.lineTo(x + Math.cos(b2) * r * 0.45, y + Math.sin(b2) * r * 0.45);
+  }
+  ctx.closePath();
+}
+function drawResult() {
+  const vt = victoryTime;
+  const isBoss = levelCompleteType === 'boss';
+  const accent = isBoss ? '#ffd040' : '#0cf';
+  const ease = t => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
+  const appear = ease(vt / 22);
+  const C = RESULT_CARD;
+
+  ctx.save();
+  ctx.fillStyle = `rgba(0,0,12,${0.78 * appear})`;
+  ctx.fillRect(0, 0, W, H);
+
+  // Kart
+  ctx.globalAlpha = appear;
+  ctx.translate(W / 2, C.y + C.h / 2);
+  const sc = 0.88 + 0.12 * appear;
+  ctx.scale(sc, sc);
+  ctx.translate(-W / 2, -(C.y + C.h / 2));
+  const g = ctx.createLinearGradient(0, C.y, 0, C.y + C.h);
+  g.addColorStop(0, '#0c1838'); g.addColorStop(1, '#050a1c');
+  ctx.fillStyle = g;
+  ctx.shadowColor = accent; ctx.shadowBlur = 24;
+  rrect(C.x, C.y, C.w, C.h, 18); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = accent; ctx.lineWidth = 1.5;
+  rrect(C.x, C.y, C.w, C.h, 18); ctx.stroke();
+
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = 'bold 11px Courier New'; ctx.fillStyle = 'rgba(200,230,255,0.65)';
+  const label = isBoss ? `${BOSS_NAMES[currentZone]} DEFEATED` : `${MENU_CARDS[currentZone - 1].name.toUpperCase()} · LEVEL ${currentLevel}`;
+  ctx.fillText(label, W / 2, C.y + 34);
+  ctx.font = 'bold 28px Courier New'; ctx.fillStyle = '#fff';
+  ctx.shadowColor = accent; ctx.shadowBlur = 14;
+  ctx.fillText(isBoss ? (currentLevel === LEVEL_COUNT ? 'VICTORY!' : 'ZONE CLEAR!') : 'LEVEL CLEAR!', W / 2, C.y + 70);
+  ctx.shadowBlur = 0;
+
+  // Yıldızlar: kalan can sayısı kadar dolu
+  [-1, 0, 1].forEach((k, i) => {
+    const sx = W / 2 + k * 64, sy = C.y + 140 - (k === 0 ? 10 : 0);
+    const pop = vt - STAR_TIMES[i];
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    drawStarShape(sx, sy, 26); ctx.fill();
+    if (i < levelStars && pop > 0) {
+      const s2 = pop < 10 ? 0.5 + 0.8 * Math.sin(pop / 10 * Math.PI * 0.75) : 1;
+      ctx.save(); ctx.translate(sx, sy); ctx.scale(s2, s2);
+      ctx.fillStyle = '#ffd040'; ctx.shadowColor = '#ffb000'; ctx.shadowBlur = 16;
+      drawStarShape(0, 0, 26); ctx.fill();
+      ctx.restore();
+    }
+  });
+
+  // Skor sayacı
+  const countT = Math.min(1, Math.max(0, (vt - 20) / 45));
+  ctx.font = 'bold 10px Courier New'; ctx.fillStyle = 'rgba(160,220,255,0.6)';
+  ctx.fillText('SCORE', W / 2, C.y + 196);
+  ctx.font = 'bold 34px Courier New'; ctx.fillStyle = '#fff';
+  ctx.fillText(String(Math.round(score * ease(countT))), W / 2, C.y + 228);
+  ctx.restore();
+
+  // Konfeti
+  ctx.save();
+  victoryParticles.forEach(p => {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    if (p.star) { drawStarShape(p.x, p.y, p.r * 1.4); ctx.fill(); }
+    else { ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill(); }
+  });
+  ctx.restore();
+
+  if (vt > RESULT_BTN_AT) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, (vt - RESULT_BTN_AT) / 15);
+    drawButton(RESULT_BTN, true);
+    ctx.restore();
+  }
+}
+
 // --- Render ---
 function render() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -2752,6 +3235,7 @@ function render() {
   drawExplosions();
 
   asteroids.forEach(drawAsteroid);
+  drawCrystals();
   powerups.forEach(drawPowerup);
   bullets.forEach(drawBullet);
   enemies.forEach(drawEnemy);
@@ -2760,154 +3244,18 @@ function render() {
   drawLasers();
   eBullets.forEach(drawEBullet);
 
-  if ((state === 'play' || state === 'gameover') && !player.dead) {
+  if ((state === 'play' || state === 'paused' || state === 'gameover') && !player.dead) {
     drawShip(player.x, player.y);
   }
 
+  drawFloatTexts();
   if (state === 'play' && tutorial) drawTutorial();
 
 
   if (state === 'gameover') drawOverlay('GAME OVER', deathCause || 'The enemy reached the ship!');
 
-  if (state === 'levelcomplete') {
-    if (levelCompleteType === 'clear') {
-      // Sade bölüm tamamlama ekranı
-      const t = 1 - bossKillTimer / 180;
-      const fadeIn = Math.min(1, t * 5);
-      ctx.save();
-      ctx.fillStyle = `rgba(0,0,15,${Math.min(0.82, t * 2)})`;
-      ctx.fillRect(0, 0, W, H);
-      ctx.globalAlpha = fadeIn;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = 'bold 13px Courier New';
-      ctx.fillStyle = '#ffee88'; ctx.shadowColor = '#ff8'; ctx.shadowBlur = 10;
-      ctx.fillText(`LEVEL ${currentLevel}`, W / 2, H / 2 - 50);
-      ctx.font = 'bold 26px Courier New';
-      ctx.fillStyle = '#fff'; ctx.shadowColor = '#0ff'; ctx.shadowBlur = 22;
-      ctx.fillText('AREA CLEARED!', W / 2, H / 2);
-      ctx.font = '14px Courier New'; ctx.fillStyle = '#0ff'; ctx.shadowBlur = 8;
-      ctx.fillText('SCORE: ' + score, W / 2, H / 2 + 44);
-      ctx.font = '11px Courier New'; ctx.fillStyle = '#446'; ctx.shadowBlur = 0;
-      ctx.fillText('Returning to map...', W / 2, H / 2 + 80);
-      ctx.restore();
-
-    } else {
-      // ── BOSS ZAFERİ: GÖRKEMLI EKRAN ──
-      const vt = victoryTime;
-
-      // Koyu arka plan
-      ctx.save();
-      ctx.fillStyle = 'rgba(0,0,10,0.88)';
-      ctx.fillRect(0, 0, W, H);
-
-      // Zafer parçacıkları — shadowBlur yok, glow katmanlı circle ile
-      ctx.save();
-      victoryParticles.forEach(p => {
-        ctx.globalAlpha = Math.max(0, p.life) * 0.28;
-        ctx.fillStyle = p.color;
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 2.5, 0, Math.PI * 2); ctx.fill();
-      });
-      victoryParticles.forEach(p => {
-        ctx.globalAlpha = Math.max(0, p.life);
-        ctx.fillStyle = p.color;
-        if (p.star) {
-          ctx.save(); ctx.translate(p.x, p.y);
-          ctx.beginPath();
-          for (let i = 0; i < 5; i++) {
-            const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
-            const b = a + Math.PI / 5;
-            i === 0 ? ctx.moveTo(Math.cos(a)*p.r, Math.sin(a)*p.r) : ctx.lineTo(Math.cos(a)*p.r, Math.sin(a)*p.r);
-            ctx.lineTo(Math.cos(b)*p.r*0.4, Math.sin(b)*p.r*0.4);
-          }
-          ctx.closePath(); ctx.fill();
-          ctx.restore();
-        } else {
-          ctx.beginPath(); ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2); ctx.fill();
-        }
-      });
-      ctx.globalAlpha = 1;
-      ctx.restore();
-
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-
-      // "BÖLÜM X" küçük etiket — fade in
-      const labelAlpha = Math.min(1, vt / 30);
-      ctx.save();
-      ctx.globalAlpha = labelAlpha;
-      ctx.font = 'bold 13px Courier New';
-      ctx.fillStyle = '#ffee44'; ctx.shadowColor = '#ff8'; ctx.shadowBlur = 12;
-      ctx.fillText(currentLevel === LEVEL_COUNT ? 'THE VOID LEADER HAS FALLEN' : `LEVEL ${currentLevel}  ·  BOSS DEFEATED`, W / 2, H / 2 - 130);
-      ctx.restore();
-
-      // "BÖLGE TEMİZLENDİ!" — bounce animasyonu
-      const titleProgress = Math.min(1, vt / 45);
-      const bounce = titleProgress < 0.6
-        ? 1 + 0.55 * Math.sin(titleProgress * Math.PI / 0.6)
-        : 1 + 0.08 * Math.sin((vt - 27) * 0.18);
-      const titleAlpha = Math.min(1, vt / 20);
-      ctx.save();
-      ctx.globalAlpha = titleAlpha;
-      ctx.translate(W / 2, H / 2 - 62);
-      ctx.scale(bounce, bounce);
-      ctx.font = 'bold 32px Courier New';
-      const tGrd = ctx.createLinearGradient(-160, -20, 160, 20);
-      tGrd.addColorStop(0,   '#ffe040');
-      tGrd.addColorStop(0.5, '#ffffff');
-      tGrd.addColorStop(1,   '#00ffff');
-      ctx.fillStyle = tGrd;
-      ctx.shadowColor = '#ffe040'; ctx.shadowBlur = 30;
-      ctx.fillText('AREA CLEARED!', 0, 0);
-      ctx.restore();
-
-      // Yıldız süslemeler
-      if (vt > 40) {
-        const starAlpha = Math.min(1, (vt - 40) / 30);
-        ctx.save(); ctx.globalAlpha = starAlpha;
-        [W/2 - 130, W/2 + 130].forEach(sx => {
-          ctx.font = '28px Courier New';
-          ctx.fillStyle = '#ffe040'; ctx.shadowColor = '#ff8'; ctx.shadowBlur = 16;
-          ctx.fillText('★', sx, H / 2 - 62);
-        });
-        ctx.restore();
-      }
-
-      // Skor
-      if (vt > 55) {
-        const scoreAlpha = Math.min(1, (vt - 55) / 25);
-        ctx.save(); ctx.globalAlpha = scoreAlpha;
-        ctx.font = 'bold 15px Courier New';
-        ctx.fillStyle = '#aaddff'; ctx.shadowColor = '#0cf'; ctx.shadowBlur = 10;
-        ctx.fillText('TOTAL SCORE', W / 2, H / 2 + 5);
-        ctx.font = 'bold 38px Courier New';
-        ctx.fillStyle = '#ffffff'; ctx.shadowColor = '#0ff'; ctx.shadowBlur = 24;
-        ctx.fillText(score, W / 2, H / 2 + 50);
-        ctx.restore();
-      }
-
-      // Haritaya dön butonu
-      if (vt > 90) {
-        const btnAlpha = Math.min(1, (vt - 90) / 30);
-        const btnPulse = 0.8 + 0.2 * Math.sin(vt * 0.08);
-        const bx = W / 2 - 100, by = H - 145;
-        ctx.save(); ctx.globalAlpha = btnAlpha * btnPulse;
-        const bGrd = ctx.createLinearGradient(bx, by, bx, by + 50);
-        bGrd.addColorStop(0, '#005599');
-        bGrd.addColorStop(1, '#002244');
-        ctx.fillStyle = bGrd;
-        ctx.shadowColor = '#0cf'; ctx.shadowBlur = 18;
-        rrect(bx, by, 200, 50, 12); ctx.fill();
-        ctx.strokeStyle = '#0cf'; ctx.lineWidth = 1.5;
-        rrect(bx, by, 200, 50, 12); ctx.stroke();
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 15px Courier New';
-        ctx.globalAlpha = btnAlpha;
-        ctx.fillText(currentLevel === LEVEL_COUNT ? 'CONTINUE  ▶' : 'RETURN TO MENU  ▶', W / 2, by + 25);
-        ctx.restore();
-      }
-
-      ctx.restore();
-    }
-  }
+  if (state === 'levelcomplete') drawResult();
+  if (state === 'paused') { drawHUD(); drawPause(); return; }
 
   drawHUD();
 }
@@ -2937,6 +3285,9 @@ if (BOSS_MODE) {
 }
 
 requestAnimationFrame(loop);
+
+// Uygulama arka plana geçince oyunu durdur
+document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play') state = 'paused'; });
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js');
