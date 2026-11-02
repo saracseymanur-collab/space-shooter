@@ -2847,25 +2847,9 @@ function drawCardArt(i, cx, CY, CW) {
 const UI_FONT = "'Orbitron', 'Courier New', monospace";
 const MONO_FONT = "'Share Tech Mono', 'Courier New', monospace";
 const SECTOR_COLORS = ['#3fd3ff', '#ffc531', '#ff4fd8', '#ff7a2f'];
-const SHIP_TINTS = [null, '#ffd23a', '#ff3048', '#5cff4a']; // kartlardaki gemi renkleri
 // Kart görselleri (yoksa çizimle yedeklenir)
 const CARD_IMG_SRC = ['ASSETS/cards/deep-space.jpg', null, null, null];
 const cardImgs = CARD_IMG_SRC.map(src => { if (!src) return null; const im = new Image(); im.src = src; return im; });
-const tintedShips = {};
-function getTintedShip(i) {
-  const tint = SHIP_TINTS[i];
-  if (!tint || !spaceshipImg.complete || !spaceshipImg.naturalWidth) return spaceshipImg;
-  if (!tintedShips[i]) {
-    const c = document.createElement('canvas');
-    c.width = spaceshipImg.naturalWidth; c.height = spaceshipImg.naturalHeight;
-    const g = c.getContext('2d');
-    g.drawImage(spaceshipImg, 0, 0);
-    g.globalCompositeOperation = 'source-atop';
-    g.globalAlpha = 0.62; g.fillStyle = tint; g.fillRect(0, 0, c.width, c.height);
-    tintedShips[i] = c;
-  }
-  return tintedShips[i];
-}
 // Harf aralıklı metin; maxW'ya sığmazsa yazı küçülür
 function drawSpaced(text, x, y, size, weight, family, spacing, maxW, align = 'center') {
   let sz = size;
@@ -2959,20 +2943,6 @@ function drawMenu() {
     ctx.strokeStyle = col; ctx.globalAlpha = 0.7; ctx.lineWidth = 1.2; ctx.stroke();
     ctx.globalAlpha = 1;
 
-    // Gemi + motor alevleri
-    const shipY = ay + ah - 78;
-    if (!locked && spaceshipImg.complete && spaceshipImg.naturalWidth) {
-      const flick = 0.75 + 0.25 * Math.sin(frameCount * 0.5 + i);
-      [[-15, 30], [0, 42], [15, 30]].forEach(([fx, fl]) => {
-        const fg = ctx.createLinearGradient(0, shipY + 30, 0, shipY + 30 + fl * flick);
-        fg.addColorStop(0, i === 0 ? 'rgba(160,230,255,0.95)' : SHIP_TINTS[i]);
-        fg.addColorStop(1, 'rgba(0,120,255,0)');
-        ctx.fillStyle = fg;
-        ctx.beginPath(); ctx.moveTo(cx + CW / 2 + fx - 5, shipY + 30); ctx.lineTo(cx + CW / 2 + fx + 5, shipY + 30);
-        ctx.lineTo(cx + CW / 2 + fx, shipY + 30 + fl * flick); ctx.closePath(); ctx.fill();
-      });
-      ctx.drawImage(getTintedShip(i), cx + CW / 2 - 42, shipY - 42, 84, 84);
-    }
     if (locked) {
       // Kilit
       const lx = cx + CW / 2, ly = ay + ah / 2;
