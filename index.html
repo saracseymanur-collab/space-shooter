@@ -300,7 +300,6 @@ let state = 'intro';
 
 // --- Tutorial ---
 let tutorial = localStorage.getItem('ss_tutorial') ? null : { step: 0 }; // 0=swipe right, 1=swipe left
-let score = 0;
 let lives = 3;
 let spawnTimer = 0;
 let frameCount = 0;
@@ -372,7 +371,6 @@ let crystalMeter = 0;
 const CRYSTAL_MAX = 14;
 let overdriveTimer = 0;
 const OVERDRIVE_TIME = 360; // 6 sn
-let combo = 0, comboTimer = 0;
 let meteorTimer = 0;
 let meteorImmuneUntil = 0;
 let floatTexts = [];
@@ -781,7 +779,7 @@ canvas.addEventListener('click', e => {
 function startLevel(level) {
   currentLevel = level;
   currentZone = Math.ceil(level / 5);
-  score = 0; lives = 3;
+  lives = 3;
   spawnTimer = 0;
   frameCount     = (level - 1) * 4200;
   lastWaveForBoss = (level - 1) * 5;
@@ -795,7 +793,7 @@ function startLevel(level) {
   fogClouds = Array.from({ length: _cfg && _cfg.fog ? _cfg.fog : 0 }, () => makeFogCloud(Math.random() * H));
   // Zone 2 mechanics reset
   crystals = []; crystalMeter = 0; overdriveTimer = 0;
-  combo = 0; comboTimer = 0; meteorTimer = 0; floatTexts = [];
+  meteorTimer = 0; floatTexts = [];
   player.lane = 1; player.targetLane = 1;
   player.x = LANE_CENTERS[1];
   player.dead = false; player.deathTimer = 0; player.flash = 0;
@@ -1010,10 +1008,6 @@ function spawnAmbusher(rock, lane) {
 function destroyRock(a, frags, blasts) {
   Sound.sfx.explode();
   spawnExplosion(a.x, a.y, a.size > 22);
-  combo = Math.min(5, combo + 1); comboTimer = 110;
-  const pts = (a.size > 25 ? 20 : 10) * combo;
-  score += pts;
-  addFloat(a.x, a.y - 10, combo > 1 ? `+${pts}  x${combo}` : `+${pts}`, combo > 1 ? '#ffd040' : '#bfefff');
   if (currentZone === 2 && !a.meteor) dropCrystals(a.x, a.y, a.isFragment ? 1 : a.size > 24 ? 3 : 2);
   if (a.type === 'explosive') {
     blasts.push({ x: a.x, y: a.y });
@@ -2166,14 +2160,10 @@ function drawOverlay(title, sub) {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillStyle = '#ff5577'; ctx.font = 'bold 36px Courier New';
   ctx.shadowColor = '#ff2255'; ctx.shadowBlur = 20;
-  ctx.fillText(title, W / 2, H / 2 - 110);
+  ctx.fillText(title, W / 2, H / 2 - 80);
   ctx.shadowBlur = 0;
   ctx.fillStyle = '#fff'; ctx.font = '15px Courier New';
-  drawWrapped(sub, W / 2, H / 2 - 66, W - 60, 20);
-  ctx.font = 'bold 9px Courier New'; ctx.fillStyle = 'rgba(160,220,255,0.6)';
-  ctx.fillText('SCORE', W / 2, H / 2 - 22);
-  ctx.font = 'bold 24px Courier New'; ctx.fillStyle = '#0ff';
-  ctx.fillText(String(score), W / 2, H / 2 + 2);
+  drawWrapped(sub, W / 2, H / 2 - 30, W - 60, 20);
   ctx.restore();
   GAMEOVER_BTNS.forEach((b, i) => drawButton(b, i === 0));
 }
@@ -2195,7 +2185,6 @@ function drawPause() {
 function activateBomb() {
   enemies.forEach(e => {
     spawnExplosion(e.x, e.y, true);
-    score += e.maxHp * 10;
   });
   // Büyük ekran flaşı
   explosions.push({ x: W / 2, y: H / 2, vx: 0, vy: 0, life: 1, decay: 0.04, r: 260, color: 'rgba(255,80,80,0.18)', isBombFlash: true });
@@ -2527,7 +2516,6 @@ function update() {
         if (boss.hp <= 0) {
           for (let i = 0; i < 8; i++)
             spawnExplosion(boss.x + (Math.random() - 0.5) * 130, boss.y + (Math.random() - 0.5) * 80, true);
-          score += 300 + boss.bossNum * 200;
           levelStates[currentLevel - 1] = 'completed';
           const _zll = currentZone * 5;
           if (currentLevel < _zll) {
@@ -2589,8 +2577,6 @@ function update() {
   }
 
   // --- Zone 2: Asteroid Belt — kristal madenciliği, pusu, meteor yağmuru, patlayıcı kayalar ---
-  // Kombo süresi
-  if (comboTimer > 0 && --comboTimer === 0) combo = 0;
   if (overdriveTimer > 0) overdriveTimer--;
 
   // Meteor yağmuru (L8-L10): bir şerit uyarı verir, sonra hızlı meteorlar geçer
@@ -2709,9 +2695,8 @@ function update() {
     blasts.forEach(bl => {
       enemies.forEach(e => {
         if (Math.hypot(e.x - bl.x, e.y - bl.y) < BLAST_R) {
-          e.hp = 0; score += e.maxHp * 10 * Math.max(1, combo);
+          e.hp = 0;
           spawnExplosion(e.x, e.y, true);
-          addFloat(e.x, e.y - 20, `+${e.maxHp * 10 * Math.max(1, combo)}`, '#ff8844');
         }
       });
       enemies = enemies.filter(e => e.hp > 0);
@@ -2731,7 +2716,6 @@ function update() {
     }
     if (c.y > H + 20) return false;
     if (!player.dead && Math.abs(c.x - player.x) < 34 && Math.abs(c.y - player.y) < 40) {
-      score += 5;
       Sound.sfx.crystal();
       if (overdriveTimer === 0) {
         crystalMeter = Math.min(CRYSTAL_MAX, crystalMeter + 1);
@@ -2872,8 +2856,7 @@ function update() {
         if (e.hp <= 0) {
           spawnExplosion(e.x, e.y, true);
           Sound.sfx.explode();
-          score += e.maxHp * 10;
-          spawnPowerup(e.x, e.y);
+                spawnPowerup(e.x, e.y);
         } else {
           spawnExplosion(e.x, e.y, false);
           Sound.sfx.hit();
@@ -3327,8 +3310,8 @@ function spawnCollectEffect(x, y, color) {
 }
 
 // --- Draw: Bölüm sonucu (normal bölüm ve boss zaferi aynı kart) ---
-const RESULT_CARD = { x: 30, y: H / 2 - 190, w: W - 60, h: 360 };
-const RESULT_BTN  = { label: 'CONTINUE  ▶', x: BTN_X, y: H / 2 + 92, w: BTN_W, h: BTN_H };
+const RESULT_CARD = { x: 30, y: H / 2 - 190, w: W - 60, h: 280 };
+const RESULT_BTN  = { label: 'CONTINUE  ▶', x: BTN_X, y: H / 2 + 10, w: BTN_W, h: BTN_H };
 const STAR_TIMES  = [34, 46, 58];
 const RESULT_BTN_AT = 75;
 function drawStarShape(x, y, r) {
@@ -3391,12 +3374,6 @@ function drawResult() {
     }
   });
 
-  // Skor sayacı
-  const countT = Math.min(1, Math.max(0, (vt - 20) / 45));
-  ctx.font = 'bold 10px Courier New'; ctx.fillStyle = 'rgba(160,220,255,0.6)';
-  ctx.fillText('SCORE', W / 2, C.y + 196);
-  ctx.font = 'bold 34px Courier New'; ctx.fillStyle = '#fff';
-  ctx.fillText(String(Math.round(score * ease(countT))), W / 2, C.y + 228);
   ctx.restore();
 
   // Konfeti
