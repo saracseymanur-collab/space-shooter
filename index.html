@@ -1448,6 +1448,17 @@ function drawShip(x, y) {
     ctx.fillStyle = og; ctx.beginPath(); ctx.arc(0, 10, 60, 0, Math.PI * 2); ctx.fill();
   }
 
+  // Motor alevleri
+  const fl = 0.75 + 0.25 * Math.sin(frameCount * 0.6);
+  [[-15, 22, 30], [0, 34, 44], [15, 22, 30]].forEach(([fx, fy, len]) => {
+    const fg = ctx.createLinearGradient(0, fy, 0, fy + len * fl);
+    fg.addColorStop(0, 'rgba(200,240,255,0.95)');
+    fg.addColorStop(0.35, 'rgba(70,170,255,0.8)');
+    fg.addColorStop(1, 'rgba(30,90,255,0)');
+    ctx.fillStyle = fg;
+    ctx.beginPath(); ctx.moveTo(fx - 4.5, fy); ctx.lineTo(fx + 4.5, fy); ctx.lineTo(fx, fy + len * fl); ctx.closePath(); ctx.fill();
+  });
+
   // Spaceship görseli (altta)
   if (spaceshipImg.complete && spaceshipImg.naturalWidth > 0) {
     ctx.drawImage(spaceshipImg, -SHIP_W / 2, -SHIP_H / 2, SHIP_W, SHIP_H);
@@ -1817,26 +1828,25 @@ function drawPowerup(p) {
   ctx.save();
   ctx.translate(p.x, p.y + bob);
 
-  // Glow
+  // Altıgen rozet: koyu dolgu + parlayan kenar
   const glow = POWERUP_GLOW[p.type];
-  const grd = ctx.createRadialGradient(0, 0, 4, 0, 0, 22);
+  const grd = ctx.createRadialGradient(0, 0, 4, 0, 0, 26);
   grd.addColorStop(0, glow[0]);
   grd.addColorStop(1, glow[1]);
   ctx.fillStyle = grd;
-  ctx.beginPath();
-  ctx.arc(0, 0, 22, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Ring
+  ctx.globalAlpha = 0.6;
+  ctx.beginPath(); ctx.arc(0, 0, 26, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1;
+  ngonPath(0, 0, 19, 6, -Math.PI / 2);
+  ctx.fillStyle = 'rgba(6,14,30,0.85)'; ctx.fill();
   ctx.strokeStyle = color;
   ctx.lineWidth = 2;
   ctx.shadowColor = color;
   ctx.shadowBlur = 12;
-  ctx.beginPath();
-  ctx.arc(0, 0, 15, 0, Math.PI * 2);
   ctx.stroke();
+  ctx.shadowBlur = 0;
 
-  // Icon (scaled to fit circle)
+  // İkon
   drawPowerupIcon(p.type, 10);
 
   ctx.restore();
@@ -1934,56 +1944,116 @@ function drawHeart(x, y, r, filled) {
   else { ctx.strokeStyle = 'rgba(255,77,109,0.45)'; ctx.lineWidth = 1.5; ctx.stroke(); }
 }
 
-const HUD_H = 46;
+const HUD_H = 50;
+const HUD_COL = '#3fd3ff';
+const HUD_FILL = 'rgba(4,14,30,0.78)';
+// Düzgün çokgen (altıgen / sekizgen) yolu
+function ngonPath(x, y, r, n, rot = 0) {
+  ctx.beginPath();
+  for (let k = 0; k < n; k++) {
+    const a = rot + k / n * Math.PI * 2;
+    k ? ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r) : ctx.moveTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+  }
+  ctx.closePath();
+}
+function hudPanel(pts, glow) {
+  ctx.beginPath();
+  pts.forEach(([x, y], k) => k ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+  ctx.closePath();
+  ctx.fillStyle = HUD_FILL; ctx.fill();
+  ctx.strokeStyle = HUD_COL; ctx.lineWidth = 1.5;
+  if (glow) { ctx.shadowColor = HUD_COL; ctx.shadowBlur = 8; }
+  ctx.stroke(); ctx.shadowBlur = 0;
+}
+// Ekran kenarı neon çerçevesi (oyun alanını sarar, dikkat dağıtmayacak kadar soluk)
+function drawScreenFrame() {
+  ctx.save();
+  ctx.strokeStyle = HUD_COL; ctx.lineWidth = 1.2; ctx.globalAlpha = 0.45;
+  const m = 4, c = 16;
+  ctx.beginPath();
+  ctx.moveTo(m + c, m); ctx.lineTo(W - m - c, m); ctx.lineTo(W - m, m + c);
+  ctx.lineTo(W - m, 150); ctx.lineTo(W - m - 6, 160); ctx.lineTo(W - m - 6, H - 240); ctx.lineTo(W - m, H - 230);
+  ctx.lineTo(W - m, H - m - c); ctx.lineTo(W - m - c, H - m); ctx.lineTo(m + c, H - m); ctx.lineTo(m, H - m - c);
+  ctx.lineTo(m, H - 230); ctx.lineTo(m + 6, H - 240); ctx.lineTo(m + 6, 160); ctx.lineTo(m, 150);
+  ctx.lineTo(m, m + c); ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
+}
+// Alt köşe altıgen slotu: ikon + süre halkası + isteğe bağlı sayı rozeti
+function drawSlot(x, y, type, ratio, color, badge) {
+  const active = ratio > 0;
+  ngonPath(x, y, 27, 6, 0);
+  ctx.fillStyle = HUD_FILL; ctx.fill();
+  ctx.strokeStyle = active ? color : 'rgba(63,211,255,0.4)'; ctx.lineWidth = 1.8;
+  if (active) { ctx.shadowColor = color; ctx.shadowBlur = 12; }
+  ctx.stroke(); ctx.shadowBlur = 0;
+  // Süre halkası
+  if (active) {
+    ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(x, y, 21, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, ratio)); ctx.stroke();
+    ctx.lineCap = 'butt';
+  }
+  ctx.save(); ctx.translate(x, y); ctx.globalAlpha = active ? 1 : 0.3;
+  if (type === 'bolt') {
+    ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = active ? 8 : 0;
+    ctx.beginPath();
+    ctx.moveTo(4, -14); ctx.lineTo(-8, 2); ctx.lineTo(-1, 2); ctx.lineTo(-5, 14); ctx.lineTo(8, -3); ctx.lineTo(1, -3); ctx.closePath(); ctx.fill();
+    ctx.shadowBlur = 0;
+  } else {
+    drawPowerupIcon(type, 13);
+  }
+  ctx.restore();
+  if (badge != null) {
+    ctx.fillStyle = '#04101e'; ctx.strokeStyle = HUD_COL; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(x + 20, y - 20, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.font = `bold 10px ${MONO_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(badge), x + 20, y - 19);
+  }
+}
+
 function drawHUD() {
   ctx.save();
+  drawScreenFrame();
+  ctx.textBaseline = 'middle';
 
-  // Üst bar
-  const tg = ctx.createLinearGradient(0, 0, 0, HUD_H);
-  tg.addColorStop(0, 'rgba(0,0,20,0.85)'); tg.addColorStop(1, 'rgba(0,0,20,0.35)');
-  ctx.fillStyle = tg; ctx.fillRect(0, 0, W, HUD_H);
-  ctx.fillStyle = 'rgba(0,200,255,0.18)'; ctx.fillRect(0, HUD_H, W, 1);
+  // Durdurma: sekizgen buton
+  ngonPath(28, 30, 18, 8, Math.PI / 8);
+  ctx.fillStyle = HUD_FILL; ctx.fill();
+  ctx.strokeStyle = HUD_COL; ctx.lineWidth = 1.6; ctx.stroke();
+  ctx.fillStyle = '#cfefff'; ctx.fillRect(22, 23, 4, 14); ctx.fillRect(30, 23, 4, 14);
 
-  // Durdurma butonu (sol üst)
-  ctx.fillStyle = 'rgba(255,255,255,0.1)';
-  ctx.beginPath(); ctx.arc(24, 23, 15, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#cfefff';
-  ctx.fillRect(18.5, 16, 4, 14); ctx.fillRect(25.5, 16, 4, 14);
-
-  // Skor
-  ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-  ctx.font = 'bold 9px Courier New'; ctx.fillStyle = 'rgba(160,220,255,0.6)';
-  ctx.fillText('SCORE', 50, 14);
-  ctx.font = 'bold 18px Courier New'; ctx.fillStyle = '#fff';
-  ctx.fillText(String(score), 50, 31);
-
-  // Orta: bölüm + dalga ilerlemesi
-  ctx.textAlign = 'center';
-  ctx.font = 'bold 9px Courier New'; ctx.fillStyle = 'rgba(160,220,255,0.6)';
-  ctx.fillText(`LEVEL ${currentLevel}`, W / 2, 14);
-  if (boss) {
-    ctx.font = 'bold 14px Courier New'; ctx.fillStyle = '#ff6a88';
-    ctx.fillText('BOSS', W / 2, 31);
-  } else {
-    const lvT = Math.max(0, gameSec() - (currentLevel - 1) * 70);
-    const waves = currentLevel % 5 === 0 ? 4 : 5;
-    const segW = 16, gap = 4, total = waves * segW + (waves - 1) * gap;
-    for (let i = 0; i < waves; i++) {
-      const x = W / 2 - total / 2 + i * (segW + gap);
-      const fill = Math.max(0, Math.min(1, lvT / 14 - i));
-      ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(x, 27, segW, 6);
-      ctx.fillStyle = '#0cf'; ctx.fillRect(x, 27, segW * fill, 6);
-    }
+  // Can paneli: kalp + segmentler
+  hudPanel([[58, 22], [66, 14], [150, 14], [162, 26], [162, 32], [154, 44], [66, 44], [58, 36]]);
+  drawHeart(78, 30, 7, true);
+  for (let k = 0; k < 3; k++) {
+    const sx = 94 + k * 20;
+    ctx.beginPath(); ctx.moveTo(sx + 4, 24); ctx.lineTo(sx + 18, 24); ctx.lineTo(sx + 14, 36); ctx.lineTo(sx, 36); ctx.closePath();
+    ctx.fillStyle = k < lives ? '#ff5c7a' : 'rgba(255,92,122,0.15)';
+    if (k < lives) { ctx.shadowColor = '#ff3a5c'; ctx.shadowBlur = 6; }
+    ctx.fill(); ctx.shadowBlur = 0;
   }
 
-  // Canlar
-  for (let i = 0; i < 3; i++) drawHeart(W - 20 - i * 22, 23, 7, i < lives);
+  // Skor paneli + yıldız
+  hudPanel([[W - 168, 14], [W - 24, 14], [W - 12, 26], [W - 12, 34], [W - 22, 44], [W - 156, 44], [W - 172, 28]]);
+  ctx.fillStyle = '#eaf6ff'; ctx.textAlign = 'right';
+  ctx.font = `700 15px ${UI_FONT}`;
+  ctx.fillText(score.toLocaleString('en-US'), W - 44, 30);
+  ctx.fillStyle = '#ffd040'; ctx.shadowColor = '#ffb000'; ctx.shadowBlur = 8;
+  drawStarShape(W - 30, 29, 8); ctx.fill(); ctx.shadowBlur = 0;
+
+  // Ortada bölüm etiketi
+  ctx.textAlign = 'center';
+  ctx.strokeStyle = 'rgba(63,211,255,0.5)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(164, 29); ctx.lineTo(W - 174, 29); ctx.stroke();
+  ctx.fillStyle = '#03040d'; ctx.fillRect(W / 2 - 22, 22, 44, 14);
+  ctx.fillStyle = 'rgba(160,225,255,0.85)';
+  ctx.font = `500 10px ${MONO_FONT}`;
+  ctx.fillText(boss ? 'BOSS' : `LV ${currentLevel}`, W / 2, 29);
 
   // Boss HP barı
   if (boss) {
-    const bx = 16, by = HUD_H + 8, bw = W - 32, bh = 16;
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(bx, by, bw, bh);
+    const bx = 16, by = HUD_H + 6, bw = W - 32, bh = 20;
+    hudPanel([[bx + 8, by], [bx + bw - 8, by], [bx + bw, by + 8], [bx + bw - 8, by + bh], [bx + 8, by + bh], [bx, by + 8]]);
     const bRatio = boss.hp / boss.maxHp;
     const bPhase = boss.phase || 1;
     const barColors = [['#aa00ff','#ff44ff','#cc44ff'], ['#cc0066','#ff44aa','#ff22aa'], ['#cc2200','#ff6600','#ff4400']];
@@ -1991,66 +2061,69 @@ function drawHUD() {
     const bGrd = ctx.createLinearGradient(bx, 0, bx + bw, 0);
     bGrd.addColorStop(0, bc0); bGrd.addColorStop(1, bc1);
     ctx.fillStyle = bGrd; ctx.shadowColor = bshadow; ctx.shadowBlur = 10;
-    ctx.fillRect(bx, by, bw * bRatio, bh);
+    ctx.fillRect(bx + 8, by + 4, (bw - 16) * bRatio, bh - 8);
     ctx.shadowBlur = 0;
-    ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1;
-    [0.6, 0.3].forEach(pct => { const lx = bx + bw * pct; ctx.beginPath(); ctx.moveTo(lx, by); ctx.lineTo(lx, by + bh); ctx.stroke(); });
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 11px Courier New'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#fff'; ctx.font = `700 9px ${UI_FONT}`; ctx.textAlign = 'center';
+    ctx.shadowColor = '#000'; ctx.shadowBlur = 4;
     const bName = boss.special ? BOSS_NAMES[boss.zone] : 'BOSS';
     ctx.fillText(`${bName}  ·  PHASE ${bPhase}`, W / 2, by + bh / 2 + 1);
-  }
-
-  // Zone 2: kristal / overdrive barı
-  if (currentZone === 2) {
-    const oy = boss ? HUD_H + 30 : HUD_H + 8, ox = 16, ow = W - 32, oh = 12;
-    ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(ox, oy, ow, oh);
-    const od = overdriveTimer > 0;
-    const fr = od ? overdriveTimer / OVERDRIVE_TIME : crystalMeter / CRYSTAL_MAX;
-    const og = ctx.createLinearGradient(ox, 0, ox + ow, 0);
-    if (od) { og.addColorStop(0, '#ff9a00'); og.addColorStop(1, '#ffe46a'); }
-    else { og.addColorStop(0, '#2fd6ff'); og.addColorStop(1, '#b07bff'); }
-    ctx.fillStyle = og; ctx.shadowColor = od ? '#ffb000' : '#5cf'; ctx.shadowBlur = od ? 12 : 4;
-    ctx.fillRect(ox, oy, ow * fr, oh);
     ctx.shadowBlur = 0;
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 9px Courier New'; ctx.textAlign = 'center';
-    ctx.fillText(od ? '★ OVERDRIVE ★' : `◆ CRYSTALS ${crystalMeter}/${CRYSTAL_MAX}`, W / 2, oy + oh / 2 + 1);
   }
 
-  // Aktif power-up göstergesi
-  const active = [];
-  if (player.shieldTimer > 0) active.push({ type: 'shield', timer: player.shieldTimer, color: '#29f', label: 'SHIELD' });
-  if (player.tripleTimer > 0) active.push({ type: 'triple', timer: player.tripleTimer, color: '#0fa', label: 'TRIPLE SHOT' });
-  if (player.doubleTimer > 0) active.push({ type: 'double', timer: player.doubleTimer, color: '#ff0', label: 'DOUBLE SHOT' });
-  if (active.length > 0) {
-    const barW = 90, barH = 10, pad = 8;
-    const totalW = active.length * (barW + pad * 2 + 26) - pad;
-    let sx = W / 2 - totalW / 2;
-    active.forEach(a => {
-      ctx.save(); ctx.translate(sx + 13, H - 22); drawPowerupIcon(a.type, 8); ctx.restore();
-      ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(sx + 26, H - 28, barW, barH);
-      const ratio = Math.min(1, a.timer / POWERUP_DURATION);
-      ctx.fillStyle = a.color; ctx.shadowColor = a.color; ctx.shadowBlur = 6;
-      ctx.fillRect(sx + 26, H - 28, barW * ratio, barH);
-      ctx.fillStyle = a.color; ctx.font = '9px Courier New'; ctx.textAlign = 'left'; ctx.shadowBlur = 4;
-      ctx.fillText(a.label, sx + 26, H - 34);
-      sx += barW + pad * 2 + 26;
-    });
+  // Alt orta: bölüm ilerlemesi (dalgalar) — zone 2'de kristal barı
+  {
+    const bx = 92, bw = W - 184, by = H - 40, bh = 16;
+    hudPanel([[bx + 8, by], [bx + bw, by], [bx + bw - 8, by + bh], [bx, by + bh]]);
+    let segs, fill, col;
+    if (currentZone === 2 && overdriveTimer > 0) { segs = 10; fill = overdriveTimer / OVERDRIVE_TIME; col = '#ffc531'; }
+    else if (currentZone === 2) { segs = CRYSTAL_MAX / 2; fill = crystalMeter / CRYSTAL_MAX; col = '#7fe6ff'; }
+    else {
+      const lvT = Math.max(0, gameSec() - (currentLevel - 1) * 70);
+      segs = currentLevel % 5 === 0 ? 4 : 5;
+      fill = boss ? 1 : Math.min(1, lvT / (14 * segs));
+      col = HUD_COL;
+    }
+    const inner = bw - 22, sw = inner / segs;
+    for (let k = 0; k < segs; k++) {
+      const f = Math.max(0, Math.min(1, fill * segs - k));
+      const sx = bx + 12 + k * sw;
+      ctx.beginPath(); ctx.moveTo(sx + 4, by + 4); ctx.lineTo(sx + sw - 2, by + 4); ctx.lineTo(sx + sw - 6, by + bh - 4); ctx.lineTo(sx, by + bh - 4); ctx.closePath();
+      ctx.fillStyle = 'rgba(63,211,255,0.12)'; ctx.fill();
+      if (f > 0) {
+        ctx.save(); ctx.clip();
+        ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 8;
+        ctx.fillRect(sx, by, sw * f, bh);
+        ctx.restore();
+      }
+    }
+    ctx.font = `500 8px ${MONO_FONT}`; ctx.fillStyle = 'rgba(160,225,255,0.7)'; ctx.textAlign = 'center';
+    ctx.fillText(currentZone === 2 ? (overdriveTimer > 0 ? 'OVERDRIVE' : 'CRYSTALS') : (boss ? 'BOSS FIGHT' : 'LEVEL PROGRESS'), W / 2, by - 7);
   }
+
+  // Alt köşe slotları: sol = kalkan, sağ = silah (overdrive > üçlü > çift; zone 2'de boşken kristal)
+  drawSlot(46, H - 50, 'shield', player.shieldTimer / POWERUP_DURATION, '#3aa8ff');
+  if (overdriveTimer > 0) drawSlot(W - 46, H - 50, 'bolt', overdriveTimer / OVERDRIVE_TIME, '#ffc531');
+  else if (player.tripleTimer > 0) drawSlot(W - 46, H - 50, 'triple', player.tripleTimer / POWERUP_DURATION, '#00ffaa');
+  else if (player.doubleTimer > 0) drawSlot(W - 46, H - 50, 'double', player.doubleTimer / POWERUP_DURATION, '#ffee00');
+  else if (currentZone === 2) drawSlot(W - 46, H - 50, 'bolt', crystalMeter / CRYSTAL_MAX, '#7fe6ff', crystalMeter);
+  else drawSlot(W - 46, H - 50, 'bolt', 0, '#ffc531');
 
   // Bölüm başı banner'ı: hedef / ipucu
   if (state === 'play' && levelIntroTimer > 0) {
     const t = LEVEL_INTRO_TIME - levelIntroTimer;
     const al = Math.min(1, t / 20, levelIntroTimer / 25);
-    const by = H * 0.36;
+    const by = H * 0.36, zc = ZONE_COLORS[currentZone];
     ctx.globalAlpha = al;
-    ctx.fillStyle = 'rgba(0,10,30,0.72)';
-    rrect(24, by - 46, W - 48, 92, 12); ctx.fill();
-    ctx.strokeStyle = ZONE_COLORS[currentZone]; ctx.lineWidth = 1.2;
-    rrect(24, by - 46, W - 48, 92, 12); ctx.stroke();
+    ctx.beginPath();
+    [[34, by - 46], [W - 44, by - 46], [W - 24, by - 26], [W - 24, by + 46], [44, by + 46], [24, by + 26], [24, by - 36]]
+      .forEach(([x, y], k) => k ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(4,12,28,0.85)'; ctx.fill();
+    ctx.strokeStyle = zc; ctx.lineWidth = 1.5; ctx.shadowColor = zc; ctx.shadowBlur = 10; ctx.stroke(); ctx.shadowBlur = 0;
     ctx.textAlign = 'center';
-    ctx.font = 'bold 11px Courier New'; ctx.fillStyle = ZONE_COLORS[currentZone];
-    ctx.fillText(`${MENU_CARDS[currentZone - 1].name.toUpperCase()}  ·  LEVEL ${currentLevel}`, W / 2, by - 26);
-    ctx.font = 'bold 15px Courier New'; ctx.fillStyle = '#fff';
+    ctx.fillStyle = zc;
+    drawSpaced(`${MENU_CARDS[currentZone - 1].name.toUpperCase()}  ·  LEVEL ${currentLevel}`, W / 2, by - 26, 10, 500, MONO_FONT, 2);
+    ctx.font = 'bold 15px Courier New'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
     drawWrapped(LEVEL_TIPS[currentLevel] || '', W / 2, by + 10, W - 80, 20);
     ctx.globalAlpha = 1;
   }
