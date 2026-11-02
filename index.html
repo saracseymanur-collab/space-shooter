@@ -92,11 +92,14 @@ const MAP_NODES = [
 
 // --- Menu ---
 const MENU_CARDS = [
-  { name: 'SPACE',         sub: 'Clear the Enemies', locked: false, col1: '#001030', col2: '#002860' },
-  { name: 'Asteroid Belt', sub: '',                  locked: true,  col1: '#150e04', col2: '#241808' },
-  { name: 'Nebula',        sub: '',                  locked: true,  col1: '#160020', col2: '#240030' },
-  { name: 'Black Hole',    sub: '',                  locked: true,  col1: '#040404', col2: '#0c0c0c' },
+  { name: 'SPACE',         sub: 'Clear the Enemies',       locked: false, col1: '#001030', col2: '#002860' },
+  { name: 'Asteroid Belt', sub: 'Chase the Main Fleet',    locked: true,  col1: '#150e04', col2: '#241808' },
+  { name: 'Nebula',        sub: 'Find the Command Center', locked: true,  col1: '#160020', col2: '#240030' },
+  { name: 'Black Hole',    sub: 'Face Their Leader',       locked: true,  col1: '#040404', col2: '#0c0c0c' },
 ];
+// DEV / test modunda tüm bölgeler açık görünür
+function isZoneLocked(i) { return MENU_CARDS[i].locked && !devMode && !TEST_MODE; }
+const BOSS_NAMES = ['', 'VOID VANGUARD', 'ROCK TITAN', 'COMMAND CENTER', 'VOID LEADER'];
 let menuIdx  = 0;   // hedef kart indexi
 let menuAnimX = 0;  // smooth scroll x
 let titleTapCount = 0, titleTapTimer = 0; // gizli test modu: başlığa 5x hızlı dokun
@@ -111,9 +114,30 @@ const INTRO_PANELS = [
   "Now they are coming. The planet is weak. The army is gone.",
   "Only you remain. And that has to be enough.",
 ];
+const ENDING_PANELS = [
+  "The Void Leader is gone — swallowed by the black hole it called home.",
+  "Without their leader, the Void Colony's fleet stops. Then, one by one, they lower their weapons.",
+  "They were never monsters. Only survivors — abandoned, changed, and afraid.",
+  "A new message is sent toward Astra. Not a warning this time. Two words: \"Come home.\"",
+  "You came to save one planet. Maybe you saved two.",
+  "THE END",
+];
+let cinePanels = INTRO_PANELS; // intro ve final sinematiği aynı ekranı kullanır
 let introPanelIdx = 0;
 let introAlpha = 0;
 let introPhase = 'fadein'; // 'fadein' | 'show' | 'fadeout'
+
+function startCinematic(panels) {
+  cinePanels = panels;
+  introPanelIdx = 0; introAlpha = 0; introPhase = 'fadein';
+  state = 'intro';
+}
+function endCinematic() {
+  if (cinePanels === ENDING_PANELS) menuIdx = MENU_CARDS.length - 1;
+  cinePanels = INTRO_PANELS;
+  introPanelIdx = 0; introAlpha = 0; introPhase = 'fadein';
+  state = 'menu';
+}
 
 // --- Zone Transition ---
 const ZONE_TRANSITION_MESSAGES = [
@@ -124,6 +148,10 @@ const ZONE_TRANSITION_MESSAGES = [
 let zoneTransIdx = 0;
 let zoneTransAlpha = 0;
 let zoneTransPhase = 'fadein'; // 'fadein' | 'show'
+function exitZoneTransition() {
+  menuIdx = Math.min(MENU_CARDS.length - 1, zoneTransIdx + 1); // yeni açılan bölge kartı
+  state = 'menu';
+}
 
 // --- State ---
 let state = 'intro';
@@ -141,21 +169,30 @@ let returnToMap = false;
 let levelCompleteType = 'boss'; // 'boss' | 'clear'
 let victoryTime = 0;
 let victoryParticles = [];
+let deathCause = '';
+let lasers = [];     // Void Leader şerit lazerleri
+let fogClouds = [];  // Nebula sis bulutları
 
 // --- Level sistemi ---
 let currentLevel = 1;
 const TEST_MODE = new URLSearchParams(window.location.search).get('test') === 'true';
 const BOSS_MODE = new URLSearchParams(window.location.search).get('boss') === 'true';
+const LEVEL_COUNT = 20; // 4 bölge × 5 bölüm
 function loadLevelStates() {
-  if (TEST_MODE) return Array.from({length: 10}, () => 'unlocked');
+  if (TEST_MODE) return Array.from({length: LEVEL_COUNT}, () => 'unlocked');
   try {
     const saved = JSON.parse(localStorage.getItem('ss_levels'));
-    if (Array.isArray(saved) && saved.length === 10) return saved;
-    if (Array.isArray(saved) && saved.length === 5) {
-      return [...saved, ...Array.from({length: 5}, () => 'locked')];
+    if (Array.isArray(saved) && saved.length > 0 && saved.length <= LEVEL_COUNT) {
+      // Eski kayıtlar (5 / 10 bölüm) 20'ye tamamlanır
+      const s = [...saved, ...Array.from({length: LEVEL_COUNT - saved.length}, () => 'locked')];
+      // Bir bölgenin boss'u bitmişse sonraki bölgenin ilk bölümü açık olmalı
+      for (let z = 1; z < 4; z++) {
+        if (s[z * 5 - 1] === 'completed' && s[z * 5] === 'locked') s[z * 5] = 'unlocked';
+      }
+      return s;
     }
   } catch(e) {}
-  const s = Array.from({length: 10}, () => 'locked');
+  const s = Array.from({length: LEVEL_COUNT}, () => 'locked');
   s[0] = 'unlocked';
   return s;
 }
@@ -177,6 +214,8 @@ let levelStates = loadLevelStates();
 (function() {
   const zl = loadZoneUnlocked();
   MENU_CARDS.forEach((c, i) => { c.locked = zl[i]; });
+  // Bölge kilidini bölüm ilerlemesiyle senkronla (eski kayıtlarda Nebula hiç açılmıyordu)
+  MENU_CARDS.forEach((c, i) => { if (i > 0 && levelStates[i * 5] !== 'locked') c.locked = false; });
 })();
 
 let currentZone = 1;
@@ -260,17 +299,67 @@ function getLevelConfig() {
       hp: () => Math.random() < 0.4 ? 2 : 1,
       canShoot: true, zigzag: false,
     };
-    case 8: return { // Zone 2 L3: ice asteroids + enemies
+    case 8: return { // Zone 2 L3 (zone 2'de düşman spawn'ı kapalı, sadece asteroid)
       interval: 65, doubleChance: 0.28,
       speed: () => 1.8 + Math.random() * 0.5,
       hp: () => Math.random() < 0.45 ? 2 : 1,
       canShoot: true, zigzag: false,
     };
-    case 9: return { // Zone 2 L4: magnetic field + enemies
+    case 9: return { // Zone 2 L4
       interval: 70, doubleChance: 0.22,
       speed: () => 1.6 + Math.random() * 0.4,
       hp: () => Math.random() < 0.4 ? 2 : 1,
       canShoot: true, zigzag: true,
+    };
+    // ── Zone 3: Nebula — sis bulutları + görünmez olabilen hayalet düşmanlar ──
+    case 11: return {
+      interval: 70, doubleChance: 0.18,
+      speed: () => 1.6 + Math.random() * 0.4,
+      hp: () => Math.random() < 0.4 ? 2 : 1,
+      canShoot: false, zigzag: false, phantom: 0.3, fog: 3,
+    };
+    case 12: return {
+      interval: 64, doubleChance: 0.25,
+      speed: () => 1.7 + Math.random() * 0.4,
+      hp: () => Math.random() < 0.45 ? 2 : 1,
+      canShoot: true, zigzag: false, phantom: 0.4, fog: 4,
+    };
+    case 13: return {
+      interval: 62, doubleChance: 0.28,
+      speed: () => 1.8 + Math.random() * 0.5,
+      hp: () => { const r = Math.random(); return r < 0.15 ? 3 : r < 0.55 ? 2 : 1; },
+      canShoot: true, zigzag: false, phantom: 0.5, fog: 5,
+    };
+    case 14: case 15: return {
+      interval: 66, doubleChance: 0.25,
+      speed: () => 1.8 + Math.random() * 0.5,
+      hp: () => { const r = Math.random(); return r < 0.15 ? 3 : r < 0.55 ? 2 : 1; },
+      canShoot: true, zigzag: true, phantom: 0.55, fog: 5,
+    };
+    // ── Zone 4: Black Hole — çekim şerit değiştirtir, mermiler kıvrılır, enkaz ──
+    case 16: return {
+      interval: 68, doubleChance: 0.2,
+      speed: () => 1.7 + Math.random() * 0.4,
+      hp: () => Math.random() < 0.45 ? 2 : 1,
+      canShoot: false, zigzag: false, gravity: 0.45,
+    };
+    case 17: return {
+      interval: 64, doubleChance: 0.25,
+      speed: () => 1.8 + Math.random() * 0.4,
+      hp: () => Math.random() < 0.45 ? 2 : 1,
+      canShoot: true, zigzag: false, gravity: 0.5, curveShots: true,
+    };
+    case 18: return {
+      interval: 72, doubleChance: 0.2,
+      speed: () => 1.8 + Math.random() * 0.5,
+      hp: () => Math.random() < 0.5 ? 2 : 1,
+      canShoot: true, zigzag: false, gravity: 0.5, curveShots: true, debris: 80,
+    };
+    case 19: case 20: return {
+      interval: 66, doubleChance: 0.25,
+      speed: () => 1.9 + Math.random() * 0.5,
+      hp: () => { const r = Math.random(); return r < 0.2 ? 3 : r < 0.6 ? 2 : 1; },
+      canShoot: true, zigzag: false, gravity: 0.6, curveShots: true, debris: 64,
     };
     default: return null;
   }
@@ -314,7 +403,7 @@ document.addEventListener('keydown', e => {
   if (!keys[e.code]) keyHandled[e.code] = false;
   keys[e.code] = true;
   if (state === 'intro') {
-    if (e.code === 'Escape') { state = 'menu'; return; }
+    if (e.code === 'Escape') { endCinematic(); return; }
     if ((e.code === 'Space' || e.code === 'Enter' || e.code === 'ArrowRight') && introPhase === 'show') {
       introPhase = 'fadeout'; return;
     }
@@ -322,14 +411,14 @@ document.addEventListener('keydown', e => {
   }
   if (state === 'zonetransition') {
     if ((e.code === 'Space' || e.code === 'Enter') && zoneTransPhase === 'show') {
-      state = 'menu'; return;
+      exitZoneTransition(); return;
     }
     return;
   }
   if (state === 'menu') {
     if (e.code === 'ArrowLeft')  menuIdx = Math.max(0, menuIdx - 1);
     if (e.code === 'ArrowRight') menuIdx = Math.min(MENU_CARDS.length - 1, menuIdx + 1);
-    if ((e.code === 'Enter' || e.code === 'Space') && !MENU_CARDS[menuIdx].locked) { currentZone = menuIdx + 1; state = 'map'; }
+    if ((e.code === 'Enter' || e.code === 'Space') && !isZoneLocked(menuIdx)) { currentZone = menuIdx + 1; state = 'map'; }
     return;
   }
   if (state === 'map') {
@@ -449,7 +538,7 @@ canvas.addEventListener('click', e => {
 
   if (state === 'intro') {
     // Skip button: top right
-    if (mx > W - 90 && my < 44) { state = 'menu'; return; }
+    if (mx > W - 90 && my < 44) { endCinematic(); return; }
     // Anywhere else advances panel
     if (introPhase === 'show') { introPhase = 'fadeout'; return; }
     return;
@@ -474,7 +563,7 @@ canvas.addEventListener('click', e => {
       return;
     }
     // OYNA butonu (merkez kart, kilitli değilse)
-    if (!MENU_CARDS[menuIdx].locked) {
+    if (!isZoneLocked(menuIdx)) {
       if (mx > W/2 - 65 && mx < W/2 + 65 && my > 450 && my < 494) { currentZone = menuIdx + 1; state = 'map'; return; }
     }
     return;
@@ -490,14 +579,14 @@ canvas.addEventListener('click', e => {
         zoneTransPhase = 'fadein';
         state = 'zonetransition';
       } else {
-        state = 'menu';
+        startCinematic(ENDING_PANELS); // final boss → kapanış hikâyesi
       }
       return;
     }
   }
 
   if (state === 'zonetransition' && zoneTransPhase === 'show') {
-    state = 'menu'; return;
+    exitZoneTransition(); return;
   }
 
   if (state === 'play') {
@@ -527,6 +616,10 @@ function startLevel(level) {
   bullets = []; eBullets = []; enemies = []; explosions = []; powerups = [];
   asteroids = []; asteroidSpawnTimer = 0;
   boss = null; bossKillTimer = 0; returnToMap = false;
+  lasers = []; deathCause = '';
+  // Zone 3: sis bulutları ekranı baştan kaplasın
+  const _cfg = getLevelConfig();
+  fogClouds = Array.from({ length: _cfg && _cfg.fog ? _cfg.fog : 0 }, () => makeFogCloud(Math.random() * H));
   // Zone 2 mechanics reset
   fuel = FUEL_MAX;
   player.lane = 1; player.targetLane = 1;
@@ -555,24 +648,78 @@ function spawnEnemy(yOffset = 0) {
   const canShoot = cfg ? cfg.canShoot : true;
   const zigzag   = cfg ? cfg.zigzag   : false;
   const fireRate = hp === 3 ? 180 : hp === 2 ? 110 : 140;
+  // Black Hole: çekim düşmanı yolun ortasında komşu şeride savurur
+  let shiftAt = null, shiftTo = lane;
+  if (cfg && cfg.gravity && Math.random() < cfg.gravity) {
+    shiftTo = lane === 0 ? 1 : lane === 2 ? 1 : (Math.random() < 0.5 ? 0 : 2);
+    shiftAt = H * (0.18 + Math.random() * 0.22);
+  }
   enemies.push({
     lane, x: LANE_CENTERS[lane], y: -40 - yOffset, w: 38, h: 44,
     hp, maxHp: hp, speed, flash: 0,
     fireTimer: Math.floor(Math.random() * fireRate), fireRate,
     canShoot,
     zigzag, zigzagPhase: Math.random() * Math.PI * 2,
+    phantom: !!(cfg && cfg.phantom && Math.random() < cfg.phantom),
+    cloakT: Math.floor(Math.random() * 60), alpha: 1,
+    shiftAt, shiftTo, curveShots: !!(cfg && cfg.curveShots),
   });
+}
+
+// Komuta Merkezi / Void Leader'ın gönderdiği küçük drone
+function spawnDrone(x, phantom) {
+  const lane = Math.floor(Math.random() * 3);
+  enemies.push({
+    lane, x, y: boss ? boss.y + 40 : 0, w: 38, h: 44,
+    hp: 1, maxHp: 1, speed: 2.3 + Math.random() * 0.5, flash: 0,
+    fireTimer: 0, fireRate: 999, canShoot: false,
+    zigzag: false, zigzagPhase: 0,
+    phantom, cloakT: 0, alpha: 1,
+    shiftAt: null, shiftTo: lane, curveShots: false,
+  });
+}
+
+// Oyuncuya hasar — kalkan varsa emer
+function damagePlayer(cause) {
+  if (player.dead) return;
+  if (player.shieldTimer > 0) { player.flash = 20; return; }
+  lives--;
+  player.flash = 50;
+  if (lives <= 0) {
+    deathCause = cause;
+    player.dead = true;
+    spawnExplosion(player.x, player.y, true);
+    spawnExplosion(player.x + 15, player.y - 10, true);
+    spawnExplosion(player.x - 15, player.y + 5, true);
+  }
+}
+
+// Oyuncunun şu an bulunduğu şerit (kayma sırasında en yakın şerit)
+function playerLaneNow() {
+  let best = 0;
+  LANE_CENTERS.forEach((lc, i) => { if (Math.abs(player.x - lc) < Math.abs(player.x - LANE_CENTERS[best])) best = i; });
+  return best;
+}
+
+function makeFogCloud(y) {
+  return {
+    x: Math.random() * W, y,
+    r: 90 + Math.random() * 70,
+    speed: 0.5 + Math.random() * 0.5,
+    drift: (Math.random() - 0.5) * 0.3,
+    hue: Math.random() < 0.5 ? 285 : 315,
+  };
 }
 
 function spawnBoss(wave) {
   const bossNum = Math.floor(wave / 5);
-  const isZone1Final = (currentLevel === 5);
-  const isZone2Final = (currentLevel === 10);
-  const special = isZone1Final || isZone2Final;
-  const hp = isZone2Final ? 130 : isZone1Final ? 90 : 25 + bossNum * 10;
+  const special = currentLevel % 5 === 0; // her bölgenin 5. bölümü
+  const BOSS_HP = { 5: 90, 10: 130, 15: 160, 20: 220 };
+  const hp = BOSS_HP[currentLevel] ?? 25 + bossNum * 10;
   boss = {
     x: W / 2, y: special ? H * 0.14 : H * 0.13,
-    vx: isZone2Final ? 2.2 : special ? 1.9 : 1.2 + bossNum * 0.2,
+    vx: currentLevel === 10 ? 2.2 : special ? 1.9 : 1.2 + bossNum * 0.2,
+    cloak: 0, droneTimer: 0, laserTimer: 0,
     hp, maxHp: hp, flash: 0,
     fireTimer: 0,
     nextFireIn: special ? 28 : 55,
@@ -580,6 +727,7 @@ function spawnBoss(wave) {
   };
   enemies = [];
   asteroids = []; // clear asteroids during boss fight
+  lasers = [];
 }
 
 function spawnExplosion(x, y, big) {
@@ -677,6 +825,114 @@ function drawZone2Background() {
   ctx.restore();
 }
 
+// --- Draw: Zone 3 Background (Nebula) ---
+function drawZone3Background() {
+  ctx.fillStyle = '#0a0414';
+  ctx.fillRect(0, 0, W, H);
+  // Yavaşça dalgalanan mor / pembe / camgöbeği gaz bulutları
+  const t = frameCount * 0.004;
+  [[W*0.25 + Math.sin(t)*30, H*0.3, 280, 'rgba(120,30,160,0.22)'],
+   [W*0.8, H*0.6 + Math.cos(t*0.8)*40, 260, 'rgba(170,30,120,0.16)'],
+   [W*0.45 + Math.cos(t*1.3)*25, H*0.85, 230, 'rgba(30,110,150,0.14)']].forEach(([gx,gy,gr,gc]) => {
+    const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
+    g.addColorStop(0, gc); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  });
+  ctx.save();
+  stars.forEach(s => {
+    ctx.fillStyle = s.spd > 1.2 ? `rgba(230,190,255,${0.3 + s.spd * 0.15})` : `rgba(255,255,255,${0.25 + s.spd * 0.15})`;
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.s, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.restore();
+}
+
+// --- Draw: Nebula sis katmanı (düşmanların üstünde, mermilerin altında) ---
+function drawFog() {
+  ctx.save();
+  fogClouds.forEach(c => {
+    const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.r);
+    g.addColorStop(0,   `hsla(${c.hue}, 55%, 32%, 0.62)`);
+    g.addColorStop(0.6, `hsla(${c.hue}, 55%, 24%, 0.38)`);
+    g.addColorStop(1,   `hsla(${c.hue}, 55%, 18%, 0)`);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.restore();
+}
+
+// --- Draw: Zone 4 Background (Black Hole) ---
+function drawZone4Background() {
+  ctx.fillStyle = '#030208';
+  ctx.fillRect(0, 0, W, H);
+  const bx = W / 2, by = 150;
+  // Yıldızlar kara deliğe doğru hafifçe kıvrılır
+  ctx.save();
+  stars.forEach(s => {
+    const dx = s.x - bx, dy = s.y - by;
+    const d = Math.hypot(dx, dy);
+    const pull = Math.min(0.35, 2200 / (d * d + 1));
+    const sx = s.x - dx * pull, sy = s.y - dy * pull;
+    ctx.fillStyle = `rgba(255,${200 + s.spd * 20},${170 + s.spd * 40},${0.3 + s.spd * 0.18})`;
+    ctx.beginPath(); ctx.arc(sx, sy, s.s, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.restore();
+  // Dış parıltı
+  const halo = ctx.createRadialGradient(bx, by, 40, bx, by, 230);
+  halo.addColorStop(0, 'rgba(255,120,40,0.28)');
+  halo.addColorStop(0.4, 'rgba(160,40,120,0.12)');
+  halo.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = halo; ctx.fillRect(0, 0, W, H);
+  // Dönen yığılma diski
+  ctx.save();
+  ctx.translate(bx, by);
+  for (let i = 0; i < 4; i++) {
+    const rot = frameCount * (0.004 + i * 0.002) + i;
+    ctx.strokeStyle = `rgba(255,${150 - i * 25},${60 + i * 20},${0.5 - i * 0.09})`;
+    ctx.lineWidth = 7 - i * 1.3;
+    ctx.beginPath(); ctx.ellipse(0, 0, 92 + i * 16, 20 + i * 5, -0.18, rot, rot + Math.PI * 1.6); ctx.stroke();
+  }
+  // Olay ufku
+  ctx.fillStyle = '#000';
+  ctx.shadowColor = 'rgba(255,140,60,0.9)'; ctx.shadowBlur = 24;
+  ctx.beginPath(); ctx.arc(0, 0, 44, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(255,200,140,0.75)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(0, 0, 46, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+}
+
+// --- Draw: Void Leader lazerleri ---
+function drawLasers() {
+  lasers.forEach(L => {
+    const x = LANE_CENTERS[L.lane];
+    const top = boss ? boss.y + 40 : 0;
+    ctx.save();
+    if (L.t <= L.warn) {
+      // Uyarı: yanıp sönen şerit + ünlem
+      const blink = Math.floor(L.t / 6) % 2 === 0;
+      ctx.fillStyle = `rgba(255,40,80,${blink ? 0.16 : 0.07})`;
+      ctx.fillRect(x - LANE_W / 2 + 6, top, LANE_W - 12, H - top);
+      ctx.strokeStyle = 'rgba(255,60,90,0.7)'; ctx.lineWidth = 1.5; ctx.setLineDash([8, 8]);
+      ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, H); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#ff5577'; ctx.font = 'bold 28px Courier New';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      if (blink) ctx.fillText('!', x, H - 230);
+    } else {
+      // Işın
+      const k = 1 - (L.t - L.warn) / L.fire;
+      const w = 34 * (0.4 + 0.6 * k);
+      ctx.fillStyle = `rgba(200,40,255,${0.35 * k})`;
+      ctx.fillRect(x - w, top, w * 2, H - top);
+      ctx.fillStyle = `rgba(255,120,220,${0.8 * k})`;
+      ctx.fillRect(x - w * 0.45, top, w * 0.9, H - top);
+      ctx.fillStyle = `rgba(255,255,255,${0.9 * k})`;
+      ctx.fillRect(x - 3, top, 6, H - top);
+    }
+    ctx.restore();
+  });
+}
+
 // --- Draw: Asteroid ---
 function drawAsteroid(a) {
   ctx.save();
@@ -696,6 +952,10 @@ function drawAsteroid(a) {
   if (a.type === 'iron') {
     ctx.fillStyle = '#4a5a6a';
     ctx.strokeStyle = '#8899aa'; ctx.lineWidth = 2.5;
+  } else if (currentZone === 4) {
+    // Kara deliğe çekilen enkaz: koyu metal, sıcak kenar
+    ctx.fillStyle = '#3a2a40';
+    ctx.strokeStyle = '#ff8a50'; ctx.lineWidth = 1.5;
   } else {
     ctx.fillStyle = '#7a5535';
     ctx.strokeStyle = '#9a7050'; ctx.lineWidth = 1.5;
@@ -703,7 +963,7 @@ function drawAsteroid(a) {
   ctx.fill(); ctx.stroke();
   // Highlight
   ctx.globalAlpha *= (a.type === 'iron' ? 0.45 : 0.55);
-  ctx.fillStyle = a.type === 'iron' ? '#aabccc' : '#c09060';
+  ctx.fillStyle = a.type === 'iron' ? '#aabccc' : currentZone === 4 ? '#8a6a90' : '#c09060';
   ctx.beginPath(); ctx.arc(-r * 0.18, -r * 0.24, r * 0.22, 0, Math.PI * 2); ctx.fill();
   // Iron: warning X mark
   if (a.type === 'iron') {
@@ -799,11 +1059,15 @@ function drawIntro() {
   ctx.textBaseline = 'middle';
 
   // Panel text — word-wrapped, large white
-  const text = INTRO_PANELS[introPanelIdx];
-  ctx.font = 'bold 22px Courier New';
-  ctx.fillStyle = '#ffffff';
-  ctx.shadowColor = 'rgba(200,220,255,0.4)';
-  ctx.shadowBlur = 10;
+  const text = cinePanels[introPanelIdx];
+  const isTheEnd = text === 'THE END';
+  ctx.font = isTheEnd ? 'bold 40px Courier New' : 'bold 22px Courier New';
+  if (isTheEnd) { ctx.fillStyle = '#ffe040'; ctx.shadowColor = '#ff8'; ctx.shadowBlur = 24; }
+  if (!isTheEnd) {
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = 'rgba(200,220,255,0.4)';
+    ctx.shadowBlur = 10;
+  }
 
   const maxWidth = W - 80;
   const lineH = 36;
@@ -826,7 +1090,7 @@ function drawIntro() {
   ctx.font = '11px Courier New';
   ctx.fillStyle = 'rgba(255,255,255,0.35)';
   ctx.textAlign = 'left';
-  ctx.fillText(`${introPanelIdx + 1} / ${INTRO_PANELS.length}`, 20, H - 24);
+  ctx.fillText(`${introPanelIdx + 1} / ${cinePanels.length}`, 20, H - 24);
 
   // Skip button — top right
   ctx.font = 'bold 12px Courier New';
@@ -836,8 +1100,8 @@ function drawIntro() {
   ctx.fillText('SKIP ▶▶', W - 16, 14);
 
   // Next / Start button — bottom right
-  const isLast = introPanelIdx === INTRO_PANELS.length - 1;
-  const btnLabel = isLast ? 'START ▶' : 'NEXT ▶';
+  const isLast = introPanelIdx === cinePanels.length - 1;
+  const btnLabel = isLast ? (cinePanels === ENDING_PANELS ? 'MENU ▶' : 'START ▶') : 'NEXT ▶';
   const pulse = 0.8 + 0.2 * Math.sin(frameCount * 0.07);
   const bw = 110, bh = 42, bx = W - bw - 14, by = H - bh - 14;
   ctx.globalAlpha = introAlpha * pulse;
@@ -925,12 +1189,25 @@ function drawEnemy(e) {
 
   ctx.save();
   ctx.translate(e.x, e.y);
-  ctx.globalAlpha = e.flash > 0 ? (e.flash % 6 < 3 ? 0.3 : 1) : 1;
+  const baseAlpha = e.phantom ? e.alpha : 1;
+  ctx.globalAlpha = baseAlpha * (e.flash > 0 ? (e.flash % 6 < 3 ? 0.3 : 1) : 1);
+
+  // Hayalet düşman: mor parıltı halesi
+  if (e.phantom) {
+    ctx.fillStyle = 'rgba(190,90,255,0.22)';
+    ctx.beginPath(); ctx.ellipse(0, 0, dw * 0.62, dh * 0.7, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  // Çekimle savrulan düşman: girdap izi
+  if (e.shifting > 0) {
+    ctx.strokeStyle = `rgba(255,140,60,${e.shifting / 40 * 0.8})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, 0, dw * 0.6, frameCount * 0.3, frameCount * 0.3 + Math.PI * 1.3); ctx.stroke();
+  }
 
   // Görsel — merkeze hizalı, gerçek en/boy oranıyla
   if (img && img.complete && img.naturalWidth > 0) {
     ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
   }
+  if (e.phantom && baseAlpha < 0.45) { ctx.restore(); return; } // görünmezken can barı yok
 
   // HP bar — geminin gerçek alt kenarına dayalı
   const barY = dh / 2 + 4;
@@ -951,6 +1228,30 @@ function drawEnemy(e) {
   ctx.restore();
 }
 
+// --- Boss görseli: bölgeye göre renklendirilmiş kopyalar (bir kez üretilir) ---
+const BOSS_TINTS = { 3: 'rgba(40,220,200,0.42)', 4: 'rgba(20,0,30,0.55)' };
+const bossSprites = {};
+function getBossSprite(zone) {
+  const tint = BOSS_TINTS[zone];
+  if (!tint) return bossImg;
+  if (!bossSprites[zone]) {
+    const c = document.createElement('canvas');
+    c.width = bossImg.naturalWidth; c.height = bossImg.naturalHeight;
+    const g = c.getContext('2d');
+    g.drawImage(bossImg, 0, 0);
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = tint;
+    g.fillRect(0, 0, c.width, c.height);
+    if (zone === 4) { // Void Leader: kızıl damarlar
+      const rg = g.createRadialGradient(c.width/2, c.height/2, 0, c.width/2, c.height/2, c.width/2);
+      rg.addColorStop(0, 'rgba(255,60,40,0.35)'); rg.addColorStop(1, 'rgba(255,60,40,0)');
+      g.fillStyle = rg; g.fillRect(0, 0, c.width, c.height);
+    }
+    bossSprites[zone] = c;
+  }
+  return bossSprites[zone];
+}
+
 // --- Draw: Boss ---
 function drawBoss(b) {
   const sc    = b.special ? 1.45 : 1.0;
@@ -969,7 +1270,7 @@ function drawBoss(b) {
   ctx.save();
   ctx.translate(b.x, b.y);
   ctx.scale(sc, sc);
-  ctx.globalAlpha = flashAlpha;
+  ctx.globalAlpha = flashAlpha * (b.cloak ? 0.16 + 0.06 * Math.sin(frameCount * 0.3) : 1);
 
   // Dış aura — gradient yerine 2 transparan circle
   ctx.fillStyle = `rgba(${p.aura1},${0.18 * pulse})`;
@@ -981,7 +1282,7 @@ function drawBoss(b) {
   if (bossImg.complete && bossImg.naturalWidth > 0) {
     const bw = BOSS_W, bh = BOSS_H;
     ctx.shadowColor = p.bodyGlow; ctx.shadowBlur = 18;
-    ctx.drawImage(bossImg, -bw / 2, -bh / 2, bw, bh);
+    ctx.drawImage(getBossSprite(b.zone), -bw / 2, -bh / 2, bw, bh);
     ctx.shadowBlur = 0;
   }
 
@@ -1276,7 +1577,8 @@ function drawHUD() {
   ctx.fillText('SCORE: ' + score, 12, 24);
 
   ctx.textAlign = 'center';
-  ctx.fillText('WAVE: ' + getWave(), W / 2, 24);
+  const lvWave = Math.max(1, Math.min(5, getWave() - (currentLevel - 1) * 5));
+  ctx.fillText(boss ? `LV ${currentLevel}` : `WAVE ${lvWave}/5`, W / 2, 24);
 
   ctx.textAlign = 'right';
   const livesStr = '❤'.repeat(Math.max(0, lives)) + '🖤'.repeat(Math.max(0, 3 - lives));
@@ -1284,7 +1586,7 @@ function drawHUD() {
 
   // Boss HP barı
   if (boss) {
-    const bx = 16, by = 52, bw = W - 32, bh = 18;
+    const bx = 64, by = 48, bw = W - 76, bh = 22;
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.fillRect(bx, by, bw, bh);
     const bRatio = boss.hp / boss.maxHp;
@@ -1310,7 +1612,8 @@ function drawHUD() {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const phaseLabels = ['', ' ◆ PHASE 2', ' ◆◆ PHASE 3'];
-    ctx.fillText(`★ BOSS  ${boss.hp} / ${boss.maxHp}${phaseLabels[bPhase-1]}  ★`, W / 2, by + bh / 2);
+    const bName = boss.special ? BOSS_NAMES[boss.zone] : 'BOSS';
+    ctx.fillText(`★ ${bName}  ${boss.hp}/${boss.maxHp}${phaseLabels[bPhase-1]} ★`, W / 2, by + bh / 2);
   }
 
   // Aktif power-up göstergesi
@@ -1367,7 +1670,7 @@ function drawHUD() {
 
   // Zone 2 extras: fuel bar
   if (currentZone === 2) {
-    const fby = boss ? 76 : 44, fbx = 16, fbw = W - 32, fbh = 13;
+    const fby = boss ? 76 : 48, fbx = 64, fbw = W - 76, fbh = 14;
     ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(fbx, fby, fbw, fbh);
     const fr = fuel / FUEL_MAX;
     const fc = fr > 0.5 ? '#44ff66' : fr > 0.25 ? '#ffcc00' : '#ff4444';
@@ -1472,9 +1775,8 @@ function update() {
       introAlpha = Math.max(0, introAlpha - 0.05);
       if (introAlpha <= 0) {
         introPanelIdx++;
-        if (introPanelIdx >= INTRO_PANELS.length) {
-          introPanelIdx = 0; introAlpha = 0; introPhase = 'fadein';
-          state = 'menu';
+        if (introPanelIdx >= cinePanels.length) {
+          endCinematic();
         } else {
           introPhase = 'fadein';
         }
@@ -1605,14 +1907,76 @@ function update() {
 
     if (boss.flash > 0) boss.flash--;
 
+    // Komuta Merkezi: faz 2'den itibaren periyodik olarak görünmez olur (mermi işlemez, ateş etmez)
+    if (boss.zone === 3 && boss.phase >= 2) {
+      boss.cloakCycle = (boss.cloakCycle || 0) + 1;
+      boss.cloak = boss.cloakCycle % 300 > 215 ? 1 : 0;
+    } else {
+      boss.cloak = 0;
+    }
+
+    // Drone gönderme: Komuta Merkezi her fazda, Void Leader son fazda
+    if (boss.zone === 3 || (boss.zone === 4 && boss.phase === 3)) {
+      boss.droneTimer++;
+      const droneEvery = boss.zone === 4 ? 210 : [0, 230, 190, 160][boss.phase];
+      if (boss.droneTimer >= droneEvery) {
+        boss.droneTimer = 0;
+        spawnDrone(boss.x, boss.zone === 3 && boss.phase >= 2 && Math.random() < 0.5);
+      }
+    }
+
+    // Void Leader: şerit lazerleri (önce uyarı, sonra ışın)
+    if (boss.zone === 4 && boss.phase >= 2) {
+      boss.laserTimer++;
+      const laserEvery = boss.phase === 2 ? 170 : 135;
+      if (boss.laserTimer >= laserEvery && lasers.length === 0) {
+        boss.laserTimer = 0;
+        const count = boss.phase === 2 ? 1 : 2;
+        const lanes = [0, 1, 2].sort(() => Math.random() - 0.5).slice(0, count);
+        lanes.forEach(l => lasers.push({ lane: l, t: 0, warn: 62, fire: 28, hit: false }));
+      }
+    }
+
     // Boss ateş ediyor
     boss.fireTimer++;
     if (boss.fireTimer >= boss.nextFireIn) {
       boss.fireTimer = 0;
       const bY  = boss.y + 44;
       const mk  = (x, vy, big) => ({ x, y: bY, vx: 0, vy, hp: 3, lane: -1, fromBoss: true, big: !!big });
+      // Bossun ağzından hedef şeride nişanlı mermi (Void Leader)
+      const aimed = (lane, vy) => {
+        const b = mk(boss.x, vy);
+        b.vx = (LANE_CENTERS[lane] - boss.x) / ((player.y - bY) / vy);
+        b.lane = lane; b.aimLane = lane;
+        return b;
+      };
 
-      if (boss.zone === 2) {
+      if (boss.zone === 3) {
+        // Komuta Merkezi: daima 1 şerit güvenli; görünmezken ateş etmez
+        if (boss.cloak) {
+          boss.nextFireIn = 20;
+        } else {
+          const phase = boss.phase || 1;
+          boss.nextFireIn = phase === 1 ? 64 + Math.random() * 16 : phase === 2 ? 48 + Math.random() * 14 : 34 + Math.random() * 10;
+          const safe = Math.floor(Math.random() * 3);
+          const vy = phase === 1 ? 4.5 : phase === 2 ? 5.2 : 6.0;
+          [0, 1, 2].filter(l => l !== safe).forEach(l => eBullets.push(mk(LANE_CENTERS[l], vy)));
+          if (phase === 3 && Math.random() < 0.2) eBullets.push(mk(LANE_CENTERS[safe === 1 ? 0 : 1], 2.8, true));
+        }
+      } else if (boss.zone === 4) {
+        // Void Leader: nişanlı yelpaze; lazer varken mermiler lazer şeritlerine gider (güvenli şerit korunur)
+        const phase = boss.phase || 1;
+        boss.nextFireIn = phase === 1 ? 52 + Math.random() * 16 : phase === 2 ? 70 + Math.random() * 18 : 58 + Math.random() * 16;
+        const vy = phase === 1 ? 4.6 : 5.4;
+        let targets;
+        if (lasers.length > 0) targets = lasers.map(L => L.lane);
+        else {
+          const safe = Math.floor(Math.random() * 3);
+          targets = [0, 1, 2].filter(l => l !== safe);
+          if (phase === 2) targets = [targets[Math.floor(Math.random() * 2)]];
+        }
+        targets.forEach(l => eBullets.push(aimed(l, vy)));
+      } else if (boss.zone === 2) {
         // Zone 2 boss: fires asteroids + bullets by phase
         const phase = boss.phase || 1;
         if (phase === 1) {
@@ -1690,6 +2054,7 @@ function update() {
     // Oyuncu mermileri bossa çarpıyor
     bullets = bullets.filter(b => {
       if (!boss) return true; // boss aynı frame'de öldüyse kalan mermilere dokunma
+      if (boss.cloak) return true; // görünmez boss'tan mermi geçer
       const bsc = boss.special ? 1.45 : 1.0;
       const hit = Math.abs(b.x - boss.x) < 62 * bsc && Math.abs(b.y - boss.y) < 48 * bsc;
       if (hit) {
@@ -1711,6 +2076,10 @@ function update() {
               saveZoneStates();
             }
           }
+          if (currentLevel === LEVEL_COUNT) {
+            try { localStorage.setItem('ss_complete', '1'); } catch(e) {}
+          }
+          lasers = []; eBullets = [];
           saveLevelStates();
           boss = null;
           bossKillTimer = 180;
@@ -1725,20 +2094,53 @@ function update() {
     });
   }
 
+  // Lazerler: uyarı süresi bitince ışın, oyuncu o şeritteyse tek sefer hasar
+  lasers = lasers.filter(L => {
+    L.t++;
+    if (L.t > L.warn && !L.hit && !player.dead && playerLaneNow() === L.lane) {
+      L.hit = true;
+      damagePlayer('Vaporized by the void beam!');
+    }
+    return L.t <= L.warn + L.fire;
+  });
+
+  // Nebula sis bulutları
+  if (currentZone === 3) {
+    fogClouds.forEach((c, i) => {
+      c.y += c.speed; c.x += c.drift;
+      if (c.y - c.r > H) fogClouds[i] = makeFogCloud(-140);
+    });
+  }
+
   // --- Zone 2 mechanics ---
   if (currentZone === 2 && state === 'play' && !player.dead) {
     // Fuel drain
     fuel = Math.max(0, fuel - FUEL_DRAIN);
     if (fuel <= 0) {
       lives = 0;
+      deathCause = 'Out of fuel!';
       player.dead = true;
       spawnExplosion(player.x, player.y, true);
       spawnExplosion(player.x + 15, player.y - 10, true);
     }
+  }
 
+  // Black Hole: kara deliğe çekilen enkaz
+  const _zcfg = getLevelConfig();
+  if (currentZone === 4 && _zcfg && _zcfg.debris && !boss && state === 'play' && !player.dead) {
+    asteroidSpawnTimer++;
+    if (asteroidSpawnTimer >= _zcfg.debris) {
+      asteroidSpawnTimer = 0;
+      spawnAsteroid('normal');
+      const a = asteroids[asteroids.length - 1];
+      a.speed = 2.4 + Math.random() * 0.6;
+      a.rotSpeed = (Math.random() - 0.5) * 0.06;
+    }
+  }
 
-    // Asteroid spawning
-    if (!boss) {
+  if ((currentZone === 2 || currentZone === 4) && state === 'play' && !player.dead) {
+    // Asteroid spawning (zone 2)
+    if (currentZone === 2 && !boss) {
       asteroidSpawnTimer++;
       const astLvl = currentLevel - 5; // 1-4 for zone 2 levels 6-9
       const astInterval = [55, 44, 35, 28][astLvl - 1] ?? 44;
@@ -1823,7 +2225,7 @@ function update() {
                     flash: 0, isFragment: true,
                   });
                 }
-                if (Math.random() < 0.10) powerups.push({ type: 'fuel', x: a.x, y: a.y, speed: 1.6, bobTimer: 0 });
+                if (currentZone === 2 && Math.random() < 0.10) powerups.push({ type: 'fuel', x: a.x, y: a.y, speed: 1.6, bobTimer: 0 });
               }
             }
             return false;
@@ -1837,17 +2239,7 @@ function update() {
       // Player collision
       if (!player.dead && Math.abs(a.x - player.x) < a.size + 16 && Math.abs(a.y - player.y) < a.size + 16) {
         spawnExplosion(a.x, a.y, true);
-        if (player.shieldTimer > 0) {
-          player.flash = 20;
-        } else {
-          lives--;
-          player.flash = 50;
-          if (lives <= 0) {
-            player.dead = true;
-            spawnExplosion(player.x, player.y, true);
-            spawnExplosion(player.x + 15, player.y - 10, true);
-          }
-        }
+        damagePlayer('Hit by an asteroid!');
         return false;
       }
       return true;
@@ -1901,23 +2293,14 @@ function update() {
 
   // Düşman mermileri: hareket + oyuncuya çarpma
   eBullets = eBullets.filter(b => {
+    // Black Hole: kara delik mermiyi ortaya doğru büker
+    if (b.curve) b.vx = Math.max(-1.6, Math.min(1.6, b.vx + (W / 2 - b.x) * 0.00012));
     b.x += b.vx;
     b.y += b.vy;
     if (b.y > H + 10) return false;
 
     if (!player.dead && Math.abs(b.x - player.x) < 24 && Math.abs(b.y - player.y) < 40) {
-      if (player.shieldTimer > 0) {
-        player.flash = 14;
-      } else {
-        lives--;
-        player.flash = 50;
-        if (lives <= 0) {
-          player.dead = true;
-          spawnExplosion(player.x, player.y, true);
-          spawnExplosion(player.x + 15, player.y - 10, true);
-          spawnExplosion(player.x - 15, player.y + 5, true);
-        }
-      }
+      damagePlayer('Your ship was destroyed!');
       return false;
     }
     return true;
@@ -1926,16 +2309,30 @@ function update() {
   // Enemies
   enemies = enemies.filter(e => {
     e.y += e.speed;
+    // Black Hole: çekim düşmanı komşu şeride savurur
+    if (e.shiftAt !== null && e.y > e.shiftAt) { e.lane = e.shiftTo; e.shiftAt = null; e.shifting = 40; }
+    if (e.shifting > 0) e.shifting--;
     // Zikzak hareketi (bölüm 4)
     if (e.zigzag) {
       e.zigzagPhase += 0.055;
-      e.x = LANE_CENTERS[e.lane] + Math.sin(e.zigzagPhase) * 40;
+      const zx = LANE_CENTERS[e.lane] + Math.sin(e.zigzagPhase) * 40;
+      e.x += (zx - e.x) * (e.shifting > 0 ? 0.08 : 1);
+    } else {
+      e.x += (LANE_CENTERS[e.lane] - e.x) * 0.08;
     }
     if (e.flash > 0) e.flash--;
 
+    // Nebula hayaletleri: görünür → kaybolur → görünmez → belirir döngüsü
+    if (e.phantom) {
+      e.cloakT = (e.cloakT + 1) % 170;
+      const t = e.cloakT;
+      e.alpha = t < 90 ? 1 : t < 110 ? 1 - (t - 90) / 20 * 0.88 : t < 150 ? 0.12 : 0.12 + (t - 150) / 20 * 0.88;
+    }
+    const cloaked = e.phantom && e.alpha < 0.45;
+
     // Ateş etme — canShoot false ise hiç ateş etme
     e.fireTimer++;
-    if (e.canShoot && e.fireTimer >= e.fireRate && e.y > 0) {
+    if (e.canShoot && !cloaked && e.fireTimer >= e.fireRate && e.y > 0) {
       e.fireTimer = 0;
       const activeLanes = new Set(eBullets.map(b => b.lane));
       if (activeLanes.size < 2 || activeLanes.has(e.lane)) {
@@ -1944,12 +2341,13 @@ function update() {
           vx: 0, vy: 5,
           hp: e.maxHp,
           lane: e.lane,
+          curve: e.curveShots,
         });
       }
     }
 
-    // Bullet hits
-    bullets = bullets.filter(b => {
+    // Bullet hits (görünmez hayaletten mermi geçer)
+    if (!cloaked) bullets = bullets.filter(b => {
       const sc  = ENEMY_TIER[e.maxHp].sc;
       const hit = Math.abs(b.x - e.x) < 22 * sc && Math.abs(b.y - e.y) < 26 * sc;
       if (hit) {
@@ -1968,22 +2366,10 @@ function update() {
 
     if (e.hp <= 0) return false;
 
-    // Reached player — kalkan varsa engelle
+    // Reached player — kalkan varsa engelle (kalkan hasarı emer, ama bitmez)
     if (e.y > H - 55) {
       spawnExplosion(e.x, e.y, true);
-      if (player.shieldTimer > 0) {
-        // Kalkan hasarı emer, ama bitmez
-        player.flash = 20;
-      } else {
-        lives--;
-        player.flash = 50;
-        if (lives <= 0) {
-          player.dead = true;
-          spawnExplosion(player.x, player.y, true);
-          spawnExplosion(player.x + 15, player.y - 10, true);
-          spawnExplosion(player.x - 15, player.y + 5, true);
-        }
-      }
+      damagePlayer('The enemy reached the ship!');
       return false;
     }
 
@@ -2014,6 +2400,62 @@ function rrect(x, y, w, h, r) {
   ctx.closePath();
 }
 
+// --- Menü kartı illüstrasyonları (bölgeye göre) ---
+function drawCardArt(i, cx, CY, CW) {
+  const px = cx + CW * 0.62, py = CY + 140;
+  if (i === 0) {
+    // Dekoratif gezegen + halka
+    const pg = ctx.createRadialGradient(px, py, 20, px, py, 80);
+    pg.addColorStop(0, '#1a4aaa'); pg.addColorStop(0.5, '#0a2060'); pg.addColorStop(1, '#040820');
+    ctx.fillStyle = pg;
+    ctx.beginPath(); ctx.arc(px, py, 72, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(100,160,255,0.35)'; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.ellipse(px, py + 8, 105, 22, -0.3, 0, Math.PI * 2); ctx.stroke();
+  } else if (i === 1) {
+    // Asteroid kümesi
+    [[px, py, 46], [px - 110, py - 50, 22], [px - 70, py + 70, 30], [px + 40, py - 85, 16], [px - 140, py + 30, 14]].forEach(([ax, ay, r], k) => {
+      ctx.save(); ctx.translate(ax, ay); ctx.rotate(k);
+      ctx.fillStyle = k === 0 ? '#6a4a2e' : '#7a5535'; ctx.strokeStyle = '#9a7050'; ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let j = 0; j < 8; j++) {
+        const a = j / 8 * Math.PI * 2, rr = r * (0.75 + 0.25 * Math.sin(j * 2.3 + k));
+        j === 0 ? ctx.moveTo(Math.cos(a) * rr, Math.sin(a) * rr) : ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+      }
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.restore();
+    });
+  } else if (i === 2) {
+    // Nebula bulutları + gizli komuta merkezi
+    [[px, py, 110, 'rgba(160,50,200,0.45)'], [px - 120, py + 40, 90, 'rgba(200,50,150,0.35)'], [px - 60, py - 60, 80, 'rgba(50,150,190,0.3)']].forEach(([gx, gy, gr, gc]) => {
+      const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
+      g.addColorStop(0, gc); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(gx, gy, gr, 0, Math.PI * 2); ctx.fill();
+    });
+    ctx.strokeStyle = 'rgba(80,240,220,0.6)'; ctx.lineWidth = 2;
+    ctx.strokeRect(px - 30, py - 12, 60, 24);
+    ctx.beginPath(); ctx.moveTo(px, py - 12); ctx.lineTo(px, py - 34); ctx.stroke();
+  } else {
+    // Kara delik
+    const halo = ctx.createRadialGradient(px - 30, py, 30, px - 30, py, 130);
+    halo.addColorStop(0, 'rgba(255,120,40,0.4)'); halo.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(px - 30, py, 130, 0, Math.PI * 2); ctx.fill();
+    for (let k = 0; k < 3; k++) {
+      ctx.strokeStyle = `rgba(255,${160 - k * 30},${70 + k * 20},${0.7 - k * 0.15})`; ctx.lineWidth = 5 - k;
+      ctx.beginPath(); ctx.ellipse(px - 30, py, 90 + k * 14, 18 + k * 4, -0.2, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(px - 30, py, 40, 0, Math.PI * 2); ctx.fill();
+  }
+  // Küçük düşman silüetleri
+  [[cx + 55, CY + 80, 0.55], [cx + 90, CY + 210, 0.45], [cx + 195, CY + 195, 0.5]].forEach(([ex, ey, sc]) => {
+    ctx.save(); ctx.translate(ex, ey); ctx.scale(sc, sc);
+    ctx.fillStyle = 'rgba(255,80,80,0.55)';
+    ctx.beginPath();
+    ctx.moveTo(0,16); ctx.lineTo(-14,-14); ctx.lineTo(-6,-8); ctx.lineTo(0,-16); ctx.lineTo(6,-8); ctx.lineTo(14,-14);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  });
+}
+
 // --- Draw: Ana Menü ---
 function drawMenu() {
   ctx.fillStyle = '#00001a';
@@ -2028,7 +2470,9 @@ function drawMenu() {
   ctx.fillText('SPACE SHOOTER', W / 2, 46);
   ctx.font = '11px Courier New';
   ctx.fillStyle = devMode ? '#ff0' : '#48a'; ctx.shadowBlur = 0;
-  ctx.fillText(devMode ? '⚡ TEST MODE' : 'Choose a zone', W / 2, 70);
+  let gameDone = false;
+  try { gameDone = localStorage.getItem('ss_complete') === '1'; } catch(e) {}
+  ctx.fillText(devMode ? '⚡ TEST MODE' : gameDone ? '★ GAME COMPLETE ★' : 'Choose a zone', W / 2, 70);
   ctx.restore();
 
   const CW = 280, CH = 420, CR = 16;
@@ -2039,6 +2483,7 @@ function drawMenu() {
     const cx = W / 2 - CW / 2 + i * GAP - menuAnimX; // sol kenar x
     if (cx > W + CW || cx < -CW) return;          // ekran dışı, çizme
 
+    const locked = isZoneLocked(i);
     ctx.save();
 
     // Kart arka planı
@@ -2049,38 +2494,20 @@ function drawMenu() {
     rrect(cx, CY, CW, CH, CR); ctx.fill();
 
     // Kart kenarlığı
-    ctx.strokeStyle = card.locked ? '#1e2040' : (i === menuIdx ? '#0cf' : '#1a3060');
-    ctx.lineWidth   = i === menuIdx && !card.locked ? 2.5 : 1.5;
-    if (!card.locked && i === menuIdx) { ctx.shadowColor = '#0cf'; ctx.shadowBlur = 14; }
+    ctx.strokeStyle = locked ? '#1e2040' : (i === menuIdx ? '#0cf' : '#1a3060');
+    ctx.lineWidth   = i === menuIdx && !locked ? 2.5 : 1.5;
+    if (!locked && i === menuIdx) { ctx.shadowColor = '#0cf'; ctx.shadowBlur = 14; }
     rrect(cx, CY, CW, CH, CR); ctx.stroke();
     ctx.shadowBlur = 0;
 
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
 
-    if (!card.locked) {
+    if (!locked) {
       // — İllüstrasyon alanı (gezegen + yıldızlar) —
       ctx.save();
       ctx.beginPath(); ctx.rect(cx, CY, CW, CH); ctx.clip();
 
-      // Dekoratif gezegen
-      const pg = ctx.createRadialGradient(cx + CW * 0.62, CY + 140, 20, cx + CW * 0.62, CY + 140, 80);
-      pg.addColorStop(0, '#1a4aaa');
-      pg.addColorStop(0.5, '#0a2060');
-      pg.addColorStop(1, '#040820');
-      ctx.fillStyle = pg;
-      ctx.beginPath(); ctx.arc(cx + CW * 0.62, CY + 140, 72, 0, Math.PI * 2); ctx.fill();
-      // Gezegen halkası
-      ctx.strokeStyle = 'rgba(100,160,255,0.35)'; ctx.lineWidth = 6;
-      ctx.beginPath(); ctx.ellipse(cx + CW * 0.62, CY + 148, 105, 22, -0.3, 0, Math.PI * 2); ctx.stroke();
-      // Küçük düşman silüetleri
-      [[cx + 55, CY + 80, 0.55], [cx + 90, CY + 210, 0.45], [cx + 195, CY + 195, 0.5]].forEach(([ex, ey, sc]) => {
-        ctx.save(); ctx.translate(ex, ey); ctx.scale(sc, sc);
-        ctx.fillStyle = 'rgba(255,80,80,0.55)';
-        ctx.beginPath();
-        ctx.moveTo(0,16); ctx.lineTo(-14,-14); ctx.lineTo(-6,-8); ctx.lineTo(0,-16); ctx.lineTo(6,-8); ctx.lineTo(14,-14);
-        ctx.closePath(); ctx.fill();
-        ctx.restore();
-      });
+      drawCardArt(i, cx, CY, CW);
       ctx.restore();
 
       // Başlık
@@ -2312,6 +2739,10 @@ function render() {
 
   if (currentZone === 2) {
     drawZone2Background();
+  } else if (currentZone === 3) {
+    drawZone3Background();
+  } else if (currentZone === 4) {
+    drawZone4Background();
   } else {
     ctx.fillStyle = '#000010';
     ctx.fillRect(0, 0, W, H);
@@ -2323,9 +2754,11 @@ function render() {
   asteroids.forEach(drawAsteroid);
   powerups.forEach(drawPowerup);
   bullets.forEach(drawBullet);
-  eBullets.forEach(drawEBullet);
   enemies.forEach(drawEnemy);
   if (boss) drawBoss(boss);
+  if (currentZone === 3) drawFog(); // sis düşmanları örter, düşman mermilerini değil
+  drawLasers();
+  eBullets.forEach(drawEBullet);
 
   if ((state === 'play' || state === 'gameover') && !player.dead) {
     drawShip(player.x, player.y);
@@ -2334,7 +2767,7 @@ function render() {
   if (state === 'play' && tutorial) drawTutorial();
 
 
-  if (state === 'gameover') drawOverlay('GAME OVER', 'The enemy reached the ship!');
+  if (state === 'gameover') drawOverlay('GAME OVER', deathCause || 'The enemy reached the ship!');
 
   if (state === 'levelcomplete') {
     if (levelCompleteType === 'clear') {
@@ -2403,7 +2836,7 @@ function render() {
       ctx.globalAlpha = labelAlpha;
       ctx.font = 'bold 13px Courier New';
       ctx.fillStyle = '#ffee44'; ctx.shadowColor = '#ff8'; ctx.shadowBlur = 12;
-      ctx.fillText(`LEVEL ${currentLevel}  ·  BOSS DEFEATED`, W / 2, H / 2 - 130);
+      ctx.fillText(currentLevel === LEVEL_COUNT ? 'THE VOID LEADER HAS FALLEN' : `LEVEL ${currentLevel}  ·  BOSS DEFEATED`, W / 2, H / 2 - 130);
       ctx.restore();
 
       // "BÖLGE TEMİZLENDİ!" — bounce animasyonu
@@ -2468,7 +2901,7 @@ function render() {
         ctx.shadowBlur = 0;
         ctx.fillStyle = '#fff'; ctx.font = 'bold 15px Courier New';
         ctx.globalAlpha = btnAlpha;
-        ctx.fillText('RETURN TO MENU  ▶', W / 2, by + 25);
+        ctx.fillText(currentLevel === LEVEL_COUNT ? 'CONTINUE  ▶' : 'RETURN TO MENU  ▶', W / 2, by + 25);
         ctx.restore();
       }
 
