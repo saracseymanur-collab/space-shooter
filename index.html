@@ -2848,7 +2848,7 @@ const UI_FONT = "'Orbitron', 'Courier New', monospace";
 const MONO_FONT = "'Share Tech Mono', 'Courier New', monospace";
 const SECTOR_COLORS = ['#3fd3ff', '#ffc531', '#ff4fd8', '#ff7a2f'];
 // Kart görselleri (yoksa çizimle yedeklenir)
-const CARD_IMG_SRC = ['ASSETS/cards/deep-space.jpg', null, null, null];
+const CARD_IMG_SRC = ['ASSETS/cards/deep-space.jpg', 'ASSETS/cards/asteroid-belt.jpg', 'ASSETS/cards/nebula.jpg', 'ASSETS/cards/black-hole.jpg'];
 const cardImgs = CARD_IMG_SRC.map(src => { if (!src) return null; const im = new Image(); im.src = src; return im; });
 // Harf aralıklı metin; maxW'ya sığmazsa yazı küçülür
 function drawSpaced(text, x, y, size, weight, family, spacing, maxW, align = 'center') {

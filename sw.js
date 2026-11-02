@@ -1,5 +1,5 @@
-const CACHE = 'space-shooter-v3';
-const ASSETS = ['./index.html', './manifest.json', './ASSETS/spaceship.png', './ASSETS/enemy1.png', './ASSETS/enemy2.png', './ASSETS/enemy3.png', './ASSETS/boss.png', './icon-192.png', './icon-512.png', './ASSETS/cards/deep-space.jpg'];
+const CACHE = 'space-shooter-v4';
+const ASSETS = ['./index.html', './manifest.json', './ASSETS/spaceship.png', './ASSETS/enemy1.png', './ASSETS/enemy2.png', './ASSETS/enemy3.png', './ASSETS/boss.png', './icon-192.png', './icon-512.png', './ASSETS/cards/deep-space.jpg', './ASSETS/cards/asteroid-belt.jpg', './ASSETS/cards/nebula.jpg', './ASSETS/cards/black-hole.jpg'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
