@@ -2207,26 +2207,19 @@ function drawPowerup(p) {
   ctx.save();
   ctx.translate(p.x, p.y + bob);
 
-  // Parlak rozet: geniş ışık halesi, nabız gibi atan altıgen, dönen kesikli dış halka, ışıltı
-  const pulse = 0.5 + 0.5 * Math.sin(p.bobTimer * 0.12);
+  // Sade rozet: hafif ışık halesi + rozetin kendi parıltısı
+  const pulse = 0.5 + 0.5 * Math.sin(p.bobTimer * 0.08);
   const glow = POWERUP_GLOW[p.type];
-  const grd = ctx.createRadialGradient(0, 0, 5, 0, 0, 30);
+  const grd = ctx.createRadialGradient(0, 0, 8, 0, 0, 26);
   grd.addColorStop(0, glow[0]);
   grd.addColorStop(1, glow[1]);
   ctx.fillStyle = grd;
-  ctx.globalAlpha = 0.7 + 0.3 * pulse;
-  ctx.beginPath(); ctx.arc(0, 0, 30, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 0.35 + 0.15 * pulse;
+  ctx.beginPath(); ctx.arc(0, 0, 26, 0, Math.PI * 2); ctx.fill();
   ctx.globalAlpha = 1;
-  // dönen kesikli halka
-  ctx.save(); ctx.rotate(p.bobTimer * 0.03);
-  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.setLineDash([6, 7]); ctx.globalAlpha = 0.8;
-  ctx.beginPath(); ctx.arc(0, 0, 24, 0, Math.PI * 2); ctx.stroke();
-  ctx.restore();
-  const sc = 1 + 0.06 * pulse;
-  ctx.scale(sc, sc);
   if (powerupImgReady(p.type)) {
     // tasarım rozeti (ASSETS/powerups) — parıltı kodla eklenir
-    ctx.shadowColor = color; ctx.shadowBlur = 14 + 10 * pulse;
+    ctx.shadowColor = color; ctx.shadowBlur = 8 + 4 * pulse;
     ctx.drawImage(powerupImgs[p.type], -20, -20, 40, 40); // gemi ~90px: güçlendirme ~40px
     ctx.shadowBlur = 0;
   } else {
@@ -2247,13 +2240,6 @@ function drawPowerup(p) {
   drawPowerupIcon(p.type, 12);
   ctx.shadowBlur = 0;
   }
-  // köşede küçük ışıltı
-  const tw = (p.bobTimer % 60) / 60;
-  ctx.globalAlpha = Math.sin(tw * Math.PI);
-  ctx.fillStyle = '#fff';
-  ctx.beginPath(); ctx.moveTo(16, -20); ctx.lineTo(18, -16); ctx.lineTo(22, -14); ctx.lineTo(18, -12); ctx.lineTo(16, -8); ctx.lineTo(14, -12); ctx.lineTo(10, -14); ctx.lineTo(14, -16); ctx.closePath(); ctx.fill();
-  ctx.globalAlpha = 1;
-
   ctx.restore();
 }
 
