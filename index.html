@@ -2103,12 +2103,17 @@ function drawBullet(b) {
 }
 
 // --- Draw: Power-up ---
-const POWERUP_COLORS = { triple: '#00ffaa', double: '#ffee00', bomb: '#ff4444', shield: '#2299ff', fuel: '#44ff66' };
+// Renkler güçlendirme rozetlerinin (ASSETS/powerups) kenar renkleriyle aynı
+const POWERUP_COLORS = { triple: '#4cff3a', double: '#ffe11a', bomb: '#ff2a3a', shield: '#1fb0ff', fuel: '#44ff66' };
+const POWERUP_IMG_SRC = { shield: 'ASSETS/powerups/shield.png', triple: 'ASSETS/powerups/triple-shot.png', double: 'ASSETS/powerups/double-shot.png', bomb: 'ASSETS/powerups/bomb.png' };
+const powerupImgs = {};
+Object.entries(POWERUP_IMG_SRC).forEach(([k, src]) => { const im = new Image(); im.src = src; powerupImgs[k] = im; });
+const powerupImgReady = t => powerupImgs[t] && powerupImgs[t].complete && powerupImgs[t].naturalWidth > 0;
 const POWERUP_GLOW = {
-  triple: ['rgba(0,255,170,0.65)',  'rgba(0,255,170,0)'],
-  double: ['rgba(255,238,0,0.65)',  'rgba(255,238,0,0)'],
-  bomb:   ['rgba(255,68,68,0.65)',  'rgba(255,68,68,0)'],
-  shield: ['rgba(34,153,255,0.65)', 'rgba(34,153,255,0)'],
+  triple: ['rgba(76,255,58,0.6)',  'rgba(76,255,58,0)'],
+  double: ['rgba(255,225,26,0.6)', 'rgba(255,225,26,0)'],
+  bomb:   ['rgba(255,42,58,0.6)',  'rgba(255,42,58,0)'],
+  shield: ['rgba(31,176,255,0.6)', 'rgba(31,176,255,0)'],
   fuel:   ['rgba(68,255,102,0.65)', 'rgba(68,255,102,0)'],
 };
 
@@ -2217,9 +2222,15 @@ function drawPowerup(p) {
   ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.setLineDash([6, 7]); ctx.globalAlpha = 0.8;
   ctx.beginPath(); ctx.arc(0, 0, 29, 0, Math.PI * 2); ctx.stroke();
   ctx.restore();
-  // altıgen gövde: renkli iç dolgu + parlak kenar
   const sc = 1 + 0.06 * pulse;
   ctx.scale(sc, sc);
+  if (powerupImgReady(p.type)) {
+    // tasarım rozeti (ASSETS/powerups) — parıltı kodla eklenir
+    ctx.shadowColor = color; ctx.shadowBlur = 14 + 10 * pulse;
+    ctx.drawImage(powerupImgs[p.type], -27, -27, 54, 54);
+    ctx.shadowBlur = 0;
+  } else {
+  // yedek: altıgen gövde, renkli iç dolgu + parlak kenar
   ngonPath(0, 0, 22, 6, -Math.PI / 2);
   const ig = ctx.createRadialGradient(0, -6, 2, 0, 0, 24);
   ig.addColorStop(0, color + '66'); ig.addColorStop(1, 'rgba(6,14,30,0.92)');
@@ -2235,6 +2246,7 @@ function drawPowerup(p) {
   ctx.shadowColor = '#fff'; ctx.shadowBlur = 6;
   drawPowerupIcon(p.type, 12);
   ctx.shadowBlur = 0;
+  }
   // köşede küçük ışıltı
   const tw = (p.bobTimer % 60) / 60;
   ctx.globalAlpha = Math.sin(tw * Math.PI);
@@ -2845,9 +2857,9 @@ function drawHUD() {
 
   // Altta: aktif güçlendirmelerin süreleri (yalnızca aktifken)
   const active = [];
-  if (player.shieldTimer > 0) active.push(['shield', player.shieldTimer / POWERUP_DURATION, '#3aa8ff', 'SHIELD']);
-  if (player.tripleTimer > 0) active.push(['triple', player.tripleTimer / POWERUP_DURATION, '#00ffaa', 'TRIPLE SHOT']);
-  if (player.doubleTimer > 0) active.push(['double', player.doubleTimer / POWERUP_DURATION, '#ffee00', 'DOUBLE SHOT']);
+  if (player.shieldTimer > 0) active.push(['shield', player.shieldTimer / POWERUP_DURATION, POWERUP_COLORS.shield, 'SHIELD']);
+  if (player.tripleTimer > 0) active.push(['triple', player.tripleTimer / POWERUP_DURATION, POWERUP_COLORS.triple, 'TRIPLE SHOT']);
+  if (player.doubleTimer > 0) active.push(['double', player.doubleTimer / POWERUP_DURATION, POWERUP_COLORS.double, 'DOUBLE SHOT']);
   active.forEach(([type, ratio, col, label], k) => {
     drawTimerBar(40, H - 38 - k * 26, W - 80, ratio, col, label, type);
   });
@@ -2867,7 +2879,7 @@ function drawTimerBar(x, y, w, ratio, col, label, icon) {
   } else if (icon === 'crystal') {
     ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(5, 0); ctx.lineTo(0, 7); ctx.lineTo(-5, 0); ctx.closePath(); ctx.fill();
   } else {
-    drawPowerupIcon(icon, 6);
+    if (powerupImgReady(icon)) ctx.drawImage(powerupImgs[icon], -10, -10, 20, 20); else drawPowerupIcon(icon, 6);
   }
   ctx.restore();
   // Etiket (ikonun yanında, çubuğun içinde)
@@ -4270,11 +4282,11 @@ function render() {
   asteroids.forEach(drawAsteroid);
   drawIonClouds();
   drawCrystals();
-  powerups.forEach(drawPowerup);
   bullets.forEach(drawBullet);
   enemies.forEach(drawEnemy);
   if (boss) drawBoss(boss);
   if (currentZone === 3) { const fc = getLevelConfig(); drawFog(fc && fc.fog ? fc.fog : 0.4); } // sis düşmanları örter, mermileri değil
+  powerups.forEach(drawPowerup); // güçlendirmeler her zaman net: sisin üstünde
   drawLasers();
   eBullets.forEach(drawEBullet);
 
