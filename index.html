@@ -623,13 +623,13 @@ function baseLevelConfig() {
       stack: 150, splitter: 0.22, // Splitter: turuncu düşman vurulunca iki hızlı parçaya bölünür
       canShoot: true, zigzag: false, fireMul: 1.1,
     };
-    case 3: return { // Spreader: V şeklinde çapraz ateş (kesikli çizgilerle önceden gösterilir) → güvenli şeridi oku
+    case 3: return { // Yılan: şeritler arasında kıvrılan gemi zinciri → izle, şeridinden geçerken vur
       // yeni temel (hızlı iniş + şeritte üst üste) + L2'nin bölünen düşmanları ara sıra
-      interval: 76, doubleChance: 0.32,
+      interval: 84, doubleChance: 0.3,
       speed: () => 3.0 + Math.random() * 0.4,
       hp: () => Math.random() < 0.45 ? 2 : 1,
-      stack: 150, splitter: 0.06, spreader: 0.36,
-      canShoot: true, zigzag: false, fireMul: 1.3,
+      stack: 150, splitter: 0.06, snake: 420,
+      canShoot: true, zigzag: false, fireMul: 1.2,
     };
     case 4: return { // Hunter: şeridini nişanlar → kilitler → hızlı tek atış (zamanlama / yem verme)
       interval: 54, doubleChance: 0.3,
@@ -1054,7 +1054,7 @@ function startLevel(level) {
   asteroids = []; asteroidSpawnTimer = 0;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
-  countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; // ilk bağlı çift / Hunter ~3 sn sonra runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null;
+  countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; // ilk bağlı çift / Hunter ~3 sn sonra runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null;
   briefing = !!LEVEL_BRIEFS[level];
   // Zone 3: sis bulutları ekranı baştan kaplasın
   const _cfg = getLevelConfig();
@@ -1165,6 +1165,71 @@ function spawnHunter(lane) {
 // Splitter: turuncu gövde (sarı gemi görselinin turuncu kopyası) + ortada parlayan çatlak.
 // Mermiyle ölünce iki küçük, hızlı parça yan şeritlere fırlar (kenardaysa biri aynı şeritte kalır).
 let pendingEnemies = []; // düşman döngüsü sırasında doğanlar (filter içinde push kaybolur)
+// Yılan: 8 turkuaz parçalı zincir. Baş dalga gibi üç şerit boyunca kıvrılarak iner, gövde aynı yolu izler.
+// Parçalar ancak şerit ortasından geçerken vurulabilir (mermiler şerit ortasında). Hepsi ölürse %40 power-up düşer;
+// yılan alta ulaşırsa tek can gider ve kalan parçalar kaçar.
+const SNAKE_COL = '#25e6ff';
+let snakes = [], snakeT = 0;
+let snakeSprite = null;
+function getSnakeSprite() {
+  const img = enemyImgs[1];
+  if (!img || !img.complete || !img.naturalWidth) return null;
+  if (!snakeSprite) {
+    const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const g = c.getContext('2d'); g.drawImage(img, 0, 0);
+    try {
+      const d = g.getImageData(0, 0, c.width, c.height), px = d.data;
+      for (let i = 0; i < px.length; i += 4) {
+        if (!px[i + 3]) continue;
+        const r = px[i], gg = px[i + 1], b = px[i + 2], mx = Math.max(r, gg, b), mn = Math.min(r, gg, b);
+        if (mx < 50 || (mx - mn) / mx < 0.3) continue;
+        const v = Math.min(255, mx * 1.2) / 255;
+        px[i] = 40 * v; px[i + 1] = 230 * v; px[i + 2] = 255 * v;
+      }
+      g.putImageData(d, 0, 0);
+    } catch (err) {}
+    snakeSprite = c;
+  }
+  return snakeSprite;
+}
+function spawnSnake() {
+  const n = 8, gap = 12, sn = { path: [], phase: Math.random() < 0.5 ? 0 : Math.PI, y: -40, speed: 2.2, w: 0.055, gap, segs: [] };
+  for (let i = 0; i < n; i++) {
+    const seg = {
+      lane: 1, x: W / 2, y: -200, w: 38, h: 44, hp: 1, maxHp: 1, speed: 0, flash: 0,
+      fireTimer: 0, fireRate: 999, canShoot: false, zigzag: false, zigzagPhase: 0, phantom: false,
+      cloakCfg: { vis: 90, inv: 40 }, cloakT: 0, alpha: 1, shiftAt: null, shiftTo: 1, curveShots: false, shift2: 0,
+      seg: true, head: i === 0, snake: sn,
+    };
+    sn.segs.push(seg); enemies.push(seg);
+  }
+  snakes.push(sn);
+}
+function updateSnakes() {
+  snakes = snakes.filter(sn => {
+    sn.y += sn.speed; sn.phase += sn.w;
+    sn.path.push({ x: W / 2 + LANE_W * Math.sin(sn.phase), y: sn.y });
+    if (sn.path.length > 200) sn.path.shift();
+    const alive = sn.segs.filter(sg => sg.hp > 0 && !sg.gone);
+    alive.forEach(sg => {
+      const i = sn.segs.indexOf(sg), p = sn.path[sn.path.length - 1 - i * sn.gap];
+      if (p) { sg.x = p.x; sg.y = p.y; } else sg.y = -200;
+      sg.lane = nearestLane(sg.x);
+    });
+    if (!alive.length) { // hepsi vuruldu → ödül
+      const last = sn.segs[sn.segs.length - 1], r = Math.random();
+      if (Math.random() < 0.4) powerups.push({ type: r < 0.4 ? 'shield' : r < 0.7 ? 'triple' : 'double', x: LANE_CENTERS[nearestLane(last.x)], y: Math.max(80, last.y), speed: 1.8, bobTimer: 0 });
+      showToast('SNAKE CLEARED', SNAKE_COL, 80);
+      return false;
+    }
+    if (alive.some(sg => sg.y > H - 70)) { // kaçtı: tek can
+      damagePlayer('The snake got through!');
+      alive.forEach(sg => { sg.gone = true; });
+      return false;
+    }
+    return true;
+  });
+}
 let splitterSprite = null;
 function getSplitterSprite() {
   const img = enemyImgs[2];
@@ -1448,8 +1513,8 @@ function spawnExplosion(x, y, big) {
 // gemi renginde şok halkası + kısa parlama + aynı renkte kıvılcımlar
 function spawnShipDeath(e) {
   const tier = e.runner ? 1 : e.maxHp, sz = ENEMY_SIZES[tier] ?? { w: 80, h: 60 };
-  const col = e.runner ? '#ffffff' : e.splitter ? '#ff8a2a' : e.spreader ? SPREAD_COL : ENEMY_GLOW[tier] || '#ff8a40';
-  const spr = e.runner ? getRunnerSprite() : e.splitter ? getSplitterSprite() : e.spreader ? getSpreaderSprite() : getNeonSprite(enemyImgs[tier], tier);
+  const col = e.runner ? '#ffffff' : e.splitter ? '#ff8a2a' : e.spreader ? SPREAD_COL : e.seg ? SNAKE_COL : ENEMY_GLOW[tier] || '#ff8a40';
+  const spr = e.runner ? getRunnerSprite() : e.splitter ? getSplitterSprite() : e.spreader ? getSpreaderSprite() : e.seg ? getSnakeSprite() : getNeonSprite(enemyImgs[tier], tier);
   if (e.guarding) { e.guarding.guardedBy = null; e.guarding.shieldHit = 12; e.guarding = null; } // bağ koptu
   if (e.runner && e.drop) powerups.push({ type: e.drop, x: e.x, y: e.y, speed: 1.8, bobTimer: 0 });
   // Bölümün son düşmanı: kısa ağır çekim (dramatik bitiş)
@@ -2303,6 +2368,14 @@ function drawHunterAim() {
     ctx.restore();
   }
 }
+function drawSnakeBodies() {
+  for (const sn of snakes) {
+    const alive = sn.segs.filter(sg => sg.hp > 0 && !sg.gone && sg.y > -60);
+    if (alive.length < 2) continue;
+    ctx.save(); ctx.strokeStyle = SNAKE_COL; ctx.globalAlpha = 0.35; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.shadowColor = SNAKE_COL; ctx.shadowBlur = 10;
+    ctx.beginPath(); alive.forEach((sg, i) => i ? ctx.lineTo(sg.x, sg.y) : ctx.moveTo(sg.x, sg.y)); ctx.stroke(); ctx.restore();
+  }
+}
 function drawLinks() {
   for (const g of enemies) {
     const w = g.guarding; if (!w || !enemies.includes(w)) continue;
@@ -2335,6 +2408,14 @@ function drawRunner(e) {
 }
 function drawEnemy(e) {
   if (e.runner) { drawRunner(e); return; }
+  if (e.seg) { // yılan parçası: küçük turkuaz gemi, baş biraz büyük
+    if (e.y < -50) return;
+    const spr = getSnakeSprite(), sz = ENEMY_SIZES[1], k = e.head ? 0.95 : 0.72, dw = sz.w * k, dh = sz.h * k;
+    ctx.save(); ctx.translate(e.x, e.y);
+    if (spr) { ctx.shadowColor = SNAKE_COL; ctx.shadowBlur = e.head ? 12 : 6; ctx.drawImage(spr, -dw / 2, -dh / 2, dw, dh); ctx.shadowBlur = 0; }
+    if (e.flash > 8) { const w = getWhiteSprite(enemyImgs[1], 1); if (w) { ctx.globalAlpha = (e.flash - 8) / 6; ctx.drawImage(w, -dw / 2, -dh / 2, dw, dh); } }
+    ctx.restore(); return;
+  }
   const sz   = ENEMY_SIZES[e.maxHp] ?? { w: 80, h: 60 };
   const dw   = sz.w, dh = sz.h;
   const img  = enemyImgs[e.maxHp];
@@ -2841,7 +2922,7 @@ const LEVEL_BRIEFS = [
   null,
   { title: 'SWIPE TO MOVE',   vis: 'swipe',     line: 'Swipe left or right to change lanes.', tips: ['Your ship fires automatically.', 'Red shots cost a life. Dodge them!', "Don't let enemies reach the bottom!"] },
   { title: 'SPLITTERS',       vis: 'split',     line: 'Orange ships split in two when hit. Catch the fast halves!', tips: ['The halves dart into the side lanes.', "Don't let them reach the bottom!", 'A blue shield blocks hits for a few seconds.'] },
-  { title: 'SPREADERS',       vis: 'spread',    line: 'Pink ships fire in a V. Read the lines, find the safe lane!', tips: ['In the middle lane, the V goes to both sides. Right under it is safe.', 'Dotted lines show where the shots will go.', 'Orange splitters are back. Catch the halves!'] },
+  { title: 'SNAKES',          vis: 'snake',     line: 'A snake of ships weaves across the lanes. Follow it and shoot every piece!', tips: ['Clear the whole snake for a chance at a power-up.', 'If it reaches the bottom, you lose a life.', 'Orange splitters are back. Catch the halves!'] },
   { title: 'HUNTERS',         vis: 'hunter',    line: 'A Hunter aims at your lane, locks on, then fires. Slip out after the lock!', tips: ["It's shielded while aiming. Hit it when it locks or rests.", "Lure its aim into a lane you don't need.", 'Last wave: a formation. Hide in the gap!'] },
   { title: 'VOID VANGUARD',   vis: 'boss',      line: 'Survive the waves, then defeat the boss.', tips: ['Phase 1: two cannons charge. Hide in the gap.', 'Phase 2: it locks on your lane. Slip out!', 'Phase 3: shoot its shield drones first.'] },
   { title: 'CRYSTAL MINING',  vis: 'crystal',   line: 'Shoot rocks, collect crystals, fill the bar for Overdrive!', tips: ["You don't have to destroy every rock.", 'Survive 5 waves to clear the level.'] },
@@ -2966,6 +3047,18 @@ function drawBriefVisual(kind, cx, cy, zc) {
       briefShot(cx, sy);
       const px = cx + 70 * Math.min(1, Math.max(0, (sy - cy + 6) / 20));
       if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, px - 20, cy + 16, 40, 40);
+      break;
+    }
+    case 'snake': {
+      // turkuaz zincir şeritler arasında kıvrılır; gemi altında kayarak parçaları vurur
+      const P = 200, k = frameCount % P, spr = getSnakeSprite(), sz = ENEMY_SIZES[1];
+      const pts = [];
+      for (let i = 0; i < 6; i++) { const ph = (k - i * 10) * 0.05; pts.push([cx + 70 * Math.sin(ph), cy - 40 + Math.max(0, (k - i * 10)) * 0.25]); }
+      ctx.save(); ctx.strokeStyle = SNAKE_COL; ctx.globalAlpha = 0.35; ctx.lineWidth = 3; ctx.beginPath();
+      pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke(); ctx.restore();
+      pts.forEach(([x, y], i) => { if (y > cy + 8 || !spr) return; const kk = i === 0 ? 0.45 : 0.34; ctx.drawImage(spr, x - sz.w * kk / 2, y - sz.h * kk / 2, sz.w * kk, sz.h * kk); });
+      const shipX = cx + 70 * Math.sin(k * 0.05 - 0.6);
+      if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, shipX - 16, cy + 14, 32, 32);
       break;
     }
     case 'spread': {
@@ -4200,6 +4293,7 @@ function update() {
       const free = [0, 1, 2].filter(l => !enemies.some(e => e.lane === l && e.y < H * 0.35));
       if (free.length) { hunT = 0; spawnHunter(free[Math.floor(Math.random() * free.length)]); }
     }
+    if (cfg && cfg.snake && ++snakeT >= cfg.snake && !snakes.length) { snakeT = 0; spawnSnake(); }
     if (cfg && cfg.link && ++linkT >= cfg.link && !enemies.some(e => e.guarding) && spawnLinkPair()) linkT = 0;
     const lw = getWave() - (currentLevel - 1) * 5;
     if (lw === 3 && !runnerDone && (Math.random() < 1 / 360 || getWave() * 14 - gameSec() < 2)) runnerDone = spawnRunner();
@@ -4271,7 +4365,9 @@ function update() {
   });
 
   // Enemies
+  updateSnakes();
   enemies = enemies.filter(e => {
+    if (e.gone) return false; // kaçan yılan parçaları
     // Pusu: demir kayanın arkasında saklanır (bu sırada vurulamaz, ateş etmez)
     if (e.escort) {
       if (asteroids.includes(e.escort) && e.escort.y < e.breakAt) {
@@ -4365,7 +4461,7 @@ function update() {
       const zx = LANE_CENTERS[e.lane] + Math.sin(e.zigzagPhase) * 40;
       e.x += (zx - e.x) * (e.shifting > 0 ? 0.08 : 1);
     } else {
-      e.x += (LANE_CENTERS[e.lane] - e.x) * (e.kid ? 0.22 : 0.08); // bölünen parçalar yana fırlar
+      if (!e.seg) e.x += (LANE_CENTERS[e.lane] - e.x) * (e.kid ? 0.22 : 0.08); // bölünen parçalar yana fırlar (yılanı updateSnakes taşır)
     }
     if (e.flash > 0) e.flash--;
 
@@ -4421,7 +4517,7 @@ function update() {
 
     // Reached player — kalkan varsa engelle (kalkan hasarı emer, ama bitmez)
     if (e.runner && e.y > H + 40) return false; // kargo kaçtı: sadece ödül kaçtı
-    if (e.y > H - 55 && !e.runner) {
+    if (e.y > H - 55 && !e.runner && !e.seg) {
       spawnShipDeath(e);
       damagePlayer('The enemy reached the ship!');
       return false;
@@ -5000,6 +5096,7 @@ function render() {
   drawIonClouds();
   drawCrystals();
   bullets.forEach(drawBullet);
+  drawSnakeBodies();
   drawLinks();
   enemies.forEach(drawEnemy);
   drawVanguardFx('under');
