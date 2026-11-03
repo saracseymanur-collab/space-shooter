@@ -642,11 +642,11 @@ function baseLevelConfig() {
     };
     case 4: return { // Sweeper: kalkanlı taret iki şeridi kayan lazerle süpürür → güvenli üçüncü şeride geç
       // yeni temel (hızlı iniş + şeritte üst üste) + L3'ün Rammer'ları ara sıra
-      interval: 94, doubleChance: 0.26,
-      speed: () => 3.1 + Math.random() * 0.4,
+      interval: 82, doubleChance: 0.3,
+      speed: () => 3.2 + Math.random() * 0.4,
       hp: () => Math.random() < 0.45 ? 2 : 1,
-      stack: 150, rammer: 0.06, sweeper: 720,
-      canShoot: true, zigzag: false, fireMul: 1.6,
+      stack: 150, rammer: 0.08, sweeper: 600,
+      canShoot: true, zigzag: false, fireMul: 1.4,
     };
     case 5: return { // boss öncesi 4 dalga: sektörün kısa tekrarı (hafif) — asıl sınav boss
       interval: 74, doubleChance: 0.2,
@@ -3021,7 +3021,7 @@ const LEVEL_BRIEFS = [
   { title: 'SWIPE TO MOVE',   vis: 'swipe',     line: 'Swipe left or right to change lanes.', tips: ['Your ship fires automatically.', 'Red shots cost a life. Dodge them!', "Don't let enemies reach the bottom!"] },
   { title: 'SPLITTERS',       vis: 'split',     line: 'Orange ships split in two when hit. Catch the fast halves!', tips: ['The halves dart into the side lanes.', "Don't let them reach the bottom!", 'A blue shield blocks hits for a few seconds.'] },
   { title: 'RAMMERS',         vis: 'ram',       line: 'Red ships mark your lane, then ram straight down. Dodge!', tips: ['Watch for the flashing lane.', 'Its shield blocks your shots. Just get out of the way!', 'Orange splitters are back. Catch the halves!'] },
-  { title: 'SWEEPERS',        vis: 'sweep',     line: 'A turret sweeps a laser across two lanes. Get to the safe side!', tips: ['The red band shows the lanes it will sweep.', 'Its shield blocks your shots.', 'Rammers are back. Dodge!'] },
+  { title: 'SWEEPERS',        vis: 'sweep',     line: 'A turret sweeps a laser across two lanes and back. Get to the safe side!', tips: ['The red band shows the lanes it will sweep.', 'Its shield blocks your shots.', 'Rammers are back. Dodge!'] },
   { title: 'VOID VANGUARD',   vis: 'boss',      line: 'Survive the waves, then defeat the boss.', tips: ['Phase 1: two cannons charge. Hide in the gap.', 'Phase 2: it locks on your lane. Slip out!', 'Phase 3: shoot its shield drones first.'] },
   { title: 'CRYSTAL MINING',  vis: 'crystal',   line: 'Shoot rocks, collect crystals, fill the bar for Overdrive!', tips: ["You don't have to destroy every rock.", 'Survive 5 waves to clear the level.'] },
   { title: 'AMBUSH',          vis: 'ambush',    line: 'Enemies hide behind grey iron rocks.', tips: ["Iron rocks can't be destroyed and block shots.", 'Wait for the enemy to come out.'] },
@@ -4539,22 +4539,22 @@ function update() {
     }
     if (!e.gunner && e.shieldHit > 0) e.shieldHit--;
     if (e.sweeper) {
-      if (e.sState === 'enter') { if (e.y >= e.hoverY) { e.y = e.hoverY; e.sState = 'warn'; e.sT = 56; } }
+      if (e.sState === 'enter') { if (e.y >= e.hoverY) { e.y = e.hoverY; e.sState = 'warn'; e.sT = 42; } }
       else if (e.sState === 'leave') { e.y -= e.speed + 7; if (e.y < -80) return false; } // yukarı çekilir (+ normal iniş telafisi)
       else {
         e.y -= e.speed; // yerinde durur
         if (e.sState === 'warn') { if (--e.sT <= 0) { e.sState = 'sweep'; e.sT = 0; } }
-        else { // lazer açık: başlangıçtan bitiş şeridine yumuşak kayar
-          const q = Math.min(1, ++e.sT / 80), ez = q * q * (3 - 2 * q);
+        else { // lazer açık: başlangıçtan bitiş şeridine kayar, sonra geri döner (güvenli şerit hep aynı üçüncü şerit)
+          const t = ++e.sT, q = t < 44 ? t / 44 : t < 54 ? 1 : Math.max(0, 1 - (t - 54) / 44), ez = q * q * (3 - 2 * q);
           e.beamX = LANE_CENTERS[e.from] + (LANE_CENTERS[e.to] - LANE_CENTERS[e.from]) * ez;
           if (!e.hitDone && !player.dead && Math.abs(player.x - e.beamX) < 32) { e.hitDone = true; damagePlayer('Swept by the laser!'); }
-          if (e.sT >= 96) e.sState = 'leave';
+          if (t >= 104) e.sState = 'leave';
         }
         e.x = e.beamX; e.lane = nearestLane(e.x);
       }
     }
     if (e.rammer) {
-      if (e.rState === 'fall' && e.y > e.ramAt) { e.rState = 'aim'; e.rT = 36; e.lane = e.ramLane = playerLaneNow(); }
+      if (e.rState === 'fall' && e.y > e.ramAt && !sweepActive) { e.rState = 'aim'; e.rT = 36; e.lane = e.ramLane = playerLaneNow(); } // süpürmede bekler
       else if (e.rState === 'aim') { // durmaz: sırasıyla inmeye devam eder, hedef şeride hızlı kayar
         e.x += (LANE_CENTERS[e.ramLane] - e.x) * 0.18;
         if (--e.rT <= 0) { e.rState = 'dash'; e.speed = 13; }
