@@ -9,13 +9,19 @@ let HITS = [];
 damagePlayer = function (cause) { if (!player.dead && player.shieldTimer <= 0) HITS.push(cause); return _origDamage(cause); };
 
 function laneDanger(l, horizon, blind) { // isabet edecek mermi/kaya/lazer: kesin kaçış önceliği
-  const lx = LANE_CENTERS[l]; let d = 0; if (blind) return 0;
+  const lx = LANE_CENTERS[l]; let d = 0;
+  // büyük, ekranı kaplayan uyarılar (lazer, süpürme) "dalgınlıkta" bile görülür; dalgınlık sadece mermi/kaya kaçırmak
+  for (const L of lasers) if (L.lane === l) d += 1e6;
+  for (const e of enemies) if (e.sweeper && (e.sState === 'warn' || e.sState === 'sweep') && Math.min(e.from, e.to) <= l && l <= Math.max(e.from, e.to)) {
+    if (e.sState === 'warn' && horizon < 20) continue; // uyarı sırasında içinden geçmek güvenli (geçiş kontrolü kısa ufukla çağrılır)
+    d += e.sState === 'sweep' ? 1e6 : 2e5; // süpürülecek iki şerit
+  }
+  if (blind) return d;
   for (const b of eBullets) { const vy = b.vy || 4; if (vy <= 0) continue; const t = (player.y - b.y) / vy; if (t < -8 || t > horizon) continue;
     const xAt = b.x + (b.vx || 0) * Math.max(0, t); if (Math.abs(xAt - lx) < (b.big ? 44 : 34)) d += 1e5 / (1 + Math.max(0, t)); }
   for (const a of asteroids) { const t = (player.y - a.y) / (a.speed || 2); if (t < -14 || t > horizon) continue;
     const xAt = a.x + (a.vx || 0) * Math.max(0, t); // kaya parçaları çapraz kayar
     if (Math.abs(xAt - lx) < a.size * 0.9 + 26) d += 1e5 / (1 + Math.max(0, t)); }
-  for (const L of lasers) if (L.lane === l) d += 1e6; // `lasers` sayfa genelinde let → window.lasers değil
   for (const e of enemies) if (e.rammer && (e.rState === 'aim' || e.rState === 'dash') && e.ramLane === l && e.y < player.y + 30)
     d += 1e5 / (1 + Math.max(0, (player.y - e.y) / 13 - (e.rState === 'aim' ? 0 : 0))); // dalacak kamikaze
   return d;
