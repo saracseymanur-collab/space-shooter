@@ -537,34 +537,36 @@ function getDoubleSpawnChance() {
 // Bölüm 1-4 için sabit level konfigürasyonu (5 = özel boss, 6+ smooth sistem)
 function getLevelConfig() {
   switch (currentLevel) {
+    // Sektör 1 zorluk eğrisi (2026-11 bot ölçümüyle ayarlandı; deneyimli/rahat oyuncu ort. can kaybı):
+    // L1 ≈0 (öğretici ama dolu), L2 ≈0.1/1, L3 ≈0.8/1, L4 ≈0.9/1.1 — her bölüm bir öncekinin üstüne ekler
     case 1: {
-      const lw = getWave() - (currentLevel - 1) * 5; // level içi dalga (1-4)
+      const lw = getWave() - (currentLevel - 1) * 5; // level içi dalga (1-5)
       return {
-        interval: Math.max(34, 72 - (lw - 1) * 14),  // 72→58→44→34
-        doubleChance: 0.12 + (lw - 1) * 0.2,         // 12%→32%→52%→72%
-        speed: () => 1.4 + Math.random() * 0.35,
-        hp: () => { const r = Math.random(); return r < 0.45 ? 1 : r < 0.78 ? 2 : 3; },
+        interval: Math.max(26, 60 - (lw - 1) * 9),  // 60→51→42→33→26
+        doubleChance: 0.2 + (lw - 1) * 0.15,        // 20%→80%
+        speed: () => 1.5 + Math.random() * 0.4,
+        hp: () => { const r = Math.random(); return r < 0.35 ? 1 : r < 0.72 ? 2 : 3; },
         canShoot: false, zigzag: false,
       };
     }
     case 2: return {
-      interval: 58, doubleChance: 0.30,
-      speed: () => 1.6 + Math.random() * 0.4,
-      hp: () => Math.random() < 0.45 ? 2 : 1,
-      canShoot: true, zigzag: false,
+      interval: 50, doubleChance: 0.35,
+      speed: () => 1.7 + Math.random() * 0.4,
+      hp: () => Math.random() < 0.5 ? 2 : 1,
+      canShoot: true, zigzag: false, fireMul: 0.85,
     };
     case 3: return {
-      interval: 62, doubleChance: 0.3,
-      // %40 ihtimalle hızlı küçük düşman
-      speed: () => Math.random() < 0.4 ? 3.2 + Math.random() * 0.5 : 1.9 + Math.random() * 0.4,
-      hp: () => Math.random() < 0.35 ? 2 : 1,
-      canShoot: true, zigzag: false,
-    };
-    case 4: return {
-      interval: 72, doubleChance: 0.25,
-      speed: () => 1.9 + Math.random() * 0.5,
+      interval: 48, doubleChance: 0.4,
+      // %45 ihtimalle hızlı düşman — ateş de ediyorlar
+      speed: () => Math.random() < 0.45 ? 3.4 + Math.random() * 0.5 : 1.9 + Math.random() * 0.4,
       hp: () => Math.random() < 0.4 ? 2 : 1,
-      canShoot: false, zigzag: true,
+      canShoot: true, zigzag: false, fireMul: 0.8,
+    };
+    case 4: return { // zikzak + ateş (önceden ateş yoktu → bölüm en kolayıydı)
+      interval: 62, doubleChance: 0.3,
+      speed: () => 1.9 + Math.random() * 0.5,
+      hp: () => Math.random() < 0.45 ? 2 : 1,
+      canShoot: true, zigzag: true, fireMul: 1.25,
     };
     // ── Zone 2: Asteroid Belt — kayalarla birlikte daha seyrek düşman ──
     case 6: return { // kristal madenciliği + hafif düşmanlar
@@ -1004,7 +1006,7 @@ function spawnEnemy(yOffset = 0) {
   const speed = cfg ? cfg.speed() : getEnemySpeed();
   const canShoot = cfg ? cfg.canShoot : true;
   const zigzag   = cfg ? cfg.zigzag   : false;
-  const fireRate = hp === 3 ? 180 : hp === 2 ? 110 : 140;
+  const fireRate = Math.round((hp === 3 ? 180 : hp === 2 ? 110 : 140) * (cfg && cfg.fireMul || 1)); // fireMul<1: daha sık ateş
   // Black Hole: çekim düşmanı yolun ortasında komşu şeride savurur
   let shiftAt = null, shiftTo = lane;
   if (cfg && cfg.gravity && Math.random() < cfg.gravity) {
@@ -1278,7 +1280,7 @@ function dropCrystals(x, y, n) {
 function spawnAmbusher(rock, lane) {
   const cfg = getLevelConfig();
   const hp = cfg ? cfg.hp() : 1;
-  const fireRate = hp === 3 ? 180 : hp === 2 ? 110 : 140;
+  const fireRate = Math.round((hp === 3 ? 180 : hp === 2 ? 110 : 140) * (cfg && cfg.fireMul || 1)); // fireMul<1: daha sık ateş
   enemies.push({
     lane, x: rock.x, y: rock.y - 58, w: 38, h: 44,
     hp, maxHp: hp, speed: (cfg ? cfg.speed() : 1.8) * 1.1, flash: 0,

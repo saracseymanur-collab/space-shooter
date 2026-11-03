@@ -32,10 +32,11 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 
 ## Asset klasörleri
 - `ASSETS/cards/` menü kartı görselleri, `ASSETS/backgrounds/` oyun arkaplanları (852×1846),
-  `ASSETS/rocks/` kaya sprite'ları (3 boyut × 3), `ASSETS/powerups/` güçlendirme rozetleri (256px).
+  `ASSETS/rocks/` kaya sprite'ları (3 boyut × 3), `ASSETS/powerups/` güçlendirme rozetleri (256px), `ASSETS/shots/` düşman mermisi.
 - `SOURCES/` taslaklar ve eski versiyonlar (ör. `SOURCES/POWERUPS/badge-v1`, `capsule-v1`, `badge-v3`).
 
 ## Açık işler / son durum (2026-11-03)
 - Çift atış (double-shot) rozeti küçükken pause simgesine (‖) benziyor → kullanıcı daha sivri / açılı mermili yeni görsel üretebilir.
 - Kullanıcı son sürümü telefonda deniyor; geri bildirimlerini bekle.
-- Zorluk kontrolü için otomatik oyuncu (bot) ile ölçüm yapılmıştı: hiçbir bölümde kaçınılmaz "duvar" veya "tuzak" yok.
+- Zorluk ölçüm botu: `SOURCES/TOOLS/bot.js` (casual/expert profilleri; `measure(levels, runs)`). Sektör 1 bununla yeniden ayarlandı (2026-11-03): ort. can kaybı L1≈0, L2≈0.2–0.9, L3≈0.9–1.3, L4≈1.3–1.6. Sektör 2-4 henüz ayarlanmadı (eğri düz, boss'lar ani sıçrama).
+- Sıradaki: sektör 1'e yeni mekanikler (formasyon/boşluğu bul, dalan düşman), sonra müzik çeşitliliği (boss teması, bölüm varyasyonu, nefes araları).
