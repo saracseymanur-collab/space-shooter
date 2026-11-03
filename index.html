@@ -607,20 +607,20 @@ function baseLevelConfig() {
     case 1: {
       const lw = getWave() - (currentLevel - 1) * 5; // level içi dalga (1-5)
       return {
-        // yeni temel (deneme): hızlı iniş + hafif zırh + şeritte üst üste → düşmanlar en üstte değil, ~ekranın 1/4'ünde ölür
-        interval: Math.max(84, 110 - (lw - 1) * 6),  // 110→104→98→92→86
-        doubleChance: 0.2 + (lw - 1) * 0.04,         // 20%→36%
+        // yeni temel (deneme): hızlı iniş + şeritte üst üste + daha çok düşman (canlar eski; zırh oyunu yavaşlattı)
+        interval: 66 - (lw - 1) * 3.5,               // 66→52 (~100 düşman/bölüm, eskiden ~50)
+        doubleChance: 0.35 + (lw - 1) * 0.025,       // 35%→45%
         speed: () => 3.0 + Math.random() * 0.4,
-        hp: () => { const r = Math.random(); return r < 0.2 ? 1 : r < 0.62 ? 2 : 3; },
-        stack: 150, armor: 1.4,
+        hp: () => { const r = Math.random(); return r < 0.35 ? 1 : r < 0.72 ? 2 : 3; },
+        stack: 150,
         canShoot: lw >= 2, fireMul: 1.6, zigzag: false, // 1. dalga sadece kaydırma; 2. dalgadan itibaren seyrek ateş
       };
     }
     case 2: return {
-      interval: 100, doubleChance: 0.28,
-      speed: () => 3.1 + Math.random() * 0.4,
-      hp: () => { const r = Math.random(); return r < 0.2 ? 1 : r < 0.65 ? 2 : 3; },
-      stack: 150, armor: 1.5,
+      interval: 55, doubleChance: 0.4,
+      speed: () => 3.2 + Math.random() * 0.4,
+      hp: () => Math.random() < 0.5 ? 2 : 1,
+      stack: 150,
       canShoot: true, zigzag: false, fireMul: 1.1, // yeni temel denemesi (mekaniği sonra seçilecek)
     };
     case 3: return { // Shield Link: koruyucu (kalkan simgeli) bağlı ortağını korur → önce koruyucuyu vur
