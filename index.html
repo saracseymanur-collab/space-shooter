@@ -2771,19 +2771,16 @@ function hudPanel(pts, glow) {
   ctx.stroke(); ctx.shadowBlur = 0;
 }
 // Ekran kenarı neon çerçevesi (oyun alanını sarar, dikkat dağıtmayacak kadar soluk)
-// Ekran kenarı neon çerçevesi: tek temiz çizgi; köşelerde parlak, kenar ortalarına doğru yumuşakça söner
+// Oyun sahnesi kenarı: çizgi yok (telefonun yuvarlak köşelerinde kesiliyordu ve dikkat dağıtıyordu).
+// Yerine üst ve alt kenarda bölge renginde çok hafif bir renk geçişi: atmosfer + arayüz arka plandan ayrışır.
 function drawScreenFrame() {
   ctx.save();
-  const m = 3, c = 18;
-  chamferPath(m, m, W - m * 2, H - m * 2, c);
-  // Dikey gradyan: üst ve alt (köşeler dahil) parlak, yan kenarların ortası soluk
-  const vg = ctx.createLinearGradient(0, 0, 0, H);
-  vg.addColorStop(0, HUD_COL); vg.addColorStop(0.12, HUD_COL + 'aa'); vg.addColorStop(0.35, HUD_COL + '33');
-  vg.addColorStop(0.65, HUD_COL + '33'); vg.addColorStop(0.88, HUD_COL + 'aa'); vg.addColorStop(1, HUD_COL);
-  ctx.strokeStyle = vg;
-  // yumuşak parıltı (aynı yol, kalın ve şeffaf) + net çizgi
-  ctx.lineWidth = 3; ctx.globalAlpha = 0.35; ctx.shadowColor = HUD_COL; ctx.shadowBlur = 10; ctx.stroke();
-  ctx.shadowBlur = 0; ctx.globalAlpha = 0.9; ctx.lineWidth = 1.2; ctx.stroke();
+  const top = ctx.createLinearGradient(0, 0, 0, 110);
+  top.addColorStop(0, HUD_COL + '2e'); top.addColorStop(1, HUD_COL + '00');
+  ctx.fillStyle = top; ctx.fillRect(0, 0, W, 110);
+  const bot = ctx.createLinearGradient(0, H - 120, 0, H);
+  bot.addColorStop(0, HUD_COL + '00'); bot.addColorStop(1, HUD_COL + '26');
+  ctx.fillStyle = bot; ctx.fillRect(0, H - 120, W, 120);
   ctx.restore();
 }
 function drawHUD() {
