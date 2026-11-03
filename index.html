@@ -372,6 +372,7 @@ let menuIdx  = 0;   // hedef kart indexi
 let menuAnimX = 0;  // smooth scroll x
 let titleTapCount = 0, titleTapTimer = 0; // gizli test modu: başlığa 5x hızlı dokun
 let devMode = false;
+let resetConfirmT = 0, resetDoneT = 0; // RESET butonu: onay ve 'DONE' göstergesi
 
 // --- Intro Cinematic ---
 const INTRO_PANELS = [
@@ -723,6 +724,10 @@ document.addEventListener('keydown', e => {
     if (e.code === 'Escape' || e.code === 'KeyP' || e.code === 'Space') state = 'play';
     return;
   }
+  if (state === 'play' && introCard) {
+    if ((e.code === 'Enter' || e.code === 'Space') && introCard.t > 15) closeIntroCard();
+    return;
+  }
   if (state === 'play' && briefing) {
     if (e.code === 'Enter' || e.code === 'Space') beginLevelPlay();
     return;
@@ -765,7 +770,7 @@ canvas.addEventListener('touchstart', e => {
 // Oyun içi swipe: parmak kalkmadan, 10px hareket eder etmez anında tetikle
 canvas.addEventListener('touchmove', e => {
   e.preventDefault();
-  if (state !== 'play' || briefing || swipeFired) return;
+  if (state !== 'play' || briefing || introCard || swipeFired) return;
   const t = e.changedTouches[0];
   const dx = t.clientX - touchStartX;
   const dy = t.clientY - touchStartY;
@@ -819,7 +824,7 @@ canvas.addEventListener('mousedown', e => {
 });
 
 canvas.addEventListener('mousemove', e => {
-  if (state !== 'play' || briefing || mouseSwipeFired) return;
+  if (state !== 'play' || briefing || introCard || mouseSwipeFired) return;
   const dx = e.clientX - mouseStartX;
   const dy = e.clientY - mouseStartY;
   if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10) {
@@ -881,6 +886,17 @@ canvas.addEventListener('click', e => {
     if (mx > W - 48 && my > CARD.y && my < CARD.y + CARD.h) { menuIdx = Math.min(MENU_CARDS.length - 1, menuIdx + 1); return; }
     // Ses butonu (sol alt)
     if (mx < 60 && my > H - 40) { Sound.toggle(); Sound.sfx.click(); return; }
+    // RESET (yalnızca DEV modunda, iki dokunuşla): tüm ilerlemeyi ve açıklamaları sıfırlar
+    if (devMode && mx > W - 112 && mx < W - 58 && my > H - 36) {
+      Sound.sfx.click();
+      if (resetConfirmT > 0) {
+        ['ss_levels', 'ss_zones', 'ss_complete', 'ss_seen', 'ss_tutorial'].forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
+        seenIntro = {};
+        MENU_CARDS.forEach((c, i) => { c.locked = i > 0; });
+        resetConfirmT = 0; resetDoneT = 120;
+      } else resetConfirmT = 150;
+      return;
+    }
     // DEV butonu (sağ alt)
     if (mx > W - 52 && my > H - 36) {
       devMode = !devMode;
@@ -921,6 +937,10 @@ canvas.addEventListener('click', e => {
     exitZoneTransition(); return;
   }
 
+  if (state === 'play' && introCard) {
+    if (introCard.t > 15 && introBtn && inBtn(introBtn, mx, my)) closeIntroCard();
+    return;
+  }
   if (state === 'play' && briefing) {
     // Talimat kartı: sadece START başlatır
     if (briefBtn && inBtn(briefBtn, mx, my)) { Sound.sfx.click(); beginLevelPlay(); }
@@ -959,7 +979,7 @@ function startLevel(level) {
   asteroids = []; asteroidSpawnTimer = 0;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
-  countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0;
+  countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null;
   briefing = !!LEVEL_BRIEFS[level];
   // Zone 3: sis bulutları ekranı baştan kaplasın
   const _cfg = getLevelConfig();
@@ -1266,9 +1286,9 @@ function drawZoneBackdrop(zone) {
   // Önde akan yıldızlar (hız hissi)
   ctx.save();
   stars.forEach(st => {
-    if (st.spd > 1.4) { // yakın katman: hızlı, kısa iz
-      ctx.strokeStyle = `rgba(255,255,255,${0.2 + st.spd * 0.15})`; ctx.lineWidth = st.s;
-      ctx.beginPath(); ctx.moveTo(st.x, st.y - st.spd * 5); ctx.lineTo(st.x, st.y); ctx.stroke();
+    if (st.spd > 1.4) { // yakın katman: hızlı, çok kısa ve soluk iz
+      ctx.strokeStyle = `rgba(255,255,255,${0.14 + st.spd * 0.07})`; ctx.lineWidth = st.s * 0.9;
+      ctx.beginPath(); ctx.moveTo(st.x, st.y - st.spd * 1.8); ctx.lineTo(st.x, st.y); ctx.stroke();
     } else {            // uzak katman: soluk nokta
       ctx.fillStyle = `rgba(255,255,255,${0.15 + st.spd * 0.2})`;
       ctx.beginPath(); ctx.arc(st.x, st.y, st.s * 0.8, 0, Math.PI * 2); ctx.fill();
@@ -2529,6 +2549,88 @@ function drawBriefing() {
   ctx.restore();
 }
 
+// --- İlk karşılaşma açıklaması: bir şey oyunda İLK KEZ görününce oyun durur, kısaca anlatılır (bir kez, kalıcı) ---
+const FIRST_SEEN = {
+  shot:      { title: 'ENEMY FIRE',     text: 'Red shots cost a life. Change lanes to dodge them.' },
+  shield:    { title: 'SHIELD',         text: 'Blocks every hit for a few seconds.' },
+  triple:    { title: 'TRIPLE SHOT',    text: 'Fires three shots at once for a few seconds.' },
+  double:    { title: 'DOUBLE SHOT',    text: 'Fires two shots at once for a few seconds.' },
+  bomb:      { title: 'BOMB',           text: 'Destroys every enemy on the screen.' },
+  crystal:   { title: 'CRYSTAL',        text: 'Fly over crystals to fill the Overdrive bar.' },
+  overdrive: { title: 'OVERDRIVE',      text: 'Rapid triple fire, and crystals fly to you.' },
+  iron:      { title: 'IRON ROCK',      text: "Can't be destroyed and blocks your shots. Dodge it." },
+  explosive: { title: 'EXPLOSIVE ROCK', text: 'Shoot it to blow up everything nearby.' },
+  meteor:    { title: 'METEOR WARNING', text: 'Meteors are coming down this lane. Move out!' },
+  phantom:   { title: 'PHANTOM',        text: 'Turns invisible. Shots pass through it while hidden.' },
+  ion:       { title: 'ION CLOUD',      text: 'Your guns jam inside it. Steer around it.' },
+  beam:      { title: 'BEAM WARNING',   text: 'A beam will fire down this lane. Move out!' },
+};
+let seenIntro = {};
+try { seenIntro = JSON.parse(localStorage.getItem('ss_seen') || '{}') || {}; } catch(e) { seenIntro = {}; }
+let introCard = null;   // { key, x, y, t }
+let introBtn = null;
+function markSeen(key) { seenIntro[key] = 1; try { localStorage.setItem('ss_seen', JSON.stringify(seenIntro)); } catch(e) {} }
+// Ekranda yeni bir şey var mı? (oyuncunun tepki verecek vakti olacak yükseklikteyken)
+function checkFirstSeen() {
+  const vis = y => y > HUD_H + 30 && y < H * 0.62;
+  const want = (key, x, y) => { if (!seenIntro[key] && !introCard) { introCard = { key, x, y, t: 0 }; Sound.sfx.click(); } };
+  for (const p of powerups) if (FIRST_SEEN[p.type] && vis(p.y)) want(p.type, p.x, p.y);
+  for (const c of crystals) if (vis(c.y)) want('crystal', c.x, c.y);
+  if (overdriveTimer > OVERDRIVE_TIME - 3) want('overdrive', player.x, player.y);
+  for (const a of asteroids) {
+    if (a.type === 'iron' && vis(a.y)) want('iron', a.x, a.y);
+    if (a.type === 'explosive' && vis(a.y)) want('explosive', a.x, a.y);
+  }
+  for (const L of lasers) if (L.t > 2) want(L.meteor ? 'meteor' : 'beam', LANE_CENTERS[L.lane], H * 0.45);
+  for (const e of enemies) if (e.phantom && e.alpha > 0.9 && vis(e.y)) want('phantom', e.x, e.y);
+  for (const c of ionClouds) if (vis(c.y)) want('ion', LANE_CENTERS[c.lane], c.y);
+  for (const b of eBullets) if (vis(b.y)) want('shot', b.x, b.y);
+}
+function closeIntroCard() { if (!introCard) return; markSeen(introCard.key); introCard = null; Sound.sfx.click(); }
+function drawIntroCard() {
+  const C = introCard; if (!C) return;
+  const D = FIRST_SEEN[C.key], zc = SECTOR_COLORS[currentZone - 1];
+  const a = Math.min(1, C.t / 10);
+  ctx.save(); ctx.globalAlpha = a;
+  // Spot ışığı: nesnenin etrafı açık, geri kalan karartılmış
+  const g = ctx.createRadialGradient(C.x, C.y, 34, C.x, C.y, 90);
+  g.addColorStop(0, 'rgba(0,0,12,0)'); g.addColorStop(1, 'rgba(0,0,12,0.72)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // Nabız gibi atan halka
+  const pulse = 0.5 + 0.5 * Math.sin(frameCount * 0.15);
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.shadowColor = zc; ctx.shadowBlur = 14;
+  ctx.beginPath(); ctx.arc(C.x, C.y, 36 + pulse * 6, 0, Math.PI * 2); ctx.stroke(); ctx.shadowBlur = 0;
+  // Kart: nesne üst yarıdaysa altında, alt yarıdaysa üstünde
+  ctx.font = `600 14px ${TEXT_FONT}`;
+  const lines = wrapText(D.text, W - 110).map(r => r.text);
+  const cw = W - 60, ch = 64 + lines.length * 20 + 60, cx = 30;
+  const cy = C.y < H / 2 ? Math.min(H - ch - 30, C.y + 60) : Math.max(HUD_H + 20, C.y - 60 - ch);
+  // bağlantı çizgisi
+  ctx.strokeStyle = zc; ctx.globalAlpha = a * 0.6; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(C.x, C.y + (C.y < H / 2 ? 42 : -42)); ctx.lineTo(Math.max(cx + 30, Math.min(cx + cw - 30, C.x)), C.y < H / 2 ? cy : cy + ch); ctx.stroke();
+  ctx.globalAlpha = a;
+  chamferPath(cx, cy, cw, ch, 14);
+  const bg = ctx.createLinearGradient(0, cy, 0, cy + ch);
+  bg.addColorStop(0, 'rgba(10,22,50,0.97)'); bg.addColorStop(1, 'rgba(5,10,26,0.97)');
+  ctx.fillStyle = bg; ctx.fill();
+  ctx.strokeStyle = zc; ctx.lineWidth = 2; ctx.shadowColor = zc; ctx.shadowBlur = 12; ctx.stroke(); ctx.shadowBlur = 0;
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+  ctx.fillStyle = zc;
+  drawSpaced('NEW', W / 2, cy + 20, 10, 700, MONO_FONT, 4);
+  ctx.fillStyle = '#fff';
+  drawSpaced(D.title, W / 2, cy + 42, 16, 700, UI_FONT, 3, cw - 30);
+  ctx.font = `600 14px ${TEXT_FONT}`; ctx.fillStyle = '#e8f3ff';
+  lines.forEach((t, k) => ctx.fillText(t, W / 2, cy + 68 + k * 20));
+  const bw = 150, bh = 40, bx = W / 2 - bw / 2, by = cy + ch - bh - 14;
+  introBtn = { x: bx, y: by, w: bw, h: bh };
+  chamferPath(bx, by, bw, bh, 11);
+  ctx.fillStyle = zc + '33'; ctx.fill();
+  ctx.strokeStyle = zc; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#fff';
+  drawSpaced('GOT IT', W / 2, by + bh / 2 + 1, 14, 700, UI_FONT, 3);
+  ctx.restore();
+}
+
 // --- Oyun içi geri bildirimler ---
 // Bildirim (ipucu / dalga tamamlandı): üstte kısa süre görünen köşeli şerit
 let toasts = [];     // { text, color, t, dur }
@@ -2546,7 +2648,7 @@ function beginLevelPlay() {
   countdown = 90; // 3 · 2 · 1 (her biri 0.5 sn), ardından GO
   levelPlayT = 0; lastWaveSeen = 1; toasts = [];
   const B = LEVEL_BRIEFS[currentLevel];
-  tipPlan = B && B.tips ? B.tips.map((text, k) => ({ at: 150 + k * 900, text })) : [];
+  tipPlan = []; // ipuçları artık ilk karşılaşmada duraklayarak anlatılıyor
   Sound.sfx.count(3);
 }
 function drawFeedbackOverlays() {
@@ -2881,7 +2983,7 @@ function update() {
   {
     const mz = state === 'menu' ? menuIdx + 1 : state === 'zonetransition' ? zoneTransIdx + 2 : state === 'intro' ? (cinePanels === ENDING_PANELS ? 4 : 1) : currentZone;
     const lastWave = !boss && currentLevel % 5 !== 0 && getWave() >= currentLevel * 5;
-    const intense = state === 'play' && !briefing && (!!boss || lastWave);
+    const intense = state === 'play' && !briefing && !introCard && (!!boss || lastWave);
     Sound.setMusic(mz, intense, state === 'paused' ? 0.45 : state === 'play' && !briefing ? 1 : 0.75);
   }
 
@@ -2890,6 +2992,8 @@ function update() {
     if (s.y > H) { s.y = 0; s.x = Math.random() * W; }
   });
 
+  if (resetConfirmT > 0) resetConfirmT--;
+  if (resetDoneT > 0) resetDoneT--;
   // Harita: göreve dokunma animasyonu bitince bölümü başlat
   if (mapPress) { if (state !== 'map') mapPress = null; else if (++mapPress.t >= 12) { const lv = mapPress.lv; mapPress = null; startLevel(lv); } }
 
@@ -2965,6 +3069,9 @@ function update() {
     if (countdown === 0) Sound.sfx.go();
     return;
   }
+  if (introCard) { introCard.t++; return; } // ilk karşılaşma açıklaması: oyun donuk
+  checkFirstSeen();
+  if (introCard) return;
   levelPlayT++;
   playFrames++;
   tipPlan.forEach(tp => { if (levelPlayT === tp.at) showToast(tp.text); });
@@ -3936,6 +4043,15 @@ function drawMenu() {
   ctx.strokeRect(W - 52, H - 36, 44, 26);
   ctx.fillStyle = devMode ? '#fc0' : 'rgba(255,255,255,0.4)';
   ctx.fillText('DEV', W - 30, H - 23);
+  if (devMode) { // RESET: ilk dokunuşta SURE?, ikincide sıfırlar
+    const armed = resetConfirmT > 0;
+    ctx.fillStyle = armed ? 'rgba(255,60,80,0.3)' : 'rgba(255,255,255,0.08)';
+    ctx.fillRect(W - 112, H - 36, 54, 26);
+    ctx.strokeStyle = armed ? 'rgba(255,90,110,0.8)' : 'rgba(255,255,255,0.2)';
+    ctx.strokeRect(W - 112, H - 36, 54, 26);
+    ctx.fillStyle = armed ? '#ff8a9a' : resetDoneT > 0 ? '#7dffb0' : 'rgba(255,255,255,0.5)';
+    ctx.fillText(armed ? 'SURE?' : resetDoneT > 0 ? 'DONE' : 'RESET', W - 85, H - 23);
+  }
 
   // Ses butonu (sol alt köşe)
   ctx.fillStyle = 'rgba(255,255,255,0.08)';
@@ -4190,6 +4306,7 @@ function render() {
 
   drawHUD();
   if (state === 'play') drawFeedbackOverlays();
+  if (state === 'play' && introCard) drawIntroCard();
   if (state === 'play' && briefing) drawBriefing();
 }
 
