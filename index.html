@@ -624,10 +624,12 @@ function baseLevelConfig() {
       canShoot: true, zigzag: false, fireMul: 1.1,
     };
     case 3: return { // Shield Link: koruyucu (kalkan simgeli) bağlı ortağını korur → önce koruyucuyu vur
-      interval: 70, doubleChance: 0.2,
-      speed: () => 1.8 + Math.random() * 0.4,
-      hp: () => Math.random() < 0.4 ? 2 : 1,
-      canShoot: true, zigzag: false, fireMul: 0.9, link: 480, formation: true,
+      // yeni temel (hızlı iniş + şeritte üst üste) + L2'nin bölünen düşmanları ara sıra
+      interval: 92, doubleChance: 0.28,
+      speed: () => 3.1 + Math.random() * 0.4,
+      hp: () => Math.random() < 0.45 ? 2 : 1,
+      stack: 150, splitter: 0.06,
+      canShoot: true, zigzag: false, fireMul: 1.0, link: 600, linkSpeed: 1.6,
     };
     case 4: return { // Hunter: şeridini nişanlar → kilitler → hızlı tek atış (zamanlama / yem verme)
       interval: 54, doubleChance: 0.3,
@@ -1134,7 +1136,7 @@ function spawnLinkPair() {
   const pr = pairs[Math.floor(Math.random() * pairs.length)];
   const gi = Math.random() < 0.5 ? 0 : 1, cfg = getLevelConfig() || {};
   const base = lane => ({
-    lane, x: LANE_CENTERS[lane], y: -50, w: 38, h: 44, flash: 0, speed: 1.5,
+    lane, x: LANE_CENTERS[lane], y: -50, w: 38, h: 44, flash: 0, speed: cfg.linkSpeed || 1.5,
     zigzag: false, zigzagPhase: 0, phantom: false, cloakCfg: { vis: 90, inv: 40 }, cloakT: 0, alpha: 1,
     shiftAt: null, shiftTo: lane, curveShots: false, shift2: 0, shieldHit: 0,
   });
@@ -2804,7 +2806,7 @@ const LEVEL_BRIEFS = [
   null,
   { title: 'SWIPE TO MOVE',   vis: 'swipe',     line: 'Swipe left or right to change lanes.', tips: ['Your ship fires automatically.', 'Red shots cost a life. Dodge them!', "Don't let enemies reach the bottom!"] },
   { title: 'SPLITTERS',       vis: 'split',     line: 'Orange ships split in two when hit. Catch the fast halves!', tips: ['The halves dart into the side lanes.', "Don't let them reach the bottom!", 'A blue shield blocks hits for a few seconds.'] },
-  { title: 'SHIELD LINK',     vis: 'link',      line: 'A linked ship shields its partner. Shoot the shield ship first!', tips: ['The shield ship wears the shield icon.', 'Break the link, then finish the big one.', 'Last wave: a formation. Hide in the gap!'] },
+  { title: 'SHIELD LINK',     vis: 'link',      line: 'A linked ship shields its partner. Shoot the shield ship first!', tips: ['The shield ship wears the shield icon.', 'Break the link, then finish the big one.', 'Orange splitters are back. Catch the halves!'] },
   { title: 'HUNTERS',         vis: 'hunter',    line: 'A Hunter aims at your lane, locks on, then fires. Slip out after the lock!', tips: ["It's shielded while aiming. Hit it when it locks or rests.", "Lure its aim into a lane you don't need.", 'Last wave: a formation. Hide in the gap!'] },
   { title: 'VOID VANGUARD',   vis: 'boss',      line: 'Survive the waves, then defeat the boss.', tips: ['Phase 1: two cannons charge. Hide in the gap.', 'Phase 2: it locks on your lane. Slip out!', 'Phase 3: shoot its shield drones first.'] },
   { title: 'CRYSTAL MINING',  vis: 'crystal',   line: 'Shoot rocks, collect crystals, fill the bar for Overdrive!', tips: ["You don't have to destroy every rock.", 'Survive 5 waves to clear the level.'] },
