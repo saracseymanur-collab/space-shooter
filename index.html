@@ -620,11 +620,11 @@ function baseLevelConfig() {
       hp: () => Math.random() < 0.5 ? 2 : 1,
       canShoot: true, zigzag: false, fireMul: 0.85, formation: [2, 4], formEvery: 165, formHp: 2, // formasyon bölümü: 2. ve 4. dalga; 1/3/5 normal
     };
-    case 3: return { // dalan düşmanlar: yolda durur, uyarır, yan şeride dalar, inince ateş eder
-      interval: 50, doubleChance: 0.35,
-      speed: () => 1.9 + Math.random() * 0.4,
+    case 3: return { // Shield Link: koruyucu (kalkan simgeli) bağlı ortağını korur → önce koruyucuyu vur
+      interval: 70, doubleChance: 0.2,
+      speed: () => 1.8 + Math.random() * 0.4,
       hp: () => Math.random() < 0.4 ? 2 : 1,
-      canShoot: true, zigzag: false, fireMul: 0.85, diver: 0.5, formation: true,
+      canShoot: true, zigzag: false, fireMul: 0.9, link: 480, formation: true,
     };
     case 4: return { // zikzak + ateş (önceden ateş yoktu → bölüm en kolayıydı)
       interval: 62, doubleChance: 0.3,
@@ -1043,7 +1043,7 @@ function startLevel(level) {
   asteroids = []; asteroidSpawnTimer = 0;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
-  countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; lastWaveSeen = 1; gunT = 99999; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null;
+  countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; lastWaveSeen = 1; gunT = 99999; linkT = 300; // ilk bağlı çift ~3 sn sonra runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null;
   briefing = !!LEVEL_BRIEFS[level];
   // Zone 3: sis bulutları ekranı baştan kaplasın
   const _cfg = getLevelConfig();
@@ -1108,6 +1108,27 @@ function spawnGunner(lane) {
     shiftAt: null, shiftTo: lane, curveShots: false, shift2: 0,
     gunner: true, gState: 'enter', gT: 0, hoverY: H * (0.19 + Math.random() * 0.06), shieldHit: 0,
   });
+}
+// Shield Link: yan yana iki düşman, aralarında turkuaz bağ. Koruyucu (2 can, ateş etmez, kalkan simgeli)
+// yaşadıkça büyük ortağı (3 can, ateş eder) kalkanlıdır. Koruyucu ölünce bağ kopar, kalkan düşer.
+const LINK_COL = '#36ffd0';
+let linkT = 0;
+function spawnLinkPair() {
+  const pairs = [[0, 1], [1, 2]].filter(pr => pr.every(l => !enemies.some(e => e.lane === l && e.y < 170)));
+  if (!pairs.length) return false;
+  const pr = pairs[Math.floor(Math.random() * pairs.length)];
+  const gi = Math.random() < 0.5 ? 0 : 1, cfg = getLevelConfig() || {};
+  const base = lane => ({
+    lane, x: LANE_CENTERS[lane], y: -50, w: 38, h: 44, flash: 0, speed: 1.5,
+    zigzag: false, zigzagPhase: 0, phantom: false, cloakCfg: { vis: 90, inv: 40 }, cloakT: 0, alpha: 1,
+    shiftAt: null, shiftTo: lane, curveShots: false, shift2: 0, shieldHit: 0,
+  });
+  const guardian = { ...base(pr[gi]), hp: 2, maxHp: 2, fireTimer: 0, fireRate: 999, canShoot: false };
+  const fr = Math.round(180 * (cfg.fireMul || 1));
+  const ward = { ...base(pr[1 - gi]), hp: 3, maxHp: 3, fireTimer: Math.floor(fr * 0.5), fireRate: fr, canShoot: true };
+  guardian.guarding = ward; ward.guardedBy = guardian;
+  enemies.push(guardian, ward);
+  return true;
 }
 // Formasyon dalgası ("boşluğu bul"): iki şeritte yan yana düşman, bir şerit boş.
 // Belli bir yükseklikte ikisi aynı anda ateş eder → güvenli yer boşluk; sonra ikisini de vur.
@@ -1253,6 +1274,7 @@ function spawnShipDeath(e) {
   const tier = e.runner ? 1 : e.maxHp, sz = ENEMY_SIZES[tier] ?? { w: 80, h: 60 };
   const col = e.runner ? '#ffffff' : ENEMY_GLOW[tier] || '#ff8a40';
   const spr = e.runner ? getRunnerSprite() : getNeonSprite(enemyImgs[tier], tier);
+  if (e.guarding) { e.guarding.guardedBy = null; e.guarding.shieldHit = 12; e.guarding = null; } // bağ koptu
   if (e.runner && e.drop) powerups.push({ type: e.drop, x: e.x, y: e.y, speed: 1.8, bobTimer: 0 });
   // Bölümün son düşmanı: kısa ağır çekim (dramatik bitiş)
   if (!boss && currentLevel % 5 !== 0 && getWave() > currentLevel * 5 && enemies.every(o => o === e || o.hp <= 0)) slowMoT = 36;
@@ -2087,6 +2109,20 @@ const ENEMY_TIER = {
   3: { sc: 1.75, body: '#c01818', core: '#ff8888', glow: '#ff2020' },
 };
 
+function drawLinks() {
+  for (const g of enemies) {
+    const w = g.guarding; if (!w || !enemies.includes(w)) continue;
+    ctx.save();
+    ctx.strokeStyle = LINK_COL; ctx.shadowColor = LINK_COL; ctx.shadowBlur = 12;
+    ctx.globalAlpha = 0.35; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(g.x, g.y); ctx.lineTo(w.x, w.y); ctx.stroke();
+    ctx.globalAlpha = 0.9; ctx.lineWidth = 2; ctx.setLineDash([10, 8]); ctx.lineDashOffset = -frameCount * 1.5;
+    ctx.beginPath(); ctx.moveTo(g.x, g.y); ctx.lineTo(w.x, w.y); ctx.stroke();
+    // koruyucudan ortağa akan enerji noktaları
+    ctx.setLineDash([]); ctx.fillStyle = '#e8fffa';
+    for (let k = 0; k < 3; k++) { const q = ((frameCount * 0.025) + k / 3) % 1; ctx.beginPath(); ctx.arc(g.x + (w.x - g.x) * q, g.y + (w.y - g.y) * q, 2.2, 0, Math.PI * 2); ctx.fill(); }
+    ctx.restore();
+  }
+}
 function drawRunner(e) {
   const spr = getRunnerSprite(), sz = ENEMY_SIZES[1], dw = sz.w * 1.05, dh = sz.h * 1.05;
   ctx.save(); ctx.translate(e.x, e.y);
@@ -2167,13 +2203,20 @@ function drawEnemy(e) {
       }
     }
   }
-  if (e.armored || (e.gunner && e.gState !== 'enter')) {
+  if (e.guarding) { // koruyucu: üstünde turkuaz kalkan simgesi
+    const iy = -dh / 2 - 14;
+    ctx.fillStyle = LINK_COL; ctx.shadowColor = LINK_COL; ctx.shadowBlur = 10;
+    ctx.beginPath(); ctx.moveTo(0, iy - 8); ctx.lineTo(7, iy - 5); ctx.lineTo(6, iy + 2); ctx.quadraticCurveTo(4, iy + 7, 0, iy + 9);
+    ctx.quadraticCurveTo(-4, iy + 7, -6, iy + 2); ctx.lineTo(-7, iy - 5); ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0;
+  }
+  if (e.armored || e.guardedBy || (e.gunner && e.gState !== 'enter')) {
     if (e.gunner && e.gState === 'cool') { // kalkansız: gövde beyaz nabızla parlar → "şimdi vur"
       const wsp = getWhiteSprite(img, e.maxHp);
       if (wsp) { ctx.globalAlpha = 0.18 + 0.22 * (0.5 + 0.5 * Math.sin(frameCount * 0.3)); ctx.drawImage(wsp, -dw / 2, -dh / 2, dw, dh); ctx.globalAlpha = baseAlpha; }
     } else { // önde kırmızı kalkan yayı (vurulunca parlar)
-      ctx.strokeStyle = e.shieldHit > 0 ? '#ffd0d8' : '#ff4d66'; ctx.lineWidth = e.shieldHit > 0 ? 4 : 2.5;
-      ctx.globalAlpha = 0.85; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 10;
+      const sc2 = e.guardedBy ? LINK_COL : '#ff4d66'; // bağ kalkanı turkuaz: bağın rengiyle aynı
+      ctx.strokeStyle = e.shieldHit > 0 ? '#ffffff' : sc2; ctx.lineWidth = e.shieldHit > 0 ? 4 : 2.5;
+      ctx.globalAlpha = 0.85; ctx.shadowColor = sc2; ctx.shadowBlur = 10;
       ctx.beginPath(); ctx.arc(0, -dh * 0.05, dw * 0.6, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke();
       ctx.shadowBlur = 0; ctx.globalAlpha = baseAlpha;
     }
@@ -2588,7 +2631,7 @@ const LEVEL_BRIEFS = [
   null,
   { title: 'SWIPE TO MOVE',   vis: 'swipe',     line: 'Swipe left or right to change lanes.', tips: ['Your ship fires automatically.', 'Red shots cost a life. Dodge them!', "Don't let enemies reach the bottom!"] },
   { title: 'FORMATIONS',      vis: 'formation', line: 'Enemy rows fire together. Hide in the empty lane!', tips: ["They're shielded until they fire.", 'A red glow means they are about to fire.', 'Then shoot them before they reach the bottom.', 'A blue shield blocks hits for a few seconds.'] },
-  { title: 'DIVERS',          vis: 'dive',      line: 'Flashing enemies dive into the next lane. Follow them!', tips: ['Divers fire right after they land.', 'Last wave: a formation. Hide in the gap!'] },
+  { title: 'SHIELD LINK',     vis: 'link',      line: 'A linked ship shields its partner. Shoot the shield ship first!', tips: ['The shield ship wears the shield icon.', 'Break the link, then finish the big one.', 'Last wave: a formation. Hide in the gap!'] },
   { title: 'ZIGZAG',          vis: 'zigzag',    line: 'Enemies weave between lanes.', tips: ['Time your shots as they cross your lane.'] },
   { title: 'VOID VANGUARD',   vis: 'boss',      line: 'Survive the waves, then defeat the boss.', tips: ['It gets faster in every phase.', 'Watch its shots and slip into the gap.'] },
   { title: 'CRYSTAL MINING',  vis: 'crystal',   line: 'Shoot rocks, collect crystals, fill the bar for Overdrive!', tips: ["You don't have to destroy every rock.", 'Survive 5 waves to clear the level.'] },
@@ -2713,6 +2756,23 @@ function drawBriefVisual(kind, cx, cy, zc) {
       briefShot(cx, sy);
       const px = cx + 70 * Math.min(1, Math.max(0, (sy - cy + 6) / 20));
       if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, px - 20, cy + 16, 40, 40);
+      break;
+    }
+    case 'link': {
+      // koruyucu (simgeli) + kalkanlı ortak; gemi önce koruyucuyu vurur → bağ kopar → ortağa geçer
+      const P = 180, k = frameCount % P, gx = cx - 70, wx = cx, y = cy - 24;
+      const linked = k < 70;
+      const shipX = k < 20 ? cx + 70 - 140 * (k / 20) : k < 70 ? cx - 70 : k < 85 ? cx - 70 + 70 * ((k - 70) / 15) : cx;
+      if (linked) {
+        ctx.strokeStyle = LINK_COL; ctx.lineWidth = 2; ctx.setLineDash([6, 5]); ctx.lineDashOffset = -frameCount;
+        ctx.beginPath(); ctx.moveTo(gx, y); ctx.lineTo(wx, y); ctx.stroke(); ctx.setLineDash([]);
+        briefEnemy(2, gx, y, 0.42);
+        ctx.fillStyle = LINK_COL; ctx.beginPath(); ctx.arc(gx, y - 20, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = LINK_COL; ctx.beginPath(); ctx.arc(wx, y - 2, 24, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke();
+      }
+      if (k < 150) briefEnemy(3, wx, y, 0.4);
+      if ((k > 25 && k < 68) || (k > 92 && k < 148)) { ctx.fillStyle = '#9fe8ff'; for (let j = 0; j < 2; j++) ctx.fillRect(shipX - 1.5, cy + 4 - ((k * 6 + j * 20) % 30), 3, 8); }
+      if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, shipX - 16, cy + 6, 32, 32);
       break;
     }
     case 'gunner': {
@@ -2905,6 +2965,7 @@ const FIRST_SEEN = {
   triple:    { title: 'TRIPLE SHOT',    text: 'Fires three shots at once for a few seconds.' },
   double:    { title: 'DOUBLE SHOT',    text: 'Fires two shots at once for a few seconds.' },
   bomb:      { title: 'BOMB',           text: 'Destroys every enemy on the screen.' },
+  diver:     { title: 'DIVER',          text: 'It stops, flashes a lane, then dives into it and fires. Get out of that lane!' },
   runner:    { title: 'SUPPLY RUNNER',  text: 'Shoot it before it escapes to grab its power-up. Letting it go costs nothing.' },
   crystal:   { title: 'CRYSTAL',        text: 'Fly over crystals to fill the Overdrive bar.' },
   overdrive: { title: 'OVERDRIVE',      text: 'Rapid triple fire, and crystals fly to you.' },
@@ -2934,6 +2995,7 @@ function checkFirstSeen() {
   for (const L of lasers) if (L.t > 2) want(L.meteor ? 'meteor' : 'beam', LANE_CENTERS[L.lane], H * 0.45);
   for (const e of enemies) if (e.phantom && e.alpha > 0.9 && vis(e.y)) want('phantom', e.x, e.y);
   for (const e of enemies) if (e.runner && e.y > HUD_H + 60) want('runner', e.x, e.y);
+  for (const e of enemies) if (e.diveState === 1) want('diver', e.x, e.y);
   for (const c of ionClouds) if (vis(c.y)) want('ion', LANE_CENTERS[c.lane], c.y);
   for (const b of eBullets) if (vis(b.y)) want('shot', b.x, b.y);
 }
@@ -3917,6 +3979,7 @@ function update() {
         !asteroids.some(a => a.y < H * 0.4 && Math.abs(a.x - LANE_CENTERS[l]) < LANE_W * 0.65));
       if (free.length) { gunT = 0; spawnGunner(free[Math.floor(Math.random() * free.length)]); }
     }
+    if (cfg && cfg.link && ++linkT >= cfg.link && !enemies.some(e => e.guarding) && spawnLinkPair()) linkT = 0;
     const lw = getWave() - (currentLevel - 1) * 5;
     if (lw === 3 && !runnerDone && (Math.random() < 1 / 360 || getWave() * 14 - gameSec() < 2)) runnerDone = spawnRunner();
     // formation: true → sadece son dalga; dizi → o dalgalarda
@@ -4031,7 +4094,7 @@ function update() {
           pushShot({ x: e.x, y: e.y + 34, vx: 0, vy: 9, hp: 3, lane: e.lane, curve: false, gun: true });
       }
     }
-    if (e.formation && e.shieldHit > 0) e.shieldHit--;
+    if ((e.formation || e.guardedBy || e.guarding || e.shieldHit > 0) && !e.gunner && e.shieldHit > 0) e.shieldHit--;
     if (e.formation && !e.volleyed && e.y >= e.volleyAt) {
       // birden çok yaylım: aşağıda bir kez daha şarj olup ateş eder (sıradaki hep aynı boşluk)
       if (e.volleysLeft > 0) { e.volleysLeft--; e.volleyAt += H * 0.2; } else e.volleyed = true;
@@ -4089,7 +4152,7 @@ function update() {
       if (e.hp <= 0) return true; // aynı karede ölen düşmana ikinci mermi işlemez (çift ölüm/çift drop olmasın)
       const sc  = ENEMY_TIER[e.maxHp].sc;
       const hit = Math.abs(b.x - e.x) < 24 * sc && Math.abs(b.y - e.y) < 29 * sc;
-      if (hit && ((e.gunner && e.gState !== 'cool') || e.armored)) { e.shieldHit = 8; return false; } // kalkan: hasar yok
+      if (hit && ((e.gunner && e.gState !== 'cool') || e.armored || e.guardedBy)) { e.shieldHit = 8; return false; } // kalkan: hasar yok
       if (hit) {
         e.hp--;
         e.flash = 14;
@@ -4687,6 +4750,7 @@ function render() {
   drawIonClouds();
   drawCrystals();
   bullets.forEach(drawBullet);
+  drawLinks();
   enemies.forEach(drawEnemy);
   if (boss) drawBoss(boss);
   if (currentZone === 3) { const fc = getLevelConfig(); drawFog(fc && fc.fog ? fc.fog : 0.4); } // sis düşmanları örter, mermileri değil
