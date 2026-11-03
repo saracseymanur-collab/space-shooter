@@ -480,6 +480,7 @@ let frameCount = 0;
 let boss = null;
 let lastWaveForBoss = -1;
 let bossKillTimer = 0;
+let slowMoT = 0, _slowFlip = false; // son düşmanda kısa ağır çekim (update'ler yarı hızda)
 let returnToMap = false;
 let levelCompleteType = 'boss'; // 'boss' | 'clear'
 let victoryTime = 0;
@@ -1042,7 +1043,7 @@ function startLevel(level) {
   asteroids = []; asteroidSpawnTimer = 0;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
-  countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null;
+  countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; lastWaveSeen = 1; gunT = 99999; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null;
   briefing = !!LEVEL_BRIEFS[level];
   // Zone 3: sis bulutları ekranı baştan kaplasın
   const _cfg = getLevelConfig();
@@ -1111,6 +1112,48 @@ function spawnGunner(lane) {
 // Formasyon dalgası ("boşluğu bul"): iki şeritte yan yana düşman, bir şerit boş.
 // Belli bir yükseklikte ikisi aynı anda ateş eder → güvenli yer boşluk; sonra ikisini de vur.
 let formT = 0, formGap = -1, formOn = false;
+// Supply Runner (kargo): hızlı, ateş etmez; vurulursa taşıdığı güçlendirmeyi düşürür, kaçarsa can gitmez.
+// Görsel dil: beyaz = toplanacak eşya (power-up halesi gibi) → gümüş-beyaz gövde + üstünde taşıdığı rozet.
+let runnerDone = false;
+let runnerSprite = null;
+function getRunnerSprite() {
+  const img = enemyImgs[1];
+  if (!img || !img.complete || !img.naturalWidth) return null;
+  if (!runnerSprite) {
+    const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const g = c.getContext('2d'); g.drawImage(img, 0, 0);
+    try {
+      const d = g.getImageData(0, 0, c.width, c.height), px = d.data;
+      for (let i = 0; i < px.length; i += 4) {
+        if (!px[i + 3]) continue;
+        const r = px[i], gg = px[i + 1], b = px[i + 2], mx = Math.max(r, gg, b), mn = Math.min(r, gg, b);
+        if (mx < 50 || (mx - mn) / mx < 0.3) continue; // koyu paneller kalır
+        const v = Math.min(255, mx * 1.25);
+        px[i] = v * 0.92; px[i + 1] = v * 0.97; px[i + 2] = v; // gümüş-beyaz, hafif soğuk
+      }
+      g.putImageData(d, 0, 0);
+    } catch (err) {}
+    runnerSprite = c;
+  }
+  return runnerSprite;
+}
+function spawnRunner() {
+  const pl = playerLaneNow();
+  const free = [0, 1, 2].filter(l => !enemies.some(e => e.lane === l && e.y < 70)); // sadece doğduğu yerde üst üste binmesin
+  const opts = free.filter(l => l !== pl).length ? free.filter(l => l !== pl) : free;   // tercihen oyuncunun olmadığı şerit
+  if (!opts.length) return false;
+  const lane = opts[Math.floor(Math.random() * opts.length)];
+  const r = Math.random(), drop = r < 0.35 ? 'shield' : r < 0.65 ? 'triple' : r < 0.9 ? 'double' : 'bomb';
+  enemies.push({
+    lane, x: LANE_CENTERS[lane], y: -40, w: 38, h: 44,
+    hp: 2, maxHp: 2, speed: 5, flash: 0,
+    fireTimer: 0, fireRate: 999, canShoot: false,
+    zigzag: false, zigzagPhase: 0, phantom: false, cloakCfg: { vis: 90, inv: 40 }, cloakT: 0, alpha: 1,
+    shiftAt: null, shiftTo: lane, curveShots: false, shift2: 0,
+    runner: true, drop,
+  });
+  return true;
+}
 function spawnFormationRow(yOff = 0) {
   const fc = getLevelConfig() || {}, fhp = fc.formHp || 1;
   const opts = [0, 1, 2].filter(l => l !== formGap);
@@ -1207,9 +1250,12 @@ function spawnExplosion(x, y, big) {
 // Düşman ölümü: geminin kendi (neon) görseli köşeli parçalara bölünüp dönerek dağılır,
 // gemi renginde şok halkası + kısa parlama + aynı renkte kıvılcımlar
 function spawnShipDeath(e) {
-  const tier = e.maxHp, sz = ENEMY_SIZES[tier] ?? { w: 80, h: 60 };
-  const col = ENEMY_GLOW[tier] || '#ff8a40';
-  const spr = getNeonSprite(enemyImgs[tier], tier);
+  const tier = e.runner ? 1 : e.maxHp, sz = ENEMY_SIZES[tier] ?? { w: 80, h: 60 };
+  const col = e.runner ? '#ffffff' : ENEMY_GLOW[tier] || '#ff8a40';
+  const spr = e.runner ? getRunnerSprite() : getNeonSprite(enemyImgs[tier], tier);
+  if (e.runner && e.drop) powerups.push({ type: e.drop, x: e.x, y: e.y, speed: 1.8, bobTimer: 0 });
+  // Bölümün son düşmanı: kısa ağır çekim (dramatik bitiş)
+  if (!boss && currentLevel % 5 !== 0 && getWave() > currentLevel * 5 && enemies.every(o => o === e || o.hp <= 0)) slowMoT = 36;
   if (spr) {
     const n = 6, R = Math.max(sz.w, sz.h);
     const cx = (Math.random() - 0.5) * sz.w * 0.2, cy = (Math.random() - 0.5) * sz.h * 0.2;
@@ -2041,7 +2087,24 @@ const ENEMY_TIER = {
   3: { sc: 1.75, body: '#c01818', core: '#ff8888', glow: '#ff2020' },
 };
 
+function drawRunner(e) {
+  const spr = getRunnerSprite(), sz = ENEMY_SIZES[1], dw = sz.w * 1.05, dh = sz.h * 1.05;
+  ctx.save(); ctx.translate(e.x, e.y);
+  // hız çizgileri (arkada = yukarıda)
+  ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = 2;
+  [-16, 0, 16].forEach((o, i) => { const L = 26 + ((frameCount * 3 + i * 9) % 18); ctx.beginPath(); ctx.moveTo(o, -dh / 2 - 4); ctx.lineTo(o, -dh / 2 - 4 - L); ctx.stroke(); });
+  // beyaz hale = toplanacak eşya
+  const g = ctx.createRadialGradient(0, 0, 8, 0, 0, dw * 0.75);
+  g.addColorStop(0, 'rgba(255,255,255,0.45)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, dw * 0.75, 0, Math.PI * 2); ctx.fill();
+  if (spr) { ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 10; ctx.drawImage(spr, -dw / 2, -dh / 2, dw, dh); ctx.shadowBlur = 0; }
+  if (e.flash > 8) { const w = getWhiteSprite(enemyImgs[1], 1); if (w) { ctx.globalAlpha = (e.flash - 8) / 6; ctx.drawImage(w, -dw / 2, -dh / 2, dw, dh); ctx.globalAlpha = 1; } }
+  // taşıdığı rozet
+  if (powerupImgReady(e.drop)) ctx.drawImage(powerupImgs[e.drop], -13, -dh / 2 - 6, 26, 26);
+  ctx.restore();
+}
 function drawEnemy(e) {
+  if (e.runner) { drawRunner(e); return; }
   const sz   = ENEMY_SIZES[e.maxHp] ?? { w: 80, h: 60 };
   const dw   = sz.w, dh = sz.h;
   const img  = enemyImgs[e.maxHp];
@@ -2842,6 +2905,7 @@ const FIRST_SEEN = {
   triple:    { title: 'TRIPLE SHOT',    text: 'Fires three shots at once for a few seconds.' },
   double:    { title: 'DOUBLE SHOT',    text: 'Fires two shots at once for a few seconds.' },
   bomb:      { title: 'BOMB',           text: 'Destroys every enemy on the screen.' },
+  runner:    { title: 'SUPPLY RUNNER',  text: 'Shoot it before it escapes to grab its power-up. Letting it go costs nothing.' },
   crystal:   { title: 'CRYSTAL',        text: 'Fly over crystals to fill the Overdrive bar.' },
   overdrive: { title: 'OVERDRIVE',      text: 'Rapid triple fire, and crystals fly to you.' },
   iron:      { title: 'IRON ROCK',      text: "Can't be destroyed and blocks your shots. Dodge it." },
@@ -2869,6 +2933,7 @@ function checkFirstSeen() {
   }
   for (const L of lasers) if (L.t > 2) want(L.meteor ? 'meteor' : 'beam', LANE_CENTERS[L.lane], H * 0.45);
   for (const e of enemies) if (e.phantom && e.alpha > 0.9 && vis(e.y)) want('phantom', e.x, e.y);
+  for (const e of enemies) if (e.runner && e.y > HUD_H + 60) want('runner', e.x, e.y);
   for (const c of ionClouds) if (vis(c.y)) want('ion', LANE_CENTERS[c.lane], c.y);
   for (const b of eBullets) if (vis(b.y)) want('shot', b.x, b.y);
 }
@@ -2932,7 +2997,7 @@ function showToast(text, color, dur = 150) { toasts.push({ text, color: color ||
 function beginLevelPlay() {
   briefing = false;
   countdown = 90; // 3 · 2 · 1 (her biri 0.5 sn), ardından GO
-  levelPlayT = 0; lastWaveSeen = 1; toasts = []; formOn = false; formGap = -1; gunT = 99999; // ilk Gunner ~4 sn sonra (aşağıda aralığa göre ayarlanır)
+  levelPlayT = 0; lastWaveSeen = 1; toasts = []; formOn = false; formGap = -1; runnerDone = false; slowMoT = 0; gunT = 99999; // ilk Gunner ~4 sn sonra (aşağıda aralığa göre ayarlanır)
   const B = LEVEL_BRIEFS[currentLevel];
   tipPlan = []; // ipuçları artık ilk karşılaşmada duraklayarak anlatılıyor
   Sound.sfx.count(3);
@@ -3352,7 +3417,11 @@ function update() {
   crystalFly = crystalFly.filter(c => { if (++c.t >= 22) { crystalPulse = 10; return false; } return true; });
   if (!boss) {
     const lvWaveNow = Math.min(currentLevel % 5 === 0 ? 4 : 5, Math.floor(Math.max(0, gameSec() - (currentLevel - 1) * 70) / 14) + 1);
-    if (lvWaveNow > lastWaveSeen) { showToast(`WAVE ${lastWaveSeen} CLEAR`, null, 90); Sound.sfx.wave(); lastWaveSeen = lvWaveNow; }
+    if (lvWaveNow > lastWaveSeen) {
+      if (lvWaveNow === 5 && currentLevel % 5 !== 0) showToast('FINAL WAVE', '#ff4d66', 110);
+      else showToast(`WAVE ${lastWaveSeen} CLEAR`, null, 90);
+      Sound.sfx.wave(); lastWaveSeen = lvWaveNow;
+    }
   }
 
   // Tutorial progress on lane change
@@ -3414,7 +3483,8 @@ function update() {
 
   // Level tamamlama: 5 dalgayı geçince bölüm biter (boss seviyesi hariç)
   const _zoneLastLevel = currentZone * 5;
-  if (currentLevel !== _zoneLastLevel && !boss && currentWave > currentLevel * 5 && enemies.length === 0) {
+  if (slowMoT > 0) slowMoT--;
+  if (currentLevel !== _zoneLastLevel && !boss && currentWave > currentLevel * 5 && enemies.length === 0 && slowMoT <= 0) {
     levelStates[currentLevel - 1] = 'completed';
     levelStates[currentLevel] = 'unlocked';
     saveLevelStates();
@@ -3848,6 +3918,7 @@ function update() {
       if (free.length) { gunT = 0; spawnGunner(free[Math.floor(Math.random() * free.length)]); }
     }
     const lw = getWave() - (currentLevel - 1) * 5;
+    if (lw === 3 && !runnerDone && (Math.random() < 1 / 360 || getWave() * 14 - gameSec() < 2)) runnerDone = spawnRunner();
     // formation: true → sadece son dalga; dizi → o dalgalarda
     const formWave = cfg && (Array.isArray(cfg.formation) ? cfg.formation.includes(lw) : cfg.formation && lw >= 5);
     if (!formWave) formOn = false;
@@ -4015,6 +4086,7 @@ function update() {
 
     // Bullet hits (görünmez hayaletten mermi geçer)
     if (!cloaked) bullets = bullets.filter(b => {
+      if (e.hp <= 0) return true; // aynı karede ölen düşmana ikinci mermi işlemez (çift ölüm/çift drop olmasın)
       const sc  = ENEMY_TIER[e.maxHp].sc;
       const hit = Math.abs(b.x - e.x) < 24 * sc && Math.abs(b.y - e.y) < 29 * sc;
       if (hit && ((e.gunner && e.gState !== 'cool') || e.armored)) { e.shieldHit = 8; return false; } // kalkan: hasar yok
@@ -4036,7 +4108,8 @@ function update() {
     if (e.hp <= 0) return false;
 
     // Reached player — kalkan varsa engelle (kalkan hasarı emer, ama bitmez)
-    if (e.y > H - 55) {
+    if (e.runner && e.y > H + 40) return false; // kargo kaçtı: sadece ödül kaçtı
+    if (e.y > H - 55 && !e.runner) {
       spawnShipDeath(e);
       damagePlayer('The enemy reached the ship!');
       return false;
@@ -4652,7 +4725,8 @@ function loop(timestamp) {
   _lastTime = timestamp;
   _accum += delta;
   while (_accum >= _STEP) {
-    update();
+    _slowFlip = !_slowFlip;
+    if (!(slowMoT > 0 && _slowFlip)) update(); // ağır çekimde her ikinci adım atlanır
     _accum -= _STEP;
   }
   render();
