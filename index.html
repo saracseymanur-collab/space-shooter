@@ -82,34 +82,54 @@ window.addEventListener('resize', updateScale);
 
 // --- Ses: Web Audio ile üretilen efektler + bölgeye göre basit müzik (dosya gerekmez) ---
 const Sound = (() => {
-  let ac = null, master = null, sfxBus = null, musicBus = null;
-  let muted = false;
-  try { muted = localStorage.getItem('ss_muted') === '1'; } catch(e) {}
+  let ac = null, master = null, sfxBus = null, musicBus = null, padFilter = null;
+  let musicOn = true, sfxOn = true;
+  try {
+    if (localStorage.getItem('ss_muted') === '1') { musicOn = false; sfxOn = false; } // eski tek ayar
+    if (localStorage.getItem('ss_music') === '0') musicOn = false;
+    if (localStorage.getItem('ss_sfx') === '0') sfxOn = false;
+  } catch(e) {}
+  const save = () => { try { localStorage.setItem('ss_music', musicOn ? '1' : '0'); localStorage.setItem('ss_sfx', sfxOn ? '1' : '0'); localStorage.removeItem('ss_muted'); } catch(e) {} };
 
-  // iPhone: ses yalnızca bir dokunuşun SONUNDA (touchend) açılabilir; açılırken duyulmayan kısa bir ses
-  // çalınarak ses sistemi "uyandırılır". 'interrupted' (arka plandan dönüş) durumunda da yeniden açılır.
+  // --- Ses sistemi kurulumu ---
+  let needsRebuild = false, rebuildCheck = null;
+  function create() {
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    master = ac.createGain(); master.gain.value = 0.7; master.connect(ac.destination);
+    sfxBus = ac.createGain(); sfxBus.gain.value = sfxOn ? 0.9 : 0; sfxBus.connect(master);
+    musicBus = ac.createGain(); musicBus.gain.value = 0; musicBus.connect(master);
+    // Pad'ler için yavaşça açılıp kapanan alçak geçiren filtre (nefes alan ses)
+    padFilter = ac.createBiquadFilter(); padFilter.type = 'lowpass'; padFilter.frequency.value = 1000; padFilter.Q.value = 0.6;
+    padFilter.connect(musicBus);
+    const lfo = ac.createOscillator(), lfoGain = ac.createGain();
+    lfo.frequency.value = 0.06; lfoGain.gain.value = 350;
+    lfo.connect(lfoGain); lfoGain.connect(padFilter.frequency); lfo.start();
+    // iPhone sessizlikte ses sistemini askıya almasın diye duyulmayan sürekli bir ses
+    const keep = ac.createOscillator(), kg = ac.createGain();
+    kg.gain.value = 0.00001; keep.connect(kg); kg.connect(ac.destination); keep.start();
+    voices = []; nextChordAt = 0; nextTwinkleAt = 0; nextPulseAt = 0; curDuck = -1;
+  }
+  // iPhone: ses yalnızca bir dokunuşun SONUNDA açılabilir; açılırken duyulmayan kısa bir ses çalınır.
+  // Kesintiden (kilit ekranı, bildirim, uzun duraklama) sonra açılamazsa bir sonraki dokunuşta baştan kurulur.
   function init() {
     try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch(e) {} // iOS 17+: medya sesi
-    if (!ac) {
-      try {
-        ac = new (window.AudioContext || window.webkitAudioContext)();
-        master = ac.createGain(); master.gain.value = muted ? 0 : 0.7; master.connect(ac.destination);
-        sfxBus = ac.createGain(); sfxBus.gain.value = 0.9; sfxBus.connect(master);
-        musicBus = ac.createGain(); musicBus.gain.value = 0.32; musicBus.connect(master);
-      } catch(e) { ac = null; return; }
-    }
+    if (ac && (needsRebuild || ac.state === 'closed')) { try { ac.close(); } catch(e) {} ac = null; needsRebuild = false; }
+    if (!ac) { try { create(); } catch(e) { ac = null; return; } }
     if (ac.state !== 'running') {
       try {
         const b = ac.createBuffer(1, 1, 22050), src = ac.createBufferSource();
         src.buffer = b; src.connect(ac.destination); src.start(0);
         const p = ac.resume(); if (p && p.catch) p.catch(() => {});
       } catch(e) {}
+      clearTimeout(rebuildCheck);
+      rebuildCheck = setTimeout(() => { if (ac && ac.state !== 'running') needsRebuild = true; }, 600);
     }
   }
-  const ready = () => ac && ac.state === 'running' && !muted;
+  const live = () => ac && ac.state === 'running';
+  const ready = () => live() && sfxOn;
 
   function tone({ type = 'square', f = 440, f2 = null, dur = 0.1, vol = 0.2, delay = 0, bus = sfxBus, attack = 0.005 }) {
-    if (!ready()) return;
+    if (bus === sfxBus ? !ready() : !live()) return;
     const t = ac.currentTime + delay;
     const o = ac.createOscillator(), g = ac.createGain();
     o.type = type;
@@ -122,9 +142,9 @@ const Sound = (() => {
     o.start(t); o.stop(t + dur + 0.02);
   }
   let noiseBuf = null;
-  function noise({ dur = 0.3, vol = 0.3, freq = 1200, delay = 0 }) {
-    if (!ready()) return;
-    if (!noiseBuf) {
+  function noise({ dur = 0.3, vol = 0.3, freq = 1200, delay = 0, bus = sfxBus }) {
+    if (bus === sfxBus ? !ready() : !live()) return;
+    if (!noiseBuf || noiseBuf.sampleRate !== ac.sampleRate) {
       noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
       const d = noiseBuf.getChannelData(0);
       for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -134,13 +154,16 @@ const Sound = (() => {
     src.buffer = noiseBuf;
     flt.type = 'lowpass'; flt.frequency.setValueAtTime(freq, t); flt.frequency.exponentialRampToValueAtTime(80, t + dur);
     g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    src.connect(flt); flt.connect(g); g.connect(sfxBus);
+    src.connect(flt); flt.connect(g); g.connect(bus);
     src.start(t); src.stop(t + dur);
   }
 
   let lastShot = 0;
   const sfx = {
-    shoot()     { const n = performance.now(); if (n - lastShot < 90) return; lastShot = n; tone({ type: 'square', f: 1200, f2: 600, dur: 0.05, vol: 0.025 }); },
+    // Ateş: kısık, boğuk "pıf"; perdesi her atışta biraz değişir
+    shoot()     { const n = performance.now(); if (n - lastShot < 90) return; lastShot = n;
+                  noise({ dur: 0.045, vol: 0.02, freq: 1300 + Math.random() * 700 });
+                  tone({ type: 'triangle', f: 200 + Math.random() * 50, f2: 110, dur: 0.05, vol: 0.014 }); },
     hit()       { tone({ type: 'square', f: 260, f2: 140, dur: 0.05, vol: 0.05 }); },
     explode()   { noise({ dur: 0.3, vol: 0.22, freq: 1400 }); tone({ type: 'triangle', f: 180, f2: 50, dur: 0.25, vol: 0.12 }); },
     bigBoom()   { noise({ dur: 1.1, vol: 0.45, freq: 900 }); tone({ type: 'sine', f: 110, f2: 30, dur: 0.9, vol: 0.35 }); },
@@ -148,52 +171,112 @@ const Sound = (() => {
     shield()    { tone({ type: 'sine', f: 900, f2: 1400, dur: 0.12, vol: 0.08 }); },
     powerup()   { [523, 659, 784, 1047].forEach((f, i) => tone({ type: 'triangle', f, dur: 0.1, vol: 0.12, delay: i * 0.055 })); },
     bomb()      { noise({ dur: 0.9, vol: 0.4, freq: 3000 }); tone({ type: 'sine', f: 200, f2: 40, dur: 0.7, vol: 0.3 }); },
-    swipe()     { tone({ type: 'sine', f: 420, f2: 700, dur: 0.06, vol: 0.035 }); },
-    crystal()   { tone({ type: 'triangle', f: 1500, f2: 2100, dur: 0.07, vol: 0.06 }); },
+    swipe()     { tone({ type: 'sine', f: 420, f2: 700, dur: 0.06, vol: 0.03 }); },
+    crystal()   { tone({ type: 'triangle', f: 1500, f2: 2100, dur: 0.07, vol: 0.05 }); },
     click()     { tone({ type: 'square', f: 660, f2: 990, dur: 0.05, vol: 0.05 }); },
     laserWarn() { tone({ type: 'square', f: 880, dur: 0.07, vol: 0.06 }); tone({ type: 'square', f: 880, dur: 0.07, vol: 0.06, delay: 0.14 }); },
     laserFire() { tone({ type: 'sawtooth', f: 220, f2: 70, dur: 0.5, vol: 0.16 }); noise({ dur: 0.45, vol: 0.18, freq: 4000 }); },
     bossIn()    { tone({ type: 'sawtooth', f: 55, f2: 110, dur: 1.4, vol: 0.22, attack: 0.3 }); tone({ type: 'sawtooth', f: 82, f2: 165, dur: 1.4, vol: 0.14, attack: 0.3 }); },
-    star(i)     { tone({ type: 'triangle', f: [784, 988, 1175][i] || 784, dur: 0.18, vol: 0.14 }); },
     clear()     { [523, 659, 784].forEach((f, i) => tone({ type: 'triangle', f, dur: 0.22, vol: 0.13, delay: i * 0.1 })); tone({ type: 'triangle', f: 1047, dur: 0.5, vol: 0.13, delay: 0.3 }); },
     victory()   { [392, 523, 659, 784, 659, 784, 1047].forEach((f, i) => tone({ type: 'square', f, dur: i === 6 ? 0.7 : 0.14, vol: 0.07, delay: i * 0.13 })); },
     gameover()  { [392, 330, 262, 196].forEach((f, i) => tone({ type: 'triangle', f, dur: 0.3, vol: 0.13, delay: i * 0.2 })); },
   };
 
-  // Müzik: 16'lık adım sıralayıcı, update() içinden her 8 karede bir çağrılır (~112 BPM)
-  const ZONE_MUSIC = {
-    1: { root: 57, chords: [0, -4, 3, -2], scale: [0, 3, 7, 10, 12] },   // La minör, enerjik
-    2: { root: 50, chords: [0, 3, -2, 5],  scale: [0, 2, 3, 7, 9] },     // Re dorian, sert
-    3: { root: 52, chords: [0, 1, -2, 1],  scale: [0, 1, 5, 7, 10] },    // Mi frig, gizemli
-    4: { root: 48, chords: [0, -4, -5, -2], scale: [0, 3, 6, 7, 10] },   // Do minör, karanlık
-  };
+  // --- Ambiyans müzik: bölgeye özel, yavaş değişen akorlar + ara ara ışıltılar; yoğun anlarda hafif ritim ---
   const midi = n => 440 * Math.pow(2, (n - 69) / 12);
-  let step = 0;
-  function musicStep(zone, intense) {
-    if (!ready()) return;
-    const m = ZONE_MUSIC[zone] || ZONE_MUSIC[1];
-    const chord = m.chords[Math.floor(step / 32) % m.chords.length];
-    const r = m.root + chord;
-    const s16 = step % 16;
-    if (s16 % 4 === 0) tone({ type: 'triangle', f: midi(r - 12), dur: 0.22, vol: 0.5, bus: musicBus });
-    if (intense && s16 % 4 === 2) tone({ type: 'triangle', f: midi(r - 12), dur: 0.12, vol: 0.35, bus: musicBus });
-    if (s16 % 2 === 0) {
-      const deg = m.scale[[0, 2, 1, 3, 4, 3, 1, 2][(s16 / 2) | 0]];
-      tone({ type: 'square', f: midi(r + 12 + deg), dur: 0.09, vol: 0.07, bus: musicBus });
+  const ZONE_MUSIC = {
+    1: { root: 57, cutoff: 1400, wave: 'sawtooth', tw: 'sine',     // Deep Space: sakin, açık
+         prog: [[0, 7, 12, 15], [-4, 3, 8, 12], [3, 10, 15, 19], [-2, 5, 10, 14], [0, 7, 10, 15], [-5, 2, 7, 10], [-4, 3, 8, 15], [-2, 5, 9, 14]],
+         scale: [12, 15, 19, 22, 24, 27] },
+    2: { root: 50, cutoff: 950, wave: 'sawtooth', tw: 'triangle',  // Asteroid Belt: sıcak, ağır
+         prog: [[0, 7, 10, 15], [-2, 5, 9, 14], [-4, 3, 8, 12], [-2, 5, 10, 14], [0, 7, 12, 17], [3, 10, 15, 19], [-4, 3, 7, 12], [-2, 5, 9, 12]],
+         scale: [12, 14, 17, 19, 21, 24] },
+    3: { root: 52, cutoff: 1150, wave: 'triangle', tw: 'sine',     // Nebula: gizemli
+         prog: [[0, 7, 12, 17], [1, 8, 13, 17], [0, 5, 10, 15], [-2, 5, 10, 13], [0, 7, 12, 15], [1, 5, 8, 13], [-4, 3, 8, 12], [-2, 5, 12, 13]],
+         scale: [12, 13, 17, 19, 22, 24] },
+    4: { root: 48, cutoff: 650, wave: 'sawtooth', tw: 'sine',      // Black Hole: karanlık, derin
+         prog: [[0, 7, 12, 15], [-4, 3, 8, 12], [-7, 0, 5, 8], [-5, 2, 7, 11], [0, 6, 12, 15], [-4, 3, 7, 12], [-7, 0, 3, 8], [-5, 2, 5, 11]],
+         scale: [12, 15, 18, 19, 22, 24] },
+  };
+  const CHORD = 8; // saniye
+  let voices = [], nextChordAt = 0, chordIdx = 0, nextTwinkleAt = 0, nextPulseAt = 0, pulseN = 0;
+  let mZone = 1, mIntense = false, mDuck = 1, curDuck = -1;
+
+  function playChord(z, t) {
+    const out = ac.createGain();
+    out.gain.setValueAtTime(0.0001, t);
+    out.gain.exponentialRampToValueAtTime(1, t + 2.5);
+    out.gain.setValueAtTime(1, t + CHORD);
+    out.gain.exponentialRampToValueAtTime(0.0001, t + CHORD + 3.5);
+    out.connect(padFilter);
+    const notes = z.prog[chordIdx % z.prog.length];
+    notes.forEach((n, i) => [-7, 7].forEach(det => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = z.wave; o.frequency.value = midi(z.root + n - 12); o.detune.value = det;
+      g.gain.value = i === 0 ? 0.07 : 0.045;
+      o.connect(g); g.connect(out); o.start(t); o.stop(t + CHORD + 3.7);
+    }));
+    // Derin bas
+    const b = ac.createOscillator(), bg = ac.createGain();
+    b.type = 'sine'; b.frequency.value = midi(z.root + notes[0] - 24); bg.gain.value = 0.16;
+    b.connect(bg); bg.connect(out); b.start(t); b.stop(t + CHORD + 3.7);
+    voices.push({ out, end: t + CHORD + 3.7 });
+    chordIdx++;
+  }
+  function tick() {
+    if (!live() || !musicOn) return;
+    const now = ac.currentTime, z = ZONE_MUSIC[mZone] || ZONE_MUSIC[1];
+    voices = voices.filter(v => v.end > now);
+    // Ses seviyesi (durdurma ekranında kısık)
+    const duck = mDuck * (mIntense ? 1.1 : 1);
+    if (duck !== curDuck) { musicBus.gain.setTargetAtTime(0.5 * duck, now, 0.4); curDuck = duck; }
+    padFilter.frequency.setTargetAtTime(z.cutoff * (mIntense ? 1.5 : 1), now, 1.5);
+    if (now >= nextChordAt - 0.25) { const t = Math.max(now + 0.05, nextChordAt); playChord(z, t); nextChordAt = t + CHORD; }
+    // Işıltılar: ara ara, akorun notalarından, yankılı
+    if (now >= nextTwinkleAt) {
+      const notes = z.prog[(chordIdx - 1 + z.prog.length) % z.prog.length];
+      const n = z.root + 12 + z.scale[Math.floor(Math.random() * z.scale.length)] + (Math.random() < 0.3 ? notes[1] % 12 : 0);
+      [0, 0.38, 0.76].forEach((d, k) => tone({ type: z.tw, f: midi(n), dur: 1.6, vol: 0.035 * Math.pow(0.45, k), delay: d, bus: musicBus, attack: 0.01 }));
+      nextTwinkleAt = now + 2 + Math.random() * 3.5;
     }
-    if (s16 === 0 || s16 === 8 || (intense && s16 % 4 === 0)) noise({ dur: 0.06, vol: intense ? 0.08 : 0.05, freq: 6000 });
-    step++;
+    // Yoğun anlar (boss, son dalga): yumuşak nabız + hafif zil
+    if (mIntense) {
+      if (nextPulseAt < now) nextPulseAt = now + 0.05;
+      while (nextPulseAt < now + 0.4) {
+        const d = nextPulseAt - now;
+        if (pulseN % 2 === 0) tone({ type: 'sine', f: 70, f2: 38, dur: 0.22, vol: 0.2, delay: d, bus: musicBus });
+        else noise({ dur: 0.05, vol: 0.03, freq: 7000, delay: d, bus: musicBus });
+        pulseN++; nextPulseAt += 0.25;
+      }
+    }
+  }
+  setInterval(tick, 200);
+
+  function setMusic(zone, intense, duck) {
+    if (zone !== mZone && live()) {
+      // Bölge değişti: eski akoru yumuşakça söndür, yenisini hemen başlat
+      const now = ac.currentTime;
+      voices.forEach(v => { v.out.gain.cancelScheduledValues(now); v.out.gain.setTargetAtTime(0.0001, now, 0.8); });
+      nextChordAt = 0; chordIdx = 0;
+    }
+    mZone = zone; mIntense = !!intense; mDuck = duck;
+  }
+  function apply() {
+    if (!ac) return;
+    sfxBus.gain.value = sfxOn ? 0.9 : 0;
+    if (!musicOn) { musicBus.gain.value = 0; curDuck = -1; }
   }
 
   return {
-    init, sfx, musicStep,
-    get muted() { return muted; },
+    init, sfx, setMusic,
+    get musicOn() { return musicOn; },
+    get sfxOn() { return sfxOn; },
+    get muted() { return !musicOn && !sfxOn; },
     get state() { return ac ? ac.state : 'none'; }, // hata ayıklama: 'running' = ses açık
-    toggle() {
-      muted = !muted;
-      try { localStorage.setItem('ss_muted', muted ? '1' : '0'); } catch(e) {}
-      if (master) master.gain.value = muted ? 0 : 0.7;
-    },
+    get debug() { return { voices: voices.length, zone: mZone, intense: mIntense, duck: mDuck, music: musicBus ? +musicBus.gain.value.toFixed(2) : null }; },
+    toggleMusic() { musicOn = !musicOn; save(); apply(); },
+    toggleSfx() { sfxOn = !sfxOn; save(); apply(); },
+    toggle() { const on = !(musicOn || sfxOn); musicOn = on; sfxOn = on; save(); apply(); }, // menüdeki ♪: hepsi
   };
 })();
 // iOS/Android: ses ancak ilk dokunuştan sonra açılabilir
@@ -753,7 +836,8 @@ canvas.addEventListener('click', e => {
     if (b.act === 'resume') state = 'play';
     else if (b.act === 'retry') startLevel(currentLevel);
     else if (b.act === 'map') state = 'map';
-    else if (b.act === 'sound') { Sound.toggle(); Sound.sfx.click(); }
+    else if (b.act === 'music') Sound.toggleMusic();
+    else if (b.act === 'sfx') { Sound.toggleSfx(); Sound.sfx.click(); }
     return;
   }
 
@@ -2393,10 +2477,11 @@ const GAMEOVER_BTNS = [
   { label: 'BACK TO MAP', x: BTN_X, y: H / 2 + 100, w: BTN_W, h: BTN_H, act: 'map' },
 ];
 const PAUSE_BTNS = [
-  { label: 'RESUME',      x: BTN_X, y: H / 2 - 70, w: BTN_W, h: BTN_H, act: 'resume' },
-  { label: 'RESTART',     x: BTN_X, y: H / 2 - 12, w: BTN_W, h: BTN_H, act: 'retry' },
-  { label: 'BACK TO MAP', x: BTN_X, y: H / 2 + 46, w: BTN_W, h: BTN_H, act: 'map' },
-  { label: 'SOUND',       x: BTN_X, y: H / 2 + 104, w: BTN_W, h: BTN_H, act: 'sound' },
+  { label: 'RESUME',      x: BTN_X, y: H / 2 - 110, w: BTN_W, h: BTN_H, act: 'resume' },
+  { label: 'RESTART',     x: BTN_X, y: H / 2 - 54,  w: BTN_W, h: BTN_H, act: 'retry' },
+  { label: 'BACK TO MAP', x: BTN_X, y: H / 2 + 2,   w: BTN_W, h: BTN_H, act: 'map' },
+  { label: 'MUSIC',       x: BTN_X, y: H / 2 + 72,  w: BTN_W, h: BTN_H, act: 'music' },
+  { label: 'EFFECTS',     x: BTN_X, y: H / 2 + 128, w: BTN_W, h: BTN_H, act: 'sfx' },
 ];
 
 // --- Draw: Overlay (oyun bitti) ---
@@ -2423,9 +2508,11 @@ function drawPause() {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillStyle = '#0ff'; ctx.font = `700 34px ${TEXT_FONT}`;
   ctx.shadowColor = '#0ff'; ctx.shadowBlur = 18;
-  ctx.fillText('PAUSED', W / 2, H / 2 - 140);
+  ctx.fillText('PAUSED', W / 2, H / 2 - 170);
   ctx.restore();
-  PAUSE_BTNS.forEach((b, i) => drawButton(b.act === 'sound' ? { ...b, label: Sound.muted ? 'SOUND: OFF' : 'SOUND: ON' } : b, i === 0));
+  PAUSE_BTNS.forEach((b, i) => drawButton(
+    b.act === 'music' ? { ...b, label: Sound.musicOn ? 'MUSIC: ON' : 'MUSIC: OFF' } :
+    b.act === 'sfx'   ? { ...b, label: Sound.sfxOn ? 'EFFECTS: ON' : 'EFFECTS: OFF' } : b, i === 0));
 }
 
 // --- Bomb: patlat hepsini ---
@@ -2441,6 +2528,14 @@ function activateBomb() {
 // --- Update ---
 function update() {
   frameCount++;
+
+  // Müzik: o anki ekrana göre bölge, yoğunluk ve ses seviyesi
+  {
+    const mz = state === 'menu' ? menuIdx + 1 : state === 'zonetransition' ? zoneTransIdx + 2 : state === 'intro' ? (cinePanels === ENDING_PANELS ? 4 : 1) : currentZone;
+    const lastWave = !boss && currentLevel % 5 !== 0 && getWave() >= currentLevel * 5;
+    const intense = state === 'play' && !briefing && (!!boss || lastWave);
+    Sound.setMusic(mz, intense, state === 'paused' ? 0.45 : state === 'play' && !briefing ? 1 : 0.75);
+  }
 
   stars.forEach(s => {
     s.y += s.spd;
@@ -2515,7 +2610,6 @@ function update() {
   if (briefing) return; // talimat kartı açık: oyun donmuş
 
   // Tutorial progress on lane change
-  if (frameCount % 8 === 0) Sound.musicStep(currentZone, !!boss);
 
   if (player.targetLane !== prevTargetLane) {
     Sound.sfx.swipe();
