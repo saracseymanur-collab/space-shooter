@@ -632,6 +632,12 @@ function baseLevelConfig() {
       hp: () => Math.random() < 0.45 ? 2 : 1,
       canShoot: true, zigzag: false, fireMul: 0.95, hunter: 420, formation: true,
     };
+    case 5: return { // boss öncesi 4 dalga: sektörün kısa tekrarı (hafif) — asıl sınav boss
+      interval: 74, doubleChance: 0.2,
+      speed: () => 1.7 + Math.random() * 0.4,
+      hp: () => Math.random() < 0.4 ? 2 : 1,
+      canShoot: true, zigzag: false, fireMul: 1.15, link: 900,
+    };
     // ── Zone 2: Asteroid Belt — kayalarla birlikte daha seyrek düşman ──
     case 6: return { // kristal madenciliği + hafif düşmanlar
       interval: 115, doubleChance: 0,
@@ -1244,11 +1250,93 @@ function playerLaneNow() {
 
 
 // Boss zorluk ayarı: ateş/lazer/drone aralığı çarpanı (>1 = daha seyrek). Bot ölçümüyle ayarlanır.
-const BOSS_FIRE_MUL = { 5: 1.15, 10: 0.8, 15: 1.8, 20: 1.9 };
+const BOSS_FIRE_MUL = { 5: 0.8, 10: 0.8, 15: 1.8, 20: 1.9 };
+function updateVanguard() {
+  const mkShot = (x, vx, vy) => ({ x, y: boss.y + 44, vx, vy, hp: 3, lane: -1, fromBoss: true });
+  // faz geçişi: ~1.5 sn nefes (ateş yok, bekleyen saldırılar iptal)
+  if (boss.phase !== boss.lastPhase) {
+    if (boss.lastPhase) { boss.breathT = 90; boss.charge = null; boss.hunt = null; if (boss.phase === 3) boss.guardT = 9999; }
+    boss.lastPhase = boss.phase;
+  }
+  if (boss.breathT > 0) boss.breathT--;
+  if (boss.shieldHit > 0) boss.shieldHit--;
+  // şarjlı yaylım: iki şerit kırmızı şarj olur → aynı anda ateş
+  if (boss.charge && --boss.charge.t <= 0) {
+    boss.charge.lanes.forEach(l => { const sh = mkShot(LANE_CENTERS[l], 0, 5.2); sh.lane = l; pushShot(sh); });
+    boss.charge = null;
+  }
+  // nişan + kilit + üçlü seri
+  const h = boss.hunt;
+  if (h) {
+    if (h.state === 'track') {
+      const pl = playerLaneNow();
+      if (pl !== h.aim) { if (++h.lag >= 10) { h.aim = pl; h.lag = 0; } } else h.lag = 0;
+      if (--h.t <= 0) { h.state = 'lock'; h.t = 22; }
+    } else if (h.state === 'lock') {
+      if (--h.t <= 0) { h.state = 'fire'; h.t = 0; }
+    } else {
+      if (h.t % 7 === 0) {
+        const vy = 9, tx = LANE_CENTERS[h.aim], sh = mkShot(boss.x, (tx - boss.x) / ((player.y - boss.y - 44) / vy), vy);
+        sh.lane = h.aim; pushShot(sh);
+      }
+      if (++h.t >= 21) boss.hunt = null;
+    }
+  }
+  // 3. faz: iki kalkan dronu; yaşadıkça boss kalkanlı
+  if (boss.phase === 3 && boss.breathT <= 0 && ++boss.guardT >= 420 && !enemies.some(e => e.bossGuard)) {
+    boss.guardT = 0;
+    const lanes = [0, 1, 2].sort(() => Math.random() - 0.5).slice(0, 2);
+    lanes.forEach(lane => enemies.push({
+      lane, x: LANE_CENTERS[lane], y: boss.y + 40, w: 38, h: 44, hp: 2, maxHp: 2, speed: 0.9, flash: 0,
+      fireTimer: 0, fireRate: 999, canShoot: false, zigzag: false, zigzagPhase: 0, phantom: false,
+      cloakCfg: { vis: 90, inv: 40 }, cloakT: 0, alpha: 1, shiftAt: null, shiftTo: lane, curveShots: false, shift2: 0,
+      bossGuard: true,
+    }));
+  }
+  boss.shielded = enemies.some(e => e.bossGuard && e.hp > 0);
+}
+// Void Vanguard telegrafları: 'under' = şerit uyarıları (gemiden önce), 'over' = nişangâh (geminin üstünde)
+function drawVanguardFx(layer) {
+  if (!boss || boss.zone !== 1) return;
+  ctx.save();
+  if (layer === 'under') {
+    if (boss.charge) {
+      const k = 1 - boss.charge.t / 40;
+      boss.charge.lanes.forEach(l => {
+        const x = LANE_CENTERS[l];
+        ctx.fillStyle = `rgba(255,34,68,${0.06 + 0.12 * k})`; ctx.fillRect(x - 30, boss.y + 50, 60, H - boss.y);
+        ctx.fillStyle = `rgba(255,34,68,${0.4 + 0.5 * k})`; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 14;
+        ctx.beginPath(); ctx.arc(x, boss.y + 50, 5 + 8 * k, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+      });
+    }
+    if (boss.hunt && boss.hunt.state !== 'track') {
+      ctx.fillStyle = `rgba(255,34,68,${0.14 + 0.1 * Math.sin(frameCount * 0.6)})`;
+      ctx.fillRect(LANE_CENTERS[boss.hunt.aim] - 30, boss.y + 50, 60, H - boss.y);
+    }
+    if (boss.shielded) { // dronlardan boss'a turkuaz bağlar + boss kalkanı
+      for (const g of enemies) if (g.bossGuard) {
+        ctx.strokeStyle = LINK_COL; ctx.shadowColor = LINK_COL; ctx.shadowBlur = 10; ctx.lineWidth = 2; ctx.globalAlpha = 0.85;
+        ctx.setLineDash([10, 8]); ctx.lineDashOffset = -frameCount * 1.5;
+        ctx.beginPath(); ctx.moveTo(g.x, g.y); ctx.lineTo(boss.x, boss.y + 20); ctx.stroke(); ctx.setLineDash([]);
+      }
+      ctx.globalAlpha = 0.9; ctx.lineWidth = boss.shieldHit > 0 ? 5 : 3; ctx.strokeStyle = boss.shieldHit > 0 ? '#ffffff' : LINK_COL;
+      ctx.beginPath(); ctx.arc(boss.x, boss.y, 92, Math.PI * 0.1, Math.PI * 0.9); ctx.stroke();
+    }
+  } else if (boss.hunt) {
+    const lock = boss.hunt.state !== 'track', r = lock ? 44 : 54;
+    ctx.translate(LANE_CENTERS[boss.hunt.aim], player.y);
+    ctx.strokeStyle = '#ff2244'; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 10; ctx.lineWidth = 2.5;
+    ctx.globalAlpha = lock ? 0.95 : 0.55 + 0.25 * Math.sin(frameCount * 0.25);
+    if (!lock) { ctx.rotate(frameCount * 0.05); ctx.setLineDash([9, 7]); }
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+    [0, 1, 2, 3].forEach(q => { const a = q * Math.PI / 2; ctx.beginPath(); ctx.moveTo(Math.cos(a) * (r - 7), Math.sin(a) * (r - 7)); ctx.lineTo(Math.cos(a) * (r + 7), Math.sin(a) * (r + 7)); ctx.stroke(); });
+  }
+  ctx.restore();
+}
 function spawnBoss(wave) {
   const bossNum = Math.floor(wave / 5);
   const special = currentLevel % 5 === 0; // her bölgenin 5. bölümü
-  const BOSS_HP = { 5: 90, 10: 130, 15: 160, 20: 220 };
+  const BOSS_HP = { 5: 120, 10: 130, 15: 160, 20: 220 };
   const hp = BOSS_HP[currentLevel] ?? 25 + bossNum * 10;
   boss = {
     x: W / 2, y: special ? H * 0.14 : H * 0.13,
@@ -2240,7 +2328,7 @@ function drawEnemy(e) {
     ctx.fillStyle = '#ff2244'; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = lk ? 16 : 8;
     ctx.beginPath(); ctx.arc(0, dh / 2 - 2, lk ? 6 : 3.5 + Math.sin(frameCount * 0.3), 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
   }
-  if (e.guarding) { // koruyucu: üstünde turkuaz kalkan simgesi
+  if (e.guarding || e.bossGuard) { // koruyucu: üstünde turkuaz kalkan simgesi
     const iy = -dh / 2 - 14;
     ctx.fillStyle = LINK_COL; ctx.shadowColor = LINK_COL; ctx.shadowBlur = 10;
     ctx.beginPath(); ctx.moveTo(0, iy - 8); ctx.lineTo(7, iy - 5); ctx.lineTo(6, iy + 2); ctx.quadraticCurveTo(4, iy + 7, 0, iy + 9);
@@ -2670,7 +2758,7 @@ const LEVEL_BRIEFS = [
   { title: 'FORMATIONS',      vis: 'formation', line: 'Enemy rows fire together. Hide in the empty lane!', tips: ["They're shielded until they fire.", 'A red glow means they are about to fire.', 'Then shoot them before they reach the bottom.', 'A blue shield blocks hits for a few seconds.'] },
   { title: 'SHIELD LINK',     vis: 'link',      line: 'A linked ship shields its partner. Shoot the shield ship first!', tips: ['The shield ship wears the shield icon.', 'Break the link, then finish the big one.', 'Last wave: a formation. Hide in the gap!'] },
   { title: 'HUNTERS',         vis: 'hunter',    line: 'A Hunter aims at your lane, locks on, then fires. Slip out after the lock!', tips: ["It's shielded while aiming. Hit it when it locks or rests.", "Lure its aim into a lane you don't need.", 'Last wave: a formation. Hide in the gap!'] },
-  { title: 'VOID VANGUARD',   vis: 'boss',      line: 'Survive the waves, then defeat the boss.', tips: ['It gets faster in every phase.', 'Watch its shots and slip into the gap.'] },
+  { title: 'VOID VANGUARD',   vis: 'boss',      line: 'Survive the waves, then defeat the boss.', tips: ['Phase 1: two cannons charge. Hide in the gap.', 'Phase 2: it locks on your lane. Slip out!', 'Phase 3: shoot its shield drones first.'] },
   { title: 'CRYSTAL MINING',  vis: 'crystal',   line: 'Shoot rocks, collect crystals, fill the bar for Overdrive!', tips: ["You don't have to destroy every rock.", 'Survive 5 waves to clear the level.'] },
   { title: 'AMBUSH',          vis: 'ambush',    line: 'Enemies hide behind grey iron rocks.', tips: ["Iron rocks can't be destroyed and block shots.", 'Wait for the enemy to come out.'] },
   { title: 'METEOR SHOWER',   vis: 'meteor',    line: 'A flashing red lane means meteors. Move out!', tips: ["Meteors can't be shot."] },
@@ -3627,6 +3715,7 @@ function update() {
     boss.y += (homeY - boss.y) * 0.025;
 
     if (boss.flash > 0) boss.flash--;
+    if (boss.zone === 1) updateVanguard();
 
     // Komuta Merkezi: faz 2'den itibaren periyodik olarak görünmez olur (mermi işlemez, ateş etmez)
     if (boss.zone === 3 && boss.phase >= 2) {
@@ -3727,56 +3816,21 @@ function update() {
           rock(danger[0], Math.random() < 0.35 ? 'iron' : 'normal', 4.0);
           rock(danger[1], 'normal', 4.0);
         }
-      } else if (boss.phase === 1) {
-        // ── FAZ 1: tek mermi, yavaş ──
-        // Rastgele 1 şerite ateş → 2 şerit daima boş
-        boss.nextFireIn = 62 + Math.random() * 18;
-        pushShot(mk(LANE_CENTERS[Math.floor(Math.random() * 3)], 4.5));
-
-      } else if (boss.phase === 2) {
-        // ── FAZ 2: 2 şerite ateş, 1 şerit daima boş ──
-        // Safe lane her atışta değişir → oyuncu takip etmek zorunda
-        boss.nextFireIn = 36 + Math.random() * 14;
-        const safe = Math.floor(Math.random() * 3);
-        [0, 1, 2].filter(l => l !== safe).forEach(l =>
-          pushShot(mk(LANE_CENTERS[l], 5.5))
-        );
-
       } else {
-        // ── FAZ 3: dalga sistemi ──
-        // Ekran 4 eşit zona bölünür. Her dalgada 1 zon güvenli, 3 zona ateş.
-        // Dalga biter → nefes molası → oyuncu güvenli zona geçer → yeni dalga
-        const ZONE_CENTERS = [W/8, 3*W/8, 5*W/8, 7*W/8]; // 4 eşit zon, W orantılı
-
-        if (!boss.wave) boss.wave = { onBreak: true, fired: 0, size: 3, targets: [], safeZone: 0 };
-        const w = boss.wave;
-
-        if (w.onBreak) {
-          // Nefes molası bitti → yeni dalgayı hazırla
-          w.onBreak  = false;
-          w.fired    = 0;
-          w.size     = 3 + (Math.random() < 0.38 ? 1 : 0); // 3 veya 4 mermi
-          w.safeZone = Math.floor(Math.random() * 4);       // rastgele güvenli zon
-          w.targets  = ZONE_CENTERS.filter((_, i) => i !== w.safeZone);
-          boss.nextFireIn = 10; // ilk mermi kısa gecikmeli
-        } else {
-          // Dalga içi bir mermi at (hedef zonlar sırayla)
-          const x = w.targets[w.fired % w.targets.length];
-          if (w.fired === 0 && Math.random() < 0.22) {
-            // Dalga başı: küçük şansla büyük yavaş mermi — tek şerit hedef
-            pushShot(mk(LANE_CENTERS[Math.floor(Math.random() * 3)], 3.0, true));
+        // Void Vanguard (sektör 1'in öğrettikleriyle): 1) şarjlı yaylım (formasyon) · 2) nişan + üçlü seri (avcı)
+        // 3) ikisi sırayla + kalkan dronları (bağ). Telegraf ve ateş updateVanguard()'da.
+        if (boss.breathT > 0 || boss.charge || boss.hunt) boss.nextFireIn = 8;
+        else {
+          const ph = boss.phase || 1;
+          const pick = ph === 1 ? 'volley' : ph === 2 ? 'hunt' : (boss.lastAtk === 'volley' ? 'hunt' : 'volley');
+          boss.lastAtk = pick;
+          if (pick === 'volley') {
+            const safe = Math.floor(Math.random() * 3);
+            boss.charge = { lanes: [0, 1, 2].filter(l => l !== safe), t: 40 };
+            boss.nextFireIn = 40 + (ph === 1 ? 62 : 40);
           } else {
-            pushShot(mk(x, 6.5));
-          }
-          w.fired++;
-
-          if (w.fired >= w.size) {
-            // Dalga bitti → nefes molası (~1 sn)
-            w.onBreak       = true;
-            boss.nextFireIn = 58 + Math.random() * 22;
-          } else {
-            // Dalga devam → hızlı ardışık ateş
-            boss.nextFireIn = 11 + Math.random() * 7;
+            boss.hunt = { state: 'track', t: 60, aim: playerLaneNow(), lag: 0, n: 0 };
+            boss.nextFireIn = 60 + 22 + 21 + (ph === 2 ? 44 : 30);
           }
         }
       }
@@ -3786,6 +3840,7 @@ function update() {
     bullets = bullets.filter(b => {
       if (!boss) return true; // boss aynı frame'de öldüyse kalan mermilere dokunma
       if (boss.cloak) return true; // görünmez boss'tan mermi geçer
+      if (boss.shielded && Math.abs(b.x - boss.x) < 90 && Math.abs(b.y - boss.y) < 70) { boss.shieldHit = 8; return false; } // dron kalkanı
       const bsc = boss.special ? 1.45 : 1.0;
       const hit = Math.abs(b.x - boss.x) < 62 * bsc && Math.abs(b.y - boss.y) < 48 * bsc;
       if (hit) {
@@ -4824,6 +4879,7 @@ function render() {
   bullets.forEach(drawBullet);
   drawLinks();
   enemies.forEach(drawEnemy);
+  drawVanguardFx('under');
   if (boss) drawBoss(boss);
   if (currentZone === 3) { const fc = getLevelConfig(); drawFog(fc && fc.fog ? fc.fog : 0.4); } // sis düşmanları örter, mermileri değil
   powerups.forEach(drawPowerup); // güçlendirmeler her zaman net: sisin üstünde
@@ -4834,6 +4890,7 @@ function render() {
     drawShip(player.x, player.y);
   }
   drawHunterAim(); // geminin üstünde: nişangâh gemiyi çevreler
+  drawVanguardFx('over');
 
   drawFloatTexts();
   if (state === 'play' && tutorial) drawTutorial();
