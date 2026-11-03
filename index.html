@@ -86,14 +86,25 @@ const Sound = (() => {
   let muted = false;
   try { muted = localStorage.getItem('ss_muted') === '1'; } catch(e) {}
 
+  // iPhone: ses yalnızca bir dokunuşun SONUNDA (touchend) açılabilir; açılırken duyulmayan kısa bir ses
+  // çalınarak ses sistemi "uyandırılır". 'interrupted' (arka plandan dönüş) durumunda da yeniden açılır.
   function init() {
-    if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
-    try {
-      ac = new (window.AudioContext || window.webkitAudioContext)();
-      master = ac.createGain(); master.gain.value = muted ? 0 : 0.7; master.connect(ac.destination);
-      sfxBus = ac.createGain(); sfxBus.gain.value = 0.9; sfxBus.connect(master);
-      musicBus = ac.createGain(); musicBus.gain.value = 0.32; musicBus.connect(master);
-    } catch(e) { ac = null; }
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch(e) {} // iOS 17+: medya sesi
+    if (!ac) {
+      try {
+        ac = new (window.AudioContext || window.webkitAudioContext)();
+        master = ac.createGain(); master.gain.value = muted ? 0 : 0.7; master.connect(ac.destination);
+        sfxBus = ac.createGain(); sfxBus.gain.value = 0.9; sfxBus.connect(master);
+        musicBus = ac.createGain(); musicBus.gain.value = 0.32; musicBus.connect(master);
+      } catch(e) { ac = null; return; }
+    }
+    if (ac.state !== 'running') {
+      try {
+        const b = ac.createBuffer(1, 1, 22050), src = ac.createBufferSource();
+        src.buffer = b; src.connect(ac.destination); src.start(0);
+        const p = ac.resume(); if (p && p.catch) p.catch(() => {});
+      } catch(e) {}
+    }
   }
   const ready = () => ac && ac.state === 'running' && !muted;
 
@@ -177,6 +188,7 @@ const Sound = (() => {
   return {
     init, sfx, musicStep,
     get muted() { return muted; },
+    get state() { return ac ? ac.state : 'none'; }, // hata ayıklama: 'running' = ses açık
     toggle() {
       muted = !muted;
       try { localStorage.setItem('ss_muted', muted ? '1' : '0'); } catch(e) {}
@@ -185,7 +197,9 @@ const Sound = (() => {
   };
 })();
 // iOS/Android: ses ancak ilk dokunuştan sonra açılabilir
-['touchstart', 'mousedown', 'keydown'].forEach(ev => document.addEventListener(ev, () => Sound.init(), { passive: true }));
+['touchstart', 'touchend', 'mousedown', 'pointerup', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, () => Sound.init(), { passive: true }));
+// Arka plandan dönünce bir sonraki dokunuşta ses yeniden açılsın (iOS sesi 'interrupted' bırakır)
+document.addEventListener('visibilitychange', () => { if (!document.hidden) Sound.init(); });
 
 // --- Metin sarma: her cümle yeni satırdan başlar, satır sonunda tek kelime kalmaz ---
 function wrapText(text, maxWidth) {
