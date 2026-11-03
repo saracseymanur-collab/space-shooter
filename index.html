@@ -168,20 +168,11 @@ const Sound = (() => {
     // İsabet (ölmeden): kısa metalik "tık"
     hit()       { const v = 0.9 + Math.random() * 0.2; tone({ type: 'square', f: 540 * v, f2: 320 * v, dur: 0.04, vol: 0.035 }); tone({ type: 'triangle', f: 1500 * v, dur: 0.03, vol: 0.02 }); },
     // Düşman gemisi patlaması: büyüklüğe göre farklı karakter, her seferinde perde biraz değişir
+    // Gemi parçalanması: tek, tok "gümp" (büyük gemi daha pes ve dolgun). Kısa vuruş + alçalan bas, kuyruk yok
     shipBoom(tier = 1) {
-      const v = 0.9 + Math.random() * 0.2;
-      if (tier === 1) {        // küçük: keskin, parlak "pat"
-        noise({ dur: 0.14, vol: 0.2, freq: 2600 * v, type: 'bandpass', q: 0.8, end: 600 });
-        tone({ type: 'square', f: 700 * v, f2: 160, dur: 0.09, vol: 0.05 });
-      } else if (tier === 2) { // orta: çatırdayan patlama
-        noise({ dur: 0.28, vol: 0.24, freq: 1500 * v, end: 120 });
-        tone({ type: 'triangle', f: 260 * v, f2: 60, dur: 0.24, vol: 0.13 });
-        [0.05, 0.11, 0.18].forEach(d => noise({ dur: 0.04, vol: 0.06, freq: 4000, type: 'bandpass', q: 2, delay: d, end: 2000 }));
-      } else {                 // büyük: derin gümbürtü + kuyruk
-        noise({ dur: 0.55, vol: 0.32, freq: 900 * v, end: 60 });
-        tone({ type: 'sine', f: 120 * v, f2: 32, dur: 0.5, vol: 0.26 });
-        [0.12, 0.22, 0.34, 0.45].forEach(d => noise({ dur: 0.05, vol: 0.05, freq: 3000, type: 'bandpass', q: 2, delay: d, end: 1500 }));
-      }
+      const v = 0.94 + Math.random() * 0.12, k = [0, 1, 0.82, 0.66][tier] || 1;
+      tone({ type: 'sine', f: 170 * k * v, f2: 42 * k, dur: 0.2 + 0.05 * tier, vol: 0.2 + 0.04 * tier, attack: 0.003 });
+      noise({ dur: 0.07, vol: 0.1 + 0.02 * tier, freq: 700 * k, end: 150 });
     },
     // Kaya kırılması: taşlı, kum gibi çıtırtı (gemi patlamasından ayrı)
     rockCrack(size = 20) {
@@ -2214,13 +2205,6 @@ const POWERUP_IMG_SRC = { shield: 'ASSETS/powerups/shield.png', triple: 'ASSETS/
 const powerupImgs = {};
 Object.entries(POWERUP_IMG_SRC).forEach(([k, src]) => { const im = new Image(); im.src = src; powerupImgs[k] = im; });
 const powerupImgReady = t => powerupImgs[t] && powerupImgs[t].complete && powerupImgs[t].naturalWidth > 0;
-const POWERUP_GLOW = {
-  triple: ['rgba(76,255,58,0.6)',  'rgba(76,255,58,0)'],
-  double: ['rgba(255,225,26,0.6)', 'rgba(255,225,26,0)'],
-  bomb:   ['rgba(255,34,68,0.6)',  'rgba(255,34,68,0)'],
-  shield: ['rgba(31,176,255,0.6)', 'rgba(31,176,255,0)'],
-  fuel:   ['rgba(68,255,102,0.65)', 'rgba(68,255,102,0)'],
-};
 
 function drawPowerupIcon(type, size) {
   ctx.save();
@@ -2312,12 +2296,11 @@ function drawPowerup(p) {
   ctx.save();
   ctx.translate(p.x, p.y + bob);
 
-  // Sade rozet: hafif ışık halesi + rozetin kendi parıltısı
+  // Sade rozet: yumuşak beyaz hale (toplanabilir eşya işareti — düşman gemilerinde yok) + rozetin kendi parıltısı
   const pulse = 0.5 + 0.5 * Math.sin(p.bobTimer * 0.08);
-  const glow = POWERUP_GLOW[p.type];
-  const grd = ctx.createRadialGradient(0, 0, 8, 0, 0, 26);
-  grd.addColorStop(0, glow[0]);
-  grd.addColorStop(1, glow[1]);
+  const grd = ctx.createRadialGradient(0, 0, 8, 0, 0, 28);
+  grd.addColorStop(0, 'rgba(255,255,255,0.6)');
+  grd.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = grd;
   ctx.globalAlpha = 0.35 + 0.15 * pulse;
   ctx.beginPath(); ctx.arc(0, 0, 26, 0, Math.PI * 2); ctx.fill();
@@ -3154,28 +3137,26 @@ function update() {
     // Yıldızlar sırayla belirir
     {
       // Tek seferlik konfeti patlaması (boss zaferinde daha büyük)
-      const burst = levelCompleteType === 'boss' ? 70 : 34;
+      const burst = levelCompleteType === 'boss' ? 26 : 16;
       const spawnCount = victoryTime === 8 ? burst : 0;
-      const VCOLORS = ['#ffe040','#00ffff','#ff44ff','#44ff88','#ff8800','#ffffff','#88aaff','#ffaaff'];
+      const VCOL = levelCompleteType === 'boss' ? '#ffd040' : SECTOR_COLORS[currentZone - 1];
       for (let i = 0; i < spawnCount; i++) {
         const a = Math.random() * Math.PI * 2;
-        const spd = 2.5 + Math.random() * 7;
+        const spd = 1.5 + Math.random() * 3;
         victoryParticles.push({
-          x: W / 2,
-          y: RESULT_CARD.y + 40,
+          x: W / 2 + Math.cos(a) * 60,
+          y: RESULT_CARD.y + 82 + Math.sin(a) * 20,
           vx: Math.cos(a) * spd,
-          vy: Math.sin(a) * spd - 3.5,
+          vy: Math.sin(a) * spd * 0.6 - 0.4,
           life: 1,
-          decay: 0.008 + Math.random() * 0.01,
-          r: 2 + Math.random() * 4,
-          color: VCOLORS[Math.floor(Math.random() * VCOLORS.length)],
-          star: Math.random() < 0.35,
+          decay: 0.02 + Math.random() * 0.015,
+          r: 1.2 + Math.random() * 1.8,
+          color: i % 4 === 0 ? '#ffffff' : VCOL,
         });
       }
       victoryParticles = victoryParticles.filter(p => {
         p.x += p.vx; p.y += p.vy;
-        p.vy += 0.14;
-        p.vx *= 0.985;
+        p.vx *= 0.96; p.vy *= 0.96;
         p.life -= p.decay;
         return p.life > 0;
       });
@@ -4314,15 +4295,6 @@ function spawnCollectEffect(x, y, color) {
 const RESULT_CARD = { x: 30, y: H / 2 - 150, w: W - 60, h: 210 };
 const RESULT_BTN  = { label: 'CONTINUE', x: BTN_X, y: H / 2 - 22, w: BTN_W, h: BTN_H };
 const RESULT_BTN_AT = 40;
-function drawStarShape(x, y, r) {
-  ctx.beginPath();
-  for (let i = 0; i < 5; i++) {
-    const a = (i / 5) * Math.PI * 2 - Math.PI / 2, b2 = a + Math.PI / 5;
-    i === 0 ? ctx.moveTo(x + Math.cos(a) * r, y + Math.sin(a) * r) : ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
-    ctx.lineTo(x + Math.cos(b2) * r * 0.45, y + Math.sin(b2) * r * 0.45);
-  }
-  ctx.closePath();
-}
 function drawResult() {
   const vt = victoryTime;
   const isBoss = levelCompleteType === 'boss';
@@ -4357,20 +4329,36 @@ function drawResult() {
   ctx.font = `700 11px ${TEXT_FONT}`; ctx.fillStyle = 'rgba(200,230,255,0.65)';
   const label = isBoss ? `${BOSS_NAMES[currentZone]} DEFEATED` : `${MENU_CARDS[currentZone - 1].name.toUpperCase()} · LEVEL ${currentLevel}`;
   ctx.fillText(label, W / 2, C.y + 40);
+  const title = isBoss ? (currentLevel === LEVEL_COUNT ? 'VICTORY' : 'ZONE CLEAR') : 'LEVEL CLEAR';
   ctx.fillStyle = '#fff';
   ctx.shadowColor = accent; ctx.shadowBlur = 14;
-  drawSpaced(isBoss ? (currentLevel === LEVEL_COUNT ? 'VICTORY' : 'ZONE CLEAR') : 'LEVEL CLEAR', W / 2, C.y + 82, 24, 700, UI_FONT, 3, C.w - 40);
+  drawSpaced(title, W / 2, C.y + 82, 24, 700, UI_FONT, 3, C.w - 40);
   ctx.shadowBlur = 0;
+  // ışık süpürmesi: yazının üstünden bir kez soldan sağa geçer
+  const sw = (vt - 14) / 26;
+  if (sw > 0 && sw < 1) {
+    const sx = C.x - 40 + (C.w + 80) * sw;
+    const lg = ctx.createLinearGradient(sx - 40, 0, sx + 40, 0);
+    lg.addColorStop(0, 'rgba(255,255,255,0)'); lg.addColorStop(0.5, accent); lg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = lg;
+    drawSpaced(title, W / 2, C.y + 82, 24, 700, UI_FONT, 3, C.w - 40);
+  }
 
   ctx.restore();
 
-  // Konfeti
+  // Başlıktan yayılan iki ince halka (düşman patlamasıyla aynı dil) + bölge renginde kıvılcımlar
   ctx.save();
+  [0, 9].forEach(d => {
+    const t = (vt - 8 - d) / 34;
+    if (t <= 0 || t >= 1) return;
+    const e = 1 - (1 - t) * (1 - t);
+    ctx.globalAlpha = (1 - t) * 0.55; ctx.strokeStyle = accent; ctx.lineWidth = 0.8 + 2 * (1 - t);
+    ctx.beginPath(); ctx.ellipse(W / 2, C.y + 82, 70 + e * 85, 22 + e * 30, 0, 0, Math.PI * 2); ctx.stroke();
+  });
   victoryParticles.forEach(p => {
     ctx.globalAlpha = Math.max(0, p.life);
     ctx.fillStyle = p.color;
-    if (p.star) { drawStarShape(p.x, p.y, p.r * 1.4); ctx.fill(); }
-    else { ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill(); }
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
   });
   ctx.restore();
 
