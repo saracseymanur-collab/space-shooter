@@ -553,20 +553,19 @@ function getLevelConfig() {
       interval: 50, doubleChance: 0.35,
       speed: () => 1.7 + Math.random() * 0.4,
       hp: () => Math.random() < 0.5 ? 2 : 1,
-      canShoot: true, zigzag: false, fireMul: 0.85,
+      canShoot: true, zigzag: false, fireMul: 0.85, formation: true,
     };
-    case 3: return {
-      interval: 48, doubleChance: 0.4,
-      // %45 ihtimalle hızlı düşman — ateş de ediyorlar
-      speed: () => Math.random() < 0.45 ? 3.4 + Math.random() * 0.5 : 1.9 + Math.random() * 0.4,
+    case 3: return { // dalan düşmanlar: yolda durur, uyarır, yan şeride dalar, inince ateş eder
+      interval: 50, doubleChance: 0.35,
+      speed: () => 1.9 + Math.random() * 0.4,
       hp: () => Math.random() < 0.4 ? 2 : 1,
-      canShoot: true, zigzag: false, fireMul: 0.8,
+      canShoot: true, zigzag: false, fireMul: 0.85, diver: 0.5, formation: true,
     };
     case 4: return { // zikzak + ateş (önceden ateş yoktu → bölüm en kolayıydı)
       interval: 62, doubleChance: 0.3,
       speed: () => 1.9 + Math.random() * 0.5,
       hp: () => Math.random() < 0.45 ? 2 : 1,
-      canShoot: true, zigzag: true, fireMul: 1.25,
+      canShoot: true, zigzag: true, fireMul: 1.25, formation: true,
     };
     // ── Zone 2: Asteroid Belt — kayalarla birlikte daha seyrek düşman ──
     case 6: return { // kristal madenciliği + hafif düşmanlar
@@ -1023,7 +1022,25 @@ function spawnEnemy(yOffset = 0) {
     cloakCfg: (cfg && cfg.cloak) || { vis: 90, inv: 40 },
     cloakT: Math.floor(Math.random() * 60), alpha: 1,
     shiftAt, shiftTo, curveShots: !!(cfg && cfg.curveShots), shift2: cfg && cfg.shift2 ? cfg.shift2 : 0,
+    diver: !!(cfg && cfg.diver && Math.random() < cfg.diver), diveAt: H * (0.2 + Math.random() * 0.18), diveState: 0,
   });
+}
+
+// Formasyon dalgası ("boşluğu bul"): iki şeritte yan yana düşman, bir şerit boş.
+// Belli bir yükseklikte ikisi aynı anda ateş eder → güvenli yer boşluk; sonra ikisini de vur.
+let formT = 0, formGap = -1, formOn = false;
+function spawnFormationRow() {
+  const opts = [0, 1, 2].filter(l => l !== formGap);
+  formGap = opts[Math.floor(Math.random() * opts.length)];
+  const volleyAt = H * (0.26 + Math.random() * 0.08);
+  [0, 1, 2].filter(l => l !== formGap).forEach(lane => enemies.push({
+    lane, x: LANE_CENTERS[lane], y: -40, w: 38, h: 44,
+    hp: 1, maxHp: 1, speed: 1.6, flash: 0,
+    fireTimer: 0, fireRate: 999, canShoot: false,
+    zigzag: false, zigzagPhase: 0, phantom: false, cloakCfg: { vis: 90, inv: 40 }, cloakT: 0, alpha: 1,
+    shiftAt: null, shiftTo: lane, curveShots: false, shift2: 0,
+    formation: true, volleyAt, volleyed: false,
+  }));
 }
 
 // Komuta Merkezi / Void Leader'ın gönderdiği küçük drone
@@ -1965,6 +1982,18 @@ function drawEnemy(e) {
     ctx.beginPath(); ctx.arc(0, 0, dw * 0.6, frameCount * 0.3, frameCount * 0.3 + Math.PI * 1.3); ctx.stroke();
   }
 
+  if (e.diveState === 1) {
+    const blink = Math.floor(e.diveT / 6) % 2 === 0, lx = LANE_CENTERS[e.diveTo] - e.x;
+    ctx.fillStyle = `rgba(255,34,68,${blink ? 0.2 : 0.08})`; ctx.fillRect(lx - 30, 0, 60, H - e.y);
+    ctx.strokeStyle = 'rgba(255,77,102,0.7)'; ctx.lineWidth = 1.5; ctx.setLineDash([8, 8]);
+    ctx.beginPath(); ctx.moveTo(lx - 30, 0); ctx.lineTo(lx - 30, H - e.y); ctx.moveTo(lx + 30, 0); ctx.lineTo(lx + 30, H - e.y); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  if (e.formation && !e.volleyed && e.volleyAt - e.y < 80) {
+    const k = 1 - Math.max(0, e.volleyAt - e.y) / 80, r = 4 + 6 * k;
+    ctx.fillStyle = `rgba(255,34,68,${0.35 + 0.5 * k})`; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 12;
+    ctx.beginPath(); ctx.arc(0, dh / 2 + 4, r, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+  }
   // Görsel — merkeze hizalı, gerçek en/boy oranıyla
   if (img && img.complete && img.naturalWidth > 0) {
     if (e.phantom && baseAlpha < 0.995) {
@@ -2394,7 +2423,7 @@ const LEVEL_BRIEFS = [
   null,
   { title: 'SWIPE TO MOVE',   vis: 'swipe',     line: 'Swipe left or right to change lanes.', tips: ['Your ship fires automatically.', "Don't let enemies reach the bottom!"] },
   { title: 'RETURN FIRE',     vis: 'dodge',     line: 'Enemies shoot back. Dodge the red shots.', tips: ['A blue shield blocks hits for a few seconds.'] },
-  { title: 'FAST MOVERS',     vis: 'fast',      line: 'Some enemies dive much faster.', tips: ['Get into their lane early.'] },
+  { title: 'DIVERS',          vis: 'dive',      line: 'Flashing enemies dive into the next lane. Follow them!', tips: ['Divers fire right after they land.', 'Last wave: a formation. Hide in the gap!'] },
   { title: 'ZIGZAG',          vis: 'zigzag',    line: 'Enemies weave between lanes.', tips: ['Time your shots as they cross your lane.'] },
   { title: 'VOID VANGUARD',   vis: 'boss',      line: 'Survive the waves, then defeat the boss.', tips: ['It gets faster in every phase.', 'Watch its shots and slip into the gap.'] },
   { title: 'CRYSTAL MINING',  vis: 'crystal',   line: 'Shoot rocks, collect crystals, fill the bar for Overdrive!', tips: ["You don't have to destroy every rock.", 'Survive 5 waves to clear the level.'] },
@@ -2506,12 +2535,16 @@ function drawBriefVisual(kind, cx, cy, zc) {
       if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, px - 20, cy + 16, 40, 40);
       break;
     }
-    case 'fast': {
-      briefEnemy(1, cx - 70, cy - 10 + Math.sin(t) * 4, 0.7);
-      const fy = cy - 34 + ((t * 70) % 70);
-      briefEnemy(1, cx + 30, fy, 0.7);
-      ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1.5;
-      [-10, 0, 10].forEach(o => { ctx.beginPath(); ctx.moveTo(cx + 30 + o, fy - 16); ctx.lineTo(cx + 30 + o, fy - 34); ctx.stroke(); });
+    case 'dive': {
+      // düşman durur + hedef şerit yanıp söner → yana dalar → aşağı hızlanır
+      const P = 120, k = frameCount % P;
+      const to = Math.floor(frameCount / P) % 2 ? -70 : 70;
+      const q = Math.min(1, Math.max(0, (k - 50) / 18)), ease = q * q * (3 - 2 * q);
+      const ex = cx + to * ease, ey = cy - 30 + (k < 50 ? k * 0.25 : 12.5 + (k - 50) * (k >= 68 ? 1.1 : 0.2));
+      if (k >= 20 && k < 50 && Math.floor(k / 6) % 2 === 0) { ctx.fillStyle = 'rgba(255,34,68,0.22)'; ctx.fillRect(cx + to - 22, cy - 40, 44, 80); }
+      ctx.save(); ctx.beginPath(); ctx.rect(cx - 140, cy - 44, 280, 88); ctx.clip();
+      briefEnemy(1, ex, ey, 0.6);
+      ctx.restore();
       break;
     }
     case 'zigzag': {
@@ -2768,7 +2801,7 @@ function showToast(text, color, dur = 150) { toasts.push({ text, color: color ||
 function beginLevelPlay() {
   briefing = false;
   countdown = 90; // 3 · 2 · 1 (her biri 0.5 sn), ardından GO
-  levelPlayT = 0; lastWaveSeen = 1; toasts = [];
+  levelPlayT = 0; lastWaveSeen = 1; toasts = []; formOn = false; formGap = -1;
   const B = LEVEL_BRIEFS[currentLevel];
   tipPlan = []; // ipuçları artık ilk karşılaşmada duraklayarak anlatılıyor
   Sound.sfx.count(3);
@@ -3675,7 +3708,11 @@ function update() {
     const cfg      = getLevelConfig();
     const interval = cfg ? cfg.interval      : getSpawnInterval();
     const dChance  = cfg ? cfg.doubleChance  : getDoubleSpawnChance();
-    if (spawnTimer >= interval) {
+    const lw = getWave() - (currentLevel - 1) * 5;
+    if (cfg && cfg.formation && lw >= 5) {
+      if (!formOn) { formOn = true; formT = 999; showToast('FORMATION · FIND THE GAP', '#ff4d66', 120); }
+      if (++formT >= 150 && !enemies.some(e => e.y < 150)) { formT = 0; spawnFormationRow(); }
+    } else if (spawnTimer >= interval) {
       spawnTimer = 0;
       spawnEnemy();
       // Suppress double enemy spawn when an iron asteroid is blocking a lane
@@ -3751,6 +3788,22 @@ function update() {
     }
     if (e.ambushT > 0) e.ambushT--;
     e.y += e.speed;
+    // Dalan düşman: durur (uyarı) → komşu şeride dalar, hızlanır, inince bir kez ateş eder
+    if (e.diver && !e.diveState && e.y > e.diveAt) {
+      const pl = playerLaneNow();
+      const opts = [e.lane - 1, e.lane + 1].filter(l => l >= 0 && l <= 2 &&
+        !enemies.some(o => o !== e && o.lane === l && Math.abs(o.y - e.y) < 100));
+      e.diveTo = opts.includes(pl) ? pl : opts[Math.floor(Math.random() * opts.length)];
+      if (e.diveTo == null) e.diveState = 2; else { e.diveState = 1; e.diveT = 42; }
+    }
+    if (e.diveState === 1) {
+      e.y -= e.speed;
+      if (--e.diveT <= 0) { e.diveState = 2; e.lane = e.diveTo; e.shifting = 20; e.speed = 3.4; e.fireTimer = e.fireRate - 28; }
+    }
+    if (e.formation && !e.volleyed && e.y >= e.volleyAt) {
+      e.volleyed = true;
+      pushShot({ x: e.x, y: e.y + 20, vx: 0, vy: 5, hp: 1, lane: e.lane, curve: false });
+    }
     // Black Hole: çekim düşmanı komşu şeride savurur
     if (e.shiftAt !== null && e.y > e.shiftAt) {
       e.lane = e.shiftTo; e.shiftAt = null; e.shifting = 40;
