@@ -846,7 +846,7 @@ canvas.addEventListener('click', e => {
 
   if (state === 'intro') {
     // Skip button: top right
-    if (mx > W - 90 && my < 44) { endCinematic(); return; }
+    if (mx > W - 100 && my < 56) { endCinematic(); return; }
     // Anywhere else advances panel
     cineNext(); return;
     return;
@@ -1693,16 +1693,31 @@ function drawIntro() {
   drawStars();
 
   ctx.save();
-
-  // Fade overlay
-  ctx.fillStyle = `rgba(0,0,8,${1 - introAlpha})`;
-  ctx.fillRect(0, 0, W, H);
-
-  ctx.globalAlpha = introAlpha;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // Panel metni — cümle bazlı satır kırma
+  // Sabit çerçeve: etiket, iki çizgi ve noktalar her panelde aynı yerde durur (sadece metin değişir)
+  const isEnding = cinePanels === ENDING_PANELS;
+  const col = isEnding ? '#ffd040' : '#3fd3ff';
+  const top = Math.round(H * 0.33), bot = Math.round(H * 0.67);
+  const grd = ctx.createLinearGradient(40, 0, W - 40, 0);
+  grd.addColorStop(0, 'rgba(255,255,255,0)'); grd.addColorStop(0.5, col); grd.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.strokeStyle = grd; ctx.lineWidth = 1; ctx.globalAlpha = 0.6;
+  ctx.beginPath(); ctx.moveTo(40, top); ctx.lineTo(W - 40, top); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(40, bot); ctx.lineTo(W - 40, bot); ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 12;
+  drawSpaced(isEnding ? 'EPILOGUE' : 'PROLOGUE', W / 2, top - 30, 14, 700, UI_FONT, 5);
+  ctx.shadowBlur = 0;
+  const n = cinePanels.length, dg = 14;
+  for (let k = 0; k < n; k++) {
+    const dx = W / 2 + (k - (n - 1) / 2) * dg;
+    ctx.fillStyle = k === introPanelIdx ? col : 'rgba(255,255,255,0.22)';
+    ctx.beginPath(); ctx.arc(dx, bot + 36, k === introPanelIdx ? 3.5 : 2.5, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Panel metni — iki çizginin ortasında, sadece bu kısım yumuşakça geçiş yapar
+  ctx.globalAlpha = introAlpha;
   const text = cinePanels[introPanelIdx];
   const isTheEnd = text === 'THE END';
   if (isTheEnd) {
@@ -1712,41 +1727,18 @@ function drawIntro() {
     ctx.font = STORY_FONT;
     ctx.fillStyle = '#ffffff'; ctx.shadowColor = 'rgba(200,220,255,0.3)'; ctx.shadowBlur = 6;
   }
-  const textH = drawWrapped(text, W / 2, H / 2, W - 80, isTheEnd ? 44 : STORY_LINE_H);
+  ctx.textAlign = 'center'; // drawSpaced hizalamayı sola bırakır
+  drawWrapped(text, W / 2, (top + bot) / 2, W - 80, isTheEnd ? 44 : STORY_LINE_H);
   ctx.shadowBlur = 0;
-  const below = H / 2 + textH / 2;
-  if (!isTheEnd) {
-    // Bölge geçiş ekranıyla aynı çerçeve: renkli etiket + metni saran iki çizgi
-    const col = cinePanels === ENDING_PANELS ? '#ffd040' : '#3fd3ff';
-    const top = H / 2 - textH / 2 - 26, bot = below + 26;
-    const grd = ctx.createLinearGradient(40, 0, W - 40, 0);
-    grd.addColorStop(0, 'rgba(255,255,255,0)'); grd.addColorStop(0.5, col); grd.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.strokeStyle = grd; ctx.lineWidth = 1; ctx.globalAlpha = introAlpha * 0.6;
-    ctx.beginPath(); ctx.moveTo(40, top); ctx.lineTo(W - 40, top); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(40, bot); ctx.lineTo(W - 40, bot); ctx.stroke();
-    ctx.globalAlpha = introAlpha;
-    ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 12;
-    drawSpaced(cinePanels === ENDING_PANELS ? 'EPILOGUE' : 'PROLOGUE', W / 2, top - 30, 14, 700, UI_FONT, 5);
-    ctx.shadowBlur = 0;
-  }
-
-  // Metnin altında panel noktaları
-  ctx.globalAlpha = introAlpha;
-  const n = cinePanels.length, dg = 14;
-  for (let k = 0; k < n; k++) {
-    const dx = W / 2 + (k - (n - 1) / 2) * dg;
-    ctx.fillStyle = k === introPanelIdx ? '#3fd3ff' : 'rgba(255,255,255,0.22)';
-    ctx.beginPath(); ctx.arc(dx, below + 62, k === introPanelIdx ? 3.5 : 2.5, 0, Math.PI * 2); ctx.fill();
-  }
-
-  // Skip — sağ üst
-  ctx.font = `700 12px ${TEXT_FONT}`;
-  ctx.fillStyle = 'rgba(255,255,255,0.5)';
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'top';
-  ctx.fillText('SKIP ▶▶', W - 16, 14);
-
   ctx.globalAlpha = 1;
+
+  // Skip — sağ üst, haritadaki BACK ile aynı stil (metin + ok çizgisi)
+  ctx.fillStyle = '#3fd3ff'; ctx.strokeStyle = '#3fd3ff'; ctx.lineWidth = 2;
+  ctx.font = `700 13px ${TEXT_FONT}`;
+  const skipW = ctx.measureText('SKIP').width + 3 * 2;
+  drawSpaced('SKIP', W - 30 - skipW, 32, 13, 700, TEXT_FONT, 2, null, 'left');
+  ctx.beginPath(); ctx.moveTo(W - 22, 26); ctx.lineTo(W - 15, 32); ctx.lineTo(W - 22, 38); ctx.stroke();
+
   ctx.restore();
 }
 
@@ -3718,8 +3710,10 @@ function drawSpaced(text, x, y, size, weight, family, spacing, maxW, align = 'ce
   while (maxW && width(sz) > maxW && sz > 8) sz -= 0.5;
   const total = width(sz), sp = spacing * (sz / size);
   let cx = align === 'center' ? x - total / 2 : x;
+  const prevAlign = ctx.textAlign;
   ctx.textAlign = 'left';
   for (const ch of text) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+  ctx.textAlign = prevAlign; // çağıranın hizalamasını bozma
 }
 // Köşeleri kesik çerçeve
 function chamferPath(x, y, w, h, c) {
