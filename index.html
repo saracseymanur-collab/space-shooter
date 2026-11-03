@@ -2474,10 +2474,43 @@ function drawBriefVisual(kind, cx, cy, zc) {
   if (kind !== 'crystal' && kind !== 'boss') L.forEach(dx => { ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fillRect(cx + dx - 1, cy - 40, 2, 80); });
   switch (kind) {
     case 'swipe': {
-      const sx = cx + Math.sin(t) * 70;
-      [-1, 1].forEach(d => { ctx.fillStyle = (d > 0) === (Math.cos(t) > 0) ? zc : 'rgba(255,255,255,0.2)';
-        const ax = cx + d * 118; ctx.beginPath(); ctx.moveTo(ax, cy - 10); ctx.lineTo(ax + d * 12, cy); ctx.lineTo(ax, cy + 10); ctx.closePath(); ctx.fill(); });
-      if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, sx - 24, cy - 24, 48, 48);
+      // Parmak ekrana değer, yana kayar, kalkar → gemi bir şerit kayar (ok yok: "basılacak buton" algısı olmasın)
+      const SEQ = [[0, 1], [1, 0], [0, -1], [-1, 0]], SEG = 70;
+      const f = frameCount % (SEG * 4), [from, to] = SEQ[Math.floor(f / SEG)], k = f % SEG;
+      const d = Math.sign(to - from), ease = q => q * q * (3 - 2 * q);
+      const drag = ease(Math.min(1, Math.max(0, (k - 10) / 22)));         // 10-32: kaydırma
+      const down = k >= 4 && k < 40;                                        // parmak ekranda
+      const fade = k < 4 ? k / 4 : k < 40 ? 1 : Math.max(0, 1 - (k - 40) / 10);
+      const shipQ = ease(Math.min(1, Math.max(0, (k - 14) / 20)));
+      const sx = cx + (from + (to - from) * shipQ) * 70;
+      if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, sx - 20, cy - 46, 40, 40);
+      // jest: başlangıç → parmak ucu arası iz
+      const gy = cy + 12, x0 = cx - d * 42, fx = x0 + d * 84 * drag;
+      if (fade > 0) {
+        if (drag > 0) {
+          const tg = ctx.createLinearGradient(x0, 0, fx, 0);
+          tg.addColorStop(0, zc + '00'); tg.addColorStop(1, zc);
+          ctx.globalAlpha = fade * 0.85; ctx.strokeStyle = tg; ctx.lineWidth = 6; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(x0, gy); ctx.lineTo(fx, gy); ctx.stroke();
+        }
+        // dokunma noktası + değme anında yayılan halka
+        ctx.globalAlpha = fade;
+        ctx.fillStyle = zc; ctx.shadowColor = zc; ctx.shadowBlur = 10;
+        ctx.beginPath(); ctx.arc(fx, gy, down ? 6 : 4, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+        if (k >= 4 && k < 18) {
+          const rq = (k - 4) / 14;
+          ctx.globalAlpha = 1 - rq; ctx.strokeStyle = zc; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.arc(x0, gy, 6 + rq * 14, 0, Math.PI * 2); ctx.stroke();
+        }
+        // parmak: ucu dokunma noktasında, aşağı-sağa uzanan yuvarlak hatlı siluet
+        ctx.globalAlpha = fade * 0.95;
+        ctx.save(); ctx.translate(fx, gy + (down ? 0 : -3)); ctx.rotate(-0.38);
+        ctx.fillStyle = '#f2f7ff'; ctx.strokeStyle = 'rgba(6,14,30,0.9)'; ctx.lineWidth = 1.5;
+        rrect(-7, -2, 14, 28, 7); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = 'rgba(6,14,30,0.18)'; rrect(-4, 1, 8, 9, 4); ctx.fill(); // tırnak
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1;
       break;
     }
     case 'dodge': {
