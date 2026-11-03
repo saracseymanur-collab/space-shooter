@@ -1436,6 +1436,33 @@ function getWhiteSprite(img, key) {
   }
   return whiteSprites[key];
 }
+// Neon düşman görseli: renkli bölgeler parlatılıp doygunlaştırılır, siyah/gri paneller olduğu gibi kalır
+const NEON_BOOST = { val: 1.2, sat: 1.25 };
+const ENEMY_GLOW = { 1: '#6dff2a', 2: '#ffd21a', 3: '#ff2244' }; // görselin kendi renginde ince parıltı
+const neonSprites = {};
+function getNeonSprite(img, key) {
+  if (!img || !img.complete || !img.naturalWidth) return null;
+  if (!neonSprites[key]) {
+    const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const g = c.getContext('2d'); g.drawImage(img, 0, 0);
+    try {
+      const d = g.getImageData(0, 0, c.width, c.height), px = d.data;
+      for (let i = 0; i < px.length; i += 4) {
+        if (!px[i + 3]) continue;
+        const r = px[i], gg = px[i + 1], b = px[i + 2], mx = Math.max(r, gg, b), mn = Math.min(r, gg, b);
+        if (mx < 50 || (mx - mn) / mx < 0.3) continue; // koyu ve gri kısımlar
+        const k = Math.min(255, mx * NEON_BOOST.val) / mx;
+        let R = r * k, G = gg * k, B = b * k;
+        const L = 0.3 * R + 0.59 * G + 0.11 * B;
+        R = L + (R - L) * NEON_BOOST.sat; G = L + (G - L) * NEON_BOOST.sat; B = L + (B - L) * NEON_BOOST.sat;
+        px[i] = R; px[i + 1] = G; px[i + 2] = B; // Uint8ClampedArray kırpar
+      }
+      g.putImageData(d, 0, 0);
+    } catch (err) { /* okunamazsa orijinal görsel */ }
+    neonSprites[key] = c;
+  }
+  return neonSprites[key];
+}
 // Hayaletlerin dış hattı: gemi görselinin açık mor siluet kopyası
 const phantomOutlines = {};
 function getPhantomOutline(img, key) {
@@ -1502,12 +1529,12 @@ function drawLasers() {
     if (L.t <= L.warn) {
       // Uyarı: yanıp sönen şerit + ünlem
       const blink = Math.floor(L.t / 6) % 2 === 0;
-      ctx.fillStyle = `rgba(255,40,80,${blink ? 0.16 : 0.07})`;
+      ctx.fillStyle = `rgba(255,34,68,${blink ? 0.16 : 0.07})`;
       ctx.fillRect(x - LANE_W / 2 + 6, top, LANE_W - 12, H - top);
-      ctx.strokeStyle = 'rgba(255,60,90,0.7)'; ctx.lineWidth = 1.5; ctx.setLineDash([8, 8]);
+      ctx.strokeStyle = 'rgba(255,77,102,0.7)'; ctx.lineWidth = 1.5; ctx.setLineDash([8, 8]);
       ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, H); ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = '#ff5577'; ctx.font = `700 28px ${TEXT_FONT}`;
+      ctx.fillStyle = '#ff4d66'; ctx.font = `700 28px ${TEXT_FONT}`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       if (blink) ctx.fillText('!', x, H - 230);
     } else {
@@ -1891,8 +1918,8 @@ function drawEnemy(e) {
         ctx.drawImage(img, 0, q * sh, img.naturalWidth, sh, -dw / 2 + off, -dh / 2 + q * dsh, dw, dsh + 0.5);
       }
     } else {
-      ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 9;
-      ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+      ctx.shadowColor = ENEMY_GLOW[e.maxHp] || 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 8;
+      ctx.drawImage(getNeonSprite(img, e.maxHp) || img, -dw / 2, -dh / 2, dw, dh);
       ctx.shadowBlur = 0;
       if (e.flash > 8) { // isabet: çok kısa beyaz parlama
         const wsp = getWhiteSprite(img, e.maxHp);
@@ -2004,19 +2031,19 @@ function drawEBullet(b) {
 
   if (b.big) {
     const r = 16 + 3 * Math.sin(frameCount * 0.18);
-    ctx.fillStyle = 'rgba(150,24,45,0.22)';  ctx.beginPath(); ctx.arc(0,0,r+10,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = 'rgba(200,40,60,0.55)';  ctx.beginPath(); ctx.arc(0,0,r+4,0,Math.PI*2);  ctx.fill();
-    ctx.fillStyle = 'rgba(240,80,90,0.9)';   ctx.beginPath(); ctx.arc(0,0,r-2,0,Math.PI*2);  ctx.fill();
-    ctx.fillStyle = '#ffaaaa';               ctx.beginPath(); ctx.arc(0,0,r*0.4,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,34,68,0.18)';  ctx.beginPath(); ctx.arc(0,0,r+10,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(230,20,55,0.55)';  ctx.beginPath(); ctx.arc(0,0,r+4,0,Math.PI*2);  ctx.fill();
+    ctx.fillStyle = 'rgba(255,34,68,0.92)';   ctx.beginPath(); ctx.arc(0,0,r-2,0,Math.PI*2);  ctx.fill();
+    ctx.fillStyle = '#ffd0d8';               ctx.beginPath(); ctx.arc(0,0,r*0.4,0,Math.PI*2); ctx.fill();
     ctx.restore();
     return;
   }
 
   // En hızlı fark edilen öğe: koyu dış halka + sıcak turuncu-kırmızı parıltı + parlak çekirdek
   const r = b.fromBoss ? 11 : 9.5;
-  ctx.fillStyle = 'rgba(255,70,30,0.22)'; ctx.beginPath(); ctx.arc(0, 0, r + 8, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,34,68,0.24)'; ctx.beginPath(); ctx.arc(0, 0, r + 8, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = 'rgba(12,0,4,0.85)';    ctx.beginPath(); ctx.arc(0, 0, r + 2.5, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#ff3b2a';              ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#ff2244';              ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#ffb347';              ctx.beginPath(); ctx.arc(0, 0, r * 0.62, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#fff7d6';              ctx.beginPath(); ctx.arc(0, 0, r * 0.3, 0, Math.PI * 2); ctx.fill();
 
@@ -2104,7 +2131,7 @@ function drawBullet(b) {
 
 // --- Draw: Power-up ---
 // Renkler güçlendirme rozetlerinin (ASSETS/powerups) kenar renkleriyle aynı
-const POWERUP_COLORS = { triple: '#4cff3a', double: '#ffe11a', bomb: '#ff2a3a', shield: '#1fb0ff', fuel: '#44ff66' };
+const POWERUP_COLORS = { triple: '#4cff3a', double: '#ffe11a', bomb: '#ff2244', shield: '#1fb0ff', fuel: '#44ff66' };
 const POWERUP_IMG_SRC = { shield: 'ASSETS/powerups/shield.png', triple: 'ASSETS/powerups/triple-shot.png', double: 'ASSETS/powerups/double-shot.png', bomb: 'ASSETS/powerups/bomb.png' };
 const powerupImgs = {};
 Object.entries(POWERUP_IMG_SRC).forEach(([k, src]) => { const im = new Image(); im.src = src; powerupImgs[k] = im; });
@@ -2112,7 +2139,7 @@ const powerupImgReady = t => powerupImgs[t] && powerupImgs[t].complete && poweru
 const POWERUP_GLOW = {
   triple: ['rgba(76,255,58,0.6)',  'rgba(76,255,58,0)'],
   double: ['rgba(255,225,26,0.6)', 'rgba(255,225,26,0)'],
-  bomb:   ['rgba(255,42,58,0.6)',  'rgba(255,42,58,0)'],
+  bomb:   ['rgba(255,34,68,0.6)',  'rgba(255,34,68,0)'],
   shield: ['rgba(31,176,255,0.6)', 'rgba(31,176,255,0)'],
   fuel:   ['rgba(68,255,102,0.65)', 'rgba(68,255,102,0)'],
 };
@@ -2330,7 +2357,7 @@ let briefBtn = null; // çizimde hesaplanır, dokunma için kullanılır
 function briefEnemy(tier, x, y, k = 0.7, alpha = 1) {
   const img = enemyImgs[tier], sz = ENEMY_SIZES[tier];
   if (!img || !img.complete || !img.naturalWidth) return;
-  ctx.save(); ctx.globalAlpha *= alpha; ctx.drawImage(img, x - sz.w * k / 2, y - sz.h * k / 2, sz.w * k, sz.h * k); ctx.restore();
+  ctx.save(); ctx.globalAlpha *= alpha; ctx.drawImage(getNeonSprite(img, tier) || img, x - sz.w * k / 2, y - sz.h * k / 2, sz.w * k, sz.h * k); ctx.restore();
 }
 function briefRock(type, x, y, size) {
   const spr = getRockSprite('medium', 1, type === 'iron' ? 'iron' : type === 'explosive' ? 'explosive' : null);
@@ -2340,7 +2367,7 @@ function briefRock(type, x, y, size) {
 }
 function briefShot(x, y) {
   ctx.fillStyle = 'rgba(12,0,4,0.85)'; ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#ff3b2a'; ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#ff2244'; ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#ffb347'; ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI * 2); ctx.fill();
 }
 function briefArrow(x1, y1, x2, y2, col) {
@@ -2399,7 +2426,7 @@ function drawBriefVisual(kind, cx, cy, zc) {
     }
     case 'boss': {
       const spr = getBossSprite(currentZone);
-      if (bossImg.complete && bossImg.naturalWidth) { ctx.shadowColor = '#ff5a7a'; ctx.shadowBlur = 16; ctx.drawImage(spr, cx - 70, cy - 46, 140, 93); ctx.shadowBlur = 0; }
+      if (bossImg.complete && bossImg.naturalWidth) { ctx.shadowColor = '#ff4d66'; ctx.shadowBlur = 16; ctx.drawImage(spr, cx - 70, cy - 46, 140, 93); ctx.shadowBlur = 0; }
       break;
     }
     case 'crystal': {
@@ -2419,8 +2446,8 @@ function drawBriefVisual(kind, cx, cy, zc) {
     }
     case 'meteor': {
       const blink = Math.floor(frameCount / 8) % 2 === 0;
-      ctx.fillStyle = `rgba(255,40,80,${blink ? 0.25 : 0.1})`; ctx.fillRect(cx - 32, cy - 40, 64, 80);
-      ctx.fillStyle = '#ff5577'; ctx.font = `700 26px ${TEXT_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = `rgba(255,34,68,${blink ? 0.25 : 0.1})`; ctx.fillRect(cx - 32, cy - 40, 64, 80);
+      ctx.fillStyle = '#ff4d66'; ctx.font = `700 26px ${TEXT_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       if (blink) ctx.fillText('!', cx, cy);
       const my = cy - 40 + ((t * 60) % 80);
       const tg = ctx.createLinearGradient(0, my - 40, 0, my); tg.addColorStop(0, 'rgba(255,90,20,0)'); tg.addColorStop(1, 'rgba(255,170,60,0.8)');
@@ -2489,7 +2516,7 @@ function drawBriefVisual(kind, cx, cy, zc) {
     }
     case 'beam': {
       const ph = (t % 3) / 3, warn = ph < 0.6;
-      if (warn) { const blink = Math.floor(frameCount / 6) % 2 === 0; ctx.fillStyle = `rgba(255,40,80,${blink ? 0.22 : 0.08})`; ctx.fillRect(cx - 30, cy - 40, 60, 80); }
+      if (warn) { const blink = Math.floor(frameCount / 6) % 2 === 0; ctx.fillStyle = `rgba(255,34,68,${blink ? 0.22 : 0.08})`; ctx.fillRect(cx - 30, cy - 40, 60, 80); }
       else { const k = 1 - (ph - 0.6) / 0.4; ctx.fillStyle = `rgba(200,40,255,${0.4 * k})`; ctx.fillRect(cx - 22, cy - 40, 44, 80); ctx.fillStyle = `rgba(255,255,255,${0.9 * k})`; ctx.fillRect(cx - 3, cy - 40, 6, 80); }
       if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, cx + 70 - 18, cy + 2, 36, 36);
       break;
@@ -2654,7 +2681,7 @@ function drawFeedbackOverlays() {
   if (hurtFx > 0) {
     const k = hurtFx / 26;
     const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.32, W / 2, H / 2, H * 0.7);
-    g.addColorStop(0, 'rgba(255,30,50,0)'); g.addColorStop(1, `rgba(255,30,50,${0.55 * k})`);
+    g.addColorStop(0, 'rgba(255,34,68,0)'); g.addColorStop(1, `rgba(255,34,68,${0.55 * k})`);
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   }
   // Boss uyarısı: üstte ve altta kırmızı şerit, yanıp sönen yazı
@@ -2663,13 +2690,13 @@ function drawFeedbackOverlays() {
     const blink = Math.floor(bossWarn / 10) % 2 === 0;
     ctx.save(); ctx.globalAlpha = a;
     [H * 0.42, H * 0.42 + 58].forEach(y => {
-      ctx.fillStyle = 'rgba(255,40,60,0.18)'; ctx.fillRect(0, y - 2, W, 4);
+      ctx.fillStyle = 'rgba(255,34,68,0.18)'; ctx.fillRect(0, y - 2, W, 4);
       ctx.save(); ctx.beginPath(); ctx.rect(0, y - 2, W, 4); ctx.clip();
-      ctx.fillStyle = 'rgba(255,60,80,0.8)';
+      ctx.fillStyle = 'rgba(255,77,102,0.8)';
       for (let x = -40 + (frameCount * 2) % 40; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, y + 2); ctx.lineTo(x + 20, y - 2); ctx.lineTo(x + 30, y - 2); ctx.lineTo(x + 10, y + 2); ctx.fill(); }
       ctx.restore();
     });
-    ctx.fillStyle = blink ? '#ff5a7a' : '#ffd0d8';
+    ctx.fillStyle = blink ? '#ff4d66' : '#ffd0d8';
     ctx.shadowColor = '#ff2a4a'; ctx.shadowBlur = 16;
     drawSpaced('WARNING', W / 2, H * 0.42 + 22, 24, 700, UI_FONT, 6);
     ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(255,220,225,0.85)';
@@ -2726,13 +2753,13 @@ function drawHeart(x, y, r, filled) {
   ctx.bezierCurveTo(x - r * 1.6, y - r * 0.1, x - r * 0.7, y - r * 1.2, x, y - r * 0.35);
   ctx.bezierCurveTo(x + r * 0.7, y - r * 1.2, x + r * 1.6, y - r * 0.1, x, y + r * 0.9);
   ctx.closePath();
-  // Renk: kırmızı düşman gemisiyle aynı ton (#c30413) — oyunda tek bir kırmızı ailesi olsun
+  // Renk: oyunun tek kırmızı ailesi (#ff2244 / açık #ff4d66) — neon kırmızı düşman gemisiyle aynı
   if (filled) {
     const g = ctx.createLinearGradient(0, y - r, 0, y + r);
-    g.addColorStop(0, '#e8202c'); g.addColorStop(1, '#c30413'); // üstte hafif açık: küçük boyutta seçilsin
-    ctx.fillStyle = g; ctx.shadowColor = '#c30413'; ctx.shadowBlur = 7; ctx.fill(); ctx.shadowBlur = 0;
+    g.addColorStop(0, '#ff4d66'); g.addColorStop(1, '#ff2244'); // üstte hafif açık: küçük boyutta seçilsin
+    ctx.fillStyle = g; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 7; ctx.fill(); ctx.shadowBlur = 0;
   }
-  else { ctx.strokeStyle = 'rgba(195,4,19,0.6)'; ctx.lineWidth = 1.5; ctx.stroke(); }
+  else { ctx.strokeStyle = 'rgba(255,34,68,0.6)'; ctx.lineWidth = 1.5; ctx.stroke(); }
 }
 
 const HUD_H = 50;
@@ -2922,7 +2949,7 @@ function drawOverlay(title, sub) {
   ctx.fillStyle = 'rgba(0,0,20,0.8)';
   ctx.fillRect(0, 0, W, H);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#ff5577'; ctx.font = `700 36px ${TEXT_FONT}`;
+  ctx.fillStyle = '#ff4d66'; ctx.font = `700 36px ${TEXT_FONT}`;
   ctx.shadowColor = '#ff2255'; ctx.shadowBlur = 20;
   ctx.fillText(title, W / 2, H / 2 - 80);
   ctx.shadowBlur = 0;
@@ -2953,7 +2980,7 @@ function activateBomb() {
     spawnExplosion(e.x, e.y, true);
   });
   // Büyük ekran flaşı
-  explosions.push({ x: W / 2, y: H / 2, vx: 0, vy: 0, life: 1, decay: 0.04, r: 260, color: 'rgba(255,80,80,0.18)', isBombFlash: true });
+  explosions.push({ x: W / 2, y: H / 2, vx: 0, vy: 0, life: 1, decay: 0.04, r: 260, color: 'rgba(255,34,68,0.18)', isBombFlash: true });
   enemies = [];
 }
 
@@ -3778,7 +3805,7 @@ function drawCardArt(i, cx, CY, CW) {
   // Küçük düşman silüetleri
   [[cx + 55, CY + 80, 0.55], [cx + 90, CY + 210, 0.45], [cx + 195, CY + 195, 0.5]].forEach(([ex, ey, sc]) => {
     ctx.save(); ctx.translate(ex, ey); ctx.scale(sc, sc);
-    ctx.fillStyle = 'rgba(255,80,80,0.55)';
+    ctx.fillStyle = 'rgba(255,34,68,0.55)';
     ctx.beginPath();
     ctx.moveTo(0,16); ctx.lineTo(-14,-14); ctx.lineTo(-6,-8); ctx.lineTo(0,-16); ctx.lineTo(6,-8); ctx.lineTo(14,-14);
     ctx.closePath(); ctx.fill();
@@ -4027,9 +4054,9 @@ function drawMenu() {
   ctx.fillText('DEV', W - 30, H - 23);
   if (devMode) { // RESET: ilk dokunuşta SURE?, ikincide sıfırlar
     const armed = resetConfirmT > 0;
-    ctx.fillStyle = armed ? 'rgba(255,60,80,0.3)' : 'rgba(255,255,255,0.08)';
+    ctx.fillStyle = armed ? 'rgba(255,34,68,0.3)' : 'rgba(255,255,255,0.08)';
     ctx.fillRect(W - 112, H - 36, 54, 26);
-    ctx.strokeStyle = armed ? 'rgba(255,90,110,0.8)' : 'rgba(255,255,255,0.2)';
+    ctx.strokeStyle = armed ? 'rgba(255,77,102,0.8)' : 'rgba(255,255,255,0.2)';
     ctx.strokeRect(W - 112, H - 36, 54, 26);
     ctx.fillStyle = armed ? '#ff8a9a' : resetDoneT > 0 ? '#7dffb0' : 'rgba(255,255,255,0.5)';
     ctx.fillText(armed ? 'SURE?' : resetDoneT > 0 ? 'DONE' : 'RESET', W - 85, H - 23);
@@ -4107,7 +4134,7 @@ function drawMap() {
     const isBoss = i === 4, isNext = i === nextI, locked = st === 'locked', completed = st === 'completed';
     const pressed = mapPress && mapPress.i === i;
     const pulse = 0.5 + 0.5 * Math.sin(frameCount * 0.08);
-    const accent = locked ? 'rgba(150,160,190,0.35)' : completed ? '#ffc85a' : isBoss ? '#ff5a7a' : zc;
+    const accent = locked ? 'rgba(150,160,190,0.35)' : completed ? '#ffc85a' : isBoss ? '#ff4d66' : zc;
     ctx.save();
     const sc = pressed ? 1 + 0.06 * Math.sin(Math.min(1, mapPress.t / 10) * Math.PI) : 1;
     ctx.translate(W / 2, R.y + R.h / 2); ctx.scale(sc, sc); ctx.translate(-W / 2, -(R.y + R.h / 2));
