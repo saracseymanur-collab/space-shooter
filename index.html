@@ -1112,7 +1112,7 @@ function spawnEnemy(yOffset = 0) {
   });
   const ne = enemies[enemies.length - 1];
   if (cfg && cfg.splitter && Math.random() < cfg.splitter) { ne.splitter = true; ne.hp = ne.maxHp = 2; ne.canShoot = false; }
-  else if (cfg && cfg.rammer && Math.random() < cfg.rammer) { ne.rammer = true; ne.hp = ne.maxHp = 2; ne.canShoot = false; ne.speed = 2.6; ne.rState = 'fall'; ne.ramAt = H * (0.1 + Math.random() * 0.1); }
+  else if (cfg && cfg.rammer && Math.random() < cfg.rammer) { ne.rammer = true; ne.hp = ne.maxHp = 2; ne.canShoot = false; ne.rState = 'fall'; ne.ramAt = H * (0.08 + Math.random() * 0.08); }
   else if (cfg && cfg.spreader && Math.random() < cfg.spreader) { ne.spreader = true; ne.hp = ne.maxHp = 2; ne.canShoot = false; ne.sprT = Math.floor(Math.random() * 8); ne.sprCharge = 0; }
 }
 
@@ -4466,7 +4466,10 @@ function update() {
     if (!e.gunner && e.shieldHit > 0) e.shieldHit--;
     if (e.rammer) {
       if (e.rState === 'fall' && e.y > e.ramAt) { e.rState = 'aim'; e.rT = 36; e.lane = e.ramLane = playerLaneNow(); }
-      else if (e.rState === 'aim') { e.y -= e.speed; if (--e.rT <= 0) { e.rState = 'dash'; e.speed = 13; } }
+      else if (e.rState === 'aim') { // durmaz: sırasıyla inmeye devam eder, hedef şeride hızlı kayar
+        e.x += (LANE_CENTERS[e.ramLane] - e.x) * 0.18;
+        if (--e.rT <= 0) { e.rState = 'dash'; e.speed = 13; }
+      }
       else if (e.rState === 'dash') {
         if (!player.dead && Math.abs(e.x - player.x) < 30 && Math.abs(e.y - player.y) < 44) {
           spawnShipDeath(e); Sound.sfx.shipBoom(2); damagePlayer('Rammed!'); return false;
