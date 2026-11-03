@@ -607,18 +607,21 @@ function baseLevelConfig() {
     case 1: {
       const lw = getWave() - (currentLevel - 1) * 5; // level içi dalga (1-5)
       return {
-        interval: Math.max(26, 60 - (lw - 1) * 9),  // 60→51→42→33→26
-        doubleChance: 0.2 + (lw - 1) * 0.15,        // 20%→80%
-        speed: () => 1.5 + Math.random() * 0.4,
-        hp: () => { const r = Math.random(); return r < 0.35 ? 1 : r < 0.72 ? 2 : 3; },
+        // yeni temel (deneme): hızlı iniş + hafif zırh + şeritte üst üste → düşmanlar en üstte değil, ~ekranın 1/4'ünde ölür
+        interval: Math.max(84, 110 - (lw - 1) * 6),  // 110→104→98→92→86
+        doubleChance: 0.2 + (lw - 1) * 0.04,         // 20%→36%
+        speed: () => 3.0 + Math.random() * 0.4,
+        hp: () => { const r = Math.random(); return r < 0.2 ? 1 : r < 0.62 ? 2 : 3; },
+        stack: 150, armor: 1.4,
         canShoot: lw >= 2, fireMul: 1.6, zigzag: false, // 1. dalga sadece kaydırma; 2. dalgadan itibaren seyrek ateş
       };
     }
     case 2: return {
-      interval: 50, doubleChance: 0.35,
-      speed: () => 1.7 + Math.random() * 0.4,
-      hp: () => Math.random() < 0.5 ? 2 : 1,
-      canShoot: true, zigzag: false, fireMul: 0.85, formation: [2, 4], formEvery: 165, formHp: 2, // formasyon bölümü: 2. ve 4. dalga; 1/3/5 normal
+      interval: 100, doubleChance: 0.28,
+      speed: () => 3.1 + Math.random() * 0.4,
+      hp: () => { const r = Math.random(); return r < 0.2 ? 1 : r < 0.65 ? 2 : 3; },
+      stack: 150, armor: 1.5,
+      canShoot: true, zigzag: false, fireMul: 1.1, // yeni temel denemesi (mekaniği sonra seçilecek)
     };
     case 3: return { // Shield Link: koruyucu (kalkan simgeli) bağlı ortağını korur → önce koruyucuyu vur
       interval: 70, doubleChance: 0.2,
@@ -1067,7 +1070,9 @@ function startLevel(level) {
 // --- Spawn helpers ---
 function spawnEnemy(yOffset = 0) {
   // Block lanes occupied by enemies or asteroids near the top
-  const occupied = new Set(enemies.map(e => e.lane));
+  // stack: aynı şeritte üst üste düşman (öndekiyle en az bu kadar px aralık); yoksa şeritte tek düşman
+  const stackCfg = getLevelConfig(), stack = stackCfg && stackCfg.stack;
+  const occupied = new Set(enemies.filter(e => !stack || e.y < stack).map(e => e.lane));
   asteroids.forEach(a => {
     if (a.y < H * 0.42) {
       LANE_CENTERS.forEach((lc, li) => { if (Math.abs(a.x - lc) < LANE_W * 0.65) occupied.add(li); });
@@ -1100,6 +1105,7 @@ function spawnEnemy(yOffset = 0) {
     cloakT: Math.floor(Math.random() * 60), alpha: 1,
     shiftAt, shiftTo, curveShots: !!(cfg && cfg.curveShots), shift2: cfg && cfg.shift2 ? cfg.shift2 : 0,
     diver: !!(cfg && cfg.diver && Math.random() < cfg.diver), diveAt: H * (0.2 + Math.random() * 0.18), diveState: 0,
+    armor: (cfg && cfg.armor) || 1,
   });
 }
 
@@ -2755,7 +2761,7 @@ function drawExplosions() {
 const LEVEL_BRIEFS = [
   null,
   { title: 'SWIPE TO MOVE',   vis: 'swipe',     line: 'Swipe left or right to change lanes.', tips: ['Your ship fires automatically.', 'Red shots cost a life. Dodge them!', "Don't let enemies reach the bottom!"] },
-  { title: 'FORMATIONS',      vis: 'formation', line: 'Enemy rows fire together. Hide in the empty lane!', tips: ["They're shielded until they fire.", 'A red glow means they are about to fire.', 'Then shoot them before they reach the bottom.', 'A blue shield blocks hits for a few seconds.'] },
+  { title: 'CROWDED LANES',   vis: 'dodge',     line: 'Enemies come in columns. Clear the lowest one first!', tips: ["You can't clear every lane at once. Pick wisely.", 'A blue shield blocks hits for a few seconds.'] },
   { title: 'SHIELD LINK',     vis: 'link',      line: 'A linked ship shields its partner. Shoot the shield ship first!', tips: ['The shield ship wears the shield icon.', 'Break the link, then finish the big one.', 'Last wave: a formation. Hide in the gap!'] },
   { title: 'HUNTERS',         vis: 'hunter',    line: 'A Hunter aims at your lane, locks on, then fires. Slip out after the lock!', tips: ["It's shielded while aiming. Hit it when it locks or rests.", "Lure its aim into a lane you don't need.", 'Last wave: a formation. Hide in the gap!'] },
   { title: 'VOID VANGUARD',   vis: 'boss',      line: 'Survive the waves, then defeat the boss.', tips: ['Phase 1: two cannons charge. Hide in the gap.', 'Phase 2: it locks on your lane. Slip out!', 'Phase 3: shoot its shield drones first.'] },
@@ -4281,7 +4287,8 @@ function update() {
       const hit = Math.abs(b.x - e.x) < 24 * sc && Math.abs(b.y - e.y) < 29 * sc;
       if (hit && ((e.gunner && e.gState !== 'cool') || e.armored || e.guardedBy || (e.hunter && (e.hState === 'enter' || e.hState === 'track')))) { e.shieldHit = 8; return false; } // kalkan: hasar yok
       if (hit) {
-        e.hp--;
+        e.hp -= 1 / (e.armor || 1); // zırh: mermi başına hasar azalır (görünüş/can barı aynı, daha yavaş erir)
+        if (e.hp < 0.001) e.hp = 0;
         e.flash = 14;
         if (e.hp <= 0) {
           spawnShipDeath(e);
