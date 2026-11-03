@@ -610,7 +610,7 @@ function baseLevelConfig() {
         doubleChance: 0.2 + (lw - 1) * 0.15,        // 20%→80%
         speed: () => 1.5 + Math.random() * 0.4,
         hp: () => { const r = Math.random(); return r < 0.35 ? 1 : r < 0.72 ? 2 : 3; },
-        canShoot: false, zigzag: false,
+        canShoot: lw >= 2, fireMul: 1.6, zigzag: false, // 1. dalga sadece kaydırma; 2. dalgadan itibaren seyrek ateş
       };
     }
     case 2: return {
@@ -2522,7 +2522,7 @@ function drawExplosions() {
 // Diğer ipuçları (tips) oyun sırasında küçük bildirim olarak gelir.
 const LEVEL_BRIEFS = [
   null,
-  { title: 'SWIPE TO MOVE',   vis: 'swipe',     line: 'Swipe left or right to change lanes.', tips: ['Your ship fires automatically.', "Don't let enemies reach the bottom!"] },
+  { title: 'SWIPE TO MOVE',   vis: 'swipe',     line: 'Swipe left or right to change lanes.', tips: ['Your ship fires automatically.', 'Red shots cost a life. Dodge them!', "Don't let enemies reach the bottom!"] },
   { title: 'RETURN FIRE',     vis: 'dodge',     line: 'Enemies shoot back. Dodge the red shots.', tips: ['A blue shield blocks hits for a few seconds.'] },
   { title: 'DIVERS',          vis: 'dive',      line: 'Flashing enemies dive into the next lane. Follow them!', tips: ['Divers fire right after they land.', 'Last wave: a formation. Hide in the gap!'] },
   { title: 'ZIGZAG',          vis: 'zigzag',    line: 'Enemies weave between lanes.', tips: ['Time your shots as they cross your lane.'] },
