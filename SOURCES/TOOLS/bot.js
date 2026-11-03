@@ -16,6 +16,8 @@ function laneDanger(l, horizon, blind) { // isabet edecek mermi/kaya/lazer: kesi
     const xAt = a.x + (a.vx || 0) * Math.max(0, t); // kaya parçaları çapraz kayar
     if (Math.abs(xAt - lx) < a.size * 0.9 + 26) d += 1e5 / (1 + Math.max(0, t)); }
   for (const L of lasers) if (L.lane === l) d += 1e6; // `lasers` sayfa genelinde let → window.lasers değil
+  for (const e of enemies) if (e.rammer && (e.rState === 'aim' || e.rState === 'dash') && e.ramLane === l && e.y < player.y + 30)
+    d += 1e5 / (1 + Math.max(0, (player.y - e.y) / 13 - (e.rState === 'aim' ? 0 : 0))); // dalacak kamikaze
   return d;
 }
 // Kapana kısılma: oyuncunun şeridi kısa sürede vurulacakken, zamanında ulaşılabilecek güvenli şerit yok mu?
