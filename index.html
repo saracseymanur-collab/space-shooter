@@ -225,46 +225,91 @@ const Sound = (() => {
          prog: [[0, 7, 12, 15], [-4, 3, 8, 12], [-7, 0, 5, 8], [-5, 2, 7, 11], [0, 6, 12, 15], [-4, 3, 7, 12], [-7, 0, 3, 8], [-5, 2, 5, 11]],
          scale: [12, 15, 18, 19, 22, 24] },
   };
-  const CHORD = 8; // saniye
-  let voices = [], nextChordAt = 0, chordIdx = 0, nextTwinkleAt = 0, nextPulseAt = 0, pulseN = 0;
-  let mZone = 1, mIntense = false, mDuck = 1, curDuck = -1;
+  // Menü/harita: sakin, açık (majör), daha yumuşak dalga
+  const MENU_MUSIC = { root: 55, cutoff: 900, wave: 'triangle', tw: 'sine',
+    prog: [[0, 7, 12, 16], [5, 12, 16, 21], [-3, 4, 9, 12], [2, 9, 14, 17], [0, 7, 11, 16], [-5, 2, 7, 11]],
+    scale: [12, 14, 16, 19, 21, 24] };
+  // Boss: bölgenin kökünde, gergin (yarım ton kaymalı) ve hızlı akor değişimi + bas ostinato
+  const BOSS_PROG = [[0, 7, 12, 15], [1, 8, 13, 17], [-2, 5, 10, 15], [0, 7, 11, 14], [-4, 3, 8, 12], [1, 8, 13, 16]];
+  const CHORD = 8; // saniye (boss'ta 4)
+  // Bölüm varyasyonu (bölge içindeki sıra): kök kayması + ek katman
+  const VARIANTS = [{ shift: 0, layer: null }, { shift: 2, layer: 'arp' }, { shift: -3, layer: 'heart' }, { shift: 5, layer: 'arp' }];
+  let voices = [], nextChordAt = 0, chordIdx = 0, nextTwinkleAt = 0, nextPulseAt = 0, pulseN = 0, nextLayerAt = 0, layerN = 0;
+  let mZone = 1, mIntense = false, mDuck = 1, curDuck = -1, mTrack = 'zone', mVar = 0, mKey = '', chordN = 0, cycleRot = 0;
+  // Çalan temanın tanımı: { root, cutoff, wave, tw, prog, scale, len, boss }
+  function trackDef() {
+    if (mTrack === 'menu') return { ...MENU_MUSIC, len: CHORD };
+    const z = ZONE_MUSIC[mZone] || ZONE_MUSIC[1];
+    if (mTrack === 'boss') return { ...z, prog: BOSS_PROG, cutoff: z.cutoff * 1.4, tw: 'triangle', len: CHORD / 2, boss: true };
+    return { ...z, root: z.root + VARIANTS[mVar % 4].shift, len: CHORD };
+  }
+  // Her 20 akorda 2 akorluk nefes arası (pad susar, sadece alçak bas + seyrek ışıltı) — boss/yoğun anda yok
+  const resting = () => mTrack !== 'boss' && !mIntense && chordN % 20 >= 18;
 
+  const curNotes = z => z.prog[(chordIdx - 1 + cycleRot + z.prog.length * 4) % z.prog.length];
   function playChord(z, t) {
+    const L = z.len, rest = resting(), atk = z.boss ? 0.8 : 2.5;
     const out = ac.createGain();
     out.gain.setValueAtTime(0.0001, t);
-    out.gain.exponentialRampToValueAtTime(1, t + 2.5);
-    out.gain.setValueAtTime(1, t + CHORD);
-    out.gain.exponentialRampToValueAtTime(0.0001, t + CHORD + 3.5);
+    out.gain.exponentialRampToValueAtTime(1, t + atk);
+    out.gain.setValueAtTime(1, t + L);
+    out.gain.exponentialRampToValueAtTime(0.0001, t + L + (z.boss ? 1.5 : 3.5));
     out.connect(padFilter);
-    const notes = z.prog[chordIdx % z.prog.length];
-    notes.forEach((n, i) => [-7, 7].forEach(det => {
+    // her döngünün başında akor sırası kayar → aynı 64 sn tekrar etmez
+    if (chordIdx > 0 && chordIdx % z.prog.length === 0) cycleRot = Math.floor(Math.random() * z.prog.length);
+    const notes = z.prog[(chordIdx + cycleRot) % z.prog.length];
+    if (!rest) notes.forEach((n, i) => [-7, 7].forEach(det => {
       const o = ac.createOscillator(), g = ac.createGain();
       o.type = z.wave; o.frequency.value = midi(z.root + n - 12); o.detune.value = det;
       g.gain.value = i === 0 ? 0.07 : 0.045;
-      o.connect(g); g.connect(out); o.start(t); o.stop(t + CHORD + 3.7);
+      o.connect(g); g.connect(out); o.start(t); o.stop(t + L + 3.7);
     }));
-    // Derin bas
+    // Derin bas (nefes arasında da kalır, daha kısık)
     const b = ac.createOscillator(), bg = ac.createGain();
-    b.type = 'sine'; b.frequency.value = midi(z.root + notes[0] - 24); bg.gain.value = 0.16;
-    b.connect(bg); bg.connect(out); b.start(t); b.stop(t + CHORD + 3.7);
-    voices.push({ out, end: t + CHORD + 3.7 });
-    chordIdx++;
+    b.type = 'sine'; b.frequency.value = midi(z.root + notes[0] - 24); bg.gain.value = rest ? 0.07 : 0.16;
+    b.connect(bg); bg.connect(out); b.start(t); b.stop(t + L + 3.7);
+    voices.push({ out, end: t + L + 3.7 });
+    chordIdx++; chordN++;
   }
   function tick() {
     if (!live() || !musicOn) return;
-    const now = ac.currentTime, z = ZONE_MUSIC[mZone] || ZONE_MUSIC[1];
+    const now = ac.currentTime, z = trackDef();
     voices = voices.filter(v => v.end > now);
     // Ses seviyesi (durdurma ekranında kısık)
     const duck = mDuck * (mIntense ? 1.1 : 1);
     if (duck !== curDuck) { musicBus.gain.setTargetAtTime(0.5 * duck, now, 0.4); curDuck = duck; }
     padFilter.frequency.setTargetAtTime(z.cutoff * (mIntense ? 1.5 : 1), now, 1.5);
-    if (now >= nextChordAt - 0.25) { const t = Math.max(now + 0.05, nextChordAt); playChord(z, t); nextChordAt = t + CHORD; }
+    if (now >= nextChordAt - 0.25) { const t = Math.max(now + 0.05, nextChordAt); playChord(z, t); nextChordAt = t + z.len; }
     // Işıltılar: ara ara, akorun notalarından, yankılı
     if (now >= nextTwinkleAt) {
-      const notes = z.prog[(chordIdx - 1 + z.prog.length) % z.prog.length];
+      const notes = curNotes(z);
       const n = z.root + 12 + z.scale[Math.floor(Math.random() * z.scale.length)] + (Math.random() < 0.3 ? notes[1] % 12 : 0);
       [0, 0.38, 0.76].forEach((d, k) => tone({ type: z.tw, f: midi(n), dur: 1.6, vol: 0.035 * Math.pow(0.45, k), delay: d, bus: musicBus, attack: 0.01 }));
-      nextTwinkleAt = now + 2 + Math.random() * 3.5;
+      nextTwinkleAt = now + (resting() ? 5 : 2) + Math.random() * 3.5;
+    }
+    // Bölüm varyasyon katmanı: yavaş arpej ya da kalp atışı gibi alçak nabız (nefes arasında susar)
+    const layer = mTrack === 'zone' && !resting() ? VARIANTS[mVar % 4].layer : null;
+    if (layer && now >= nextLayerAt - 0.2) {
+      const t0 = Math.max(now + 0.05, nextLayerAt), notes = curNotes(z);
+      if (layer === 'arp') {
+        const n = z.root + notes[[0, 1, 2, 3, 2, 1][layerN % 6]];
+        tone({ type: 'triangle', f: midi(n), dur: 0.9, vol: 0.022, delay: t0 - now, bus: musicBus, attack: 0.02 });
+        nextLayerAt = t0 + 0.5;
+      } else {
+        tone({ type: 'sine', f: midi(z.root + notes[0] - 24), f2: midi(z.root + notes[0] - 26), dur: 0.35, vol: 0.12, delay: t0 - now, bus: musicBus });
+        tone({ type: 'sine', f: midi(z.root + notes[0] - 24), dur: 0.25, vol: 0.06, delay: t0 - now + 0.28, bus: musicBus });
+        nextLayerAt = t0 + 2;
+      }
+      layerN++;
+    }
+    // Boss: sekizlik bas ostinato (kök – kök – beşli – kök)
+    if (mTrack === 'boss') {
+      if (nextLayerAt < now) nextLayerAt = now + 0.05;
+      while (nextLayerAt < now + 0.4) {
+        const notes = curNotes(z), n = z.root + notes[0] - 24 + [0, 0, 7, 0][layerN % 4];
+        tone({ type: 'triangle', f: midi(n), dur: 0.16, vol: 0.09, delay: nextLayerAt - now, bus: musicBus, attack: 0.005 });
+        layerN++; nextLayerAt += 0.2;
+      }
     }
     // Yoğun anlar (boss, son dalga): yumuşak nabız + hafif zil
     if (mIntense) {
@@ -279,14 +324,17 @@ const Sound = (() => {
   }
   setInterval(tick, 200);
 
-  function setMusic(zone, intense, duck) {
-    if (zone !== mZone && live()) {
-      // Bölge değişti: eski akoru yumuşakça söndür, yenisini hemen başlat
+  // track: 'menu' | 'zone' | 'boss' · variant: bölge içindeki bölüm sırası (0-3)
+  function setMusic(zone, intense, duck, track = 'zone', variant = 0) {
+    const key = track === 'menu' ? 'menu' : `${track}${zone}:${track === 'zone' ? variant : ''}`;
+    if (key !== mKey && live()) {
+      // Tema değişti: eski akoru yumuşakça söndür, yenisini hemen başlat
       const now = ac.currentTime;
       voices.forEach(v => { v.out.gain.cancelScheduledValues(now); v.out.gain.setTargetAtTime(0.0001, now, 0.8); });
-      nextChordAt = 0; chordIdx = 0;
+      nextChordAt = 0; chordIdx = 0; chordN = 0; cycleRot = 0; nextLayerAt = 0; layerN = 0;
     }
-    mZone = zone; mIntense = !!intense; mDuck = duck;
+    if (live()) mKey = key;
+    mZone = zone; mIntense = !!intense; mDuck = duck; mTrack = track; mVar = variant;
   }
   function apply() {
     if (!ac) return;
@@ -300,7 +348,7 @@ const Sound = (() => {
     get sfxOn() { return sfxOn; },
     get muted() { return !musicOn && !sfxOn; },
     get state() { return ac ? ac.state : 'none'; }, // hata ayıklama: 'running' = ses açık
-    get debug() { return { voices: voices.length, zone: mZone, intense: mIntense, duck: mDuck, music: musicBus ? +musicBus.gain.value.toFixed(2) : null }; },
+    get debug() { return { voices: voices.length, zone: mZone, track: mKey, chordN, resting: resting(), intense: mIntense, duck: mDuck, music: musicBus ? +musicBus.gain.value.toFixed(2) : null }; },
     toggleMusic() { musicOn = !musicOn; save(); apply(); },
     toggleSfx() { sfxOn = !sfxOn; save(); apply(); },
     toggle() { const on = !(musicOn || sfxOn); musicOn = on; sfxOn = on; save(); apply(); }, // menüdeki ♪: hepsi
@@ -3190,7 +3238,9 @@ function update() {
     const mz = state === 'menu' ? menuIdx + 1 : state === 'zonetransition' ? zoneTransIdx + 2 : state === 'intro' ? (cinePanels === ENDING_PANELS ? 4 : 1) : currentZone;
     const lastWave = !boss && currentLevel % 5 !== 0 && getWave() >= currentLevel * 5;
     const intense = state === 'play' && !briefing && !introCard && (!!boss || lastWave);
-    Sound.setMusic(mz, intense, state === 'paused' ? 0.45 : state === 'play' && !briefing ? 1 : 0.75);
+    const inLevel = state === 'play' || state === 'paused' || state === 'gameover' || state === 'levelcomplete';
+    const track = state === 'menu' || state === 'map' ? 'menu' : inLevel && boss ? 'boss' : 'zone';
+    Sound.setMusic(mz, intense, state === 'paused' ? 0.45 : state === 'play' && !briefing ? 1 : 0.75, track, inLevel ? (currentLevel - 1) % 5 : 0);
   }
 
   stars.forEach(s => {

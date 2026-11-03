@@ -41,4 +41,4 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 - Zorluk ölçüm botu: `SOURCES/TOOLS/bot.js` (casual/expert profilleri; `measure(levels, runs)`; gürültü ±0.4, 24-32 koşu kullan).
 - Zorluk ayarı (2026-11-03): 20 bölüm `LEVEL_TUNE` (getLevelConfig içinde, temel ayar = `baseLevelConfig`) ve `BOSS_FIRE_MUL` ile ayarlandı. Yeni mekanikler: formasyon (L2-4 son dalga, L16), dalan düşman (L3, L14, L16, L19), Gunner (L9, L12, L17). Sis bölümlerinde uyarılar sisin altında kalır → yoğun siste (L13) mekanik yok.
 - Bot zayıflığı: sis/görünmezlik bota etki etmez (Nebula insan için daha zor), kayaları vurmayı değerlendirmez.
-- Sıradaki: müzik çeşitliliği (boss teması, bölüm varyasyonu, nefes araları, menü teması).
+- Müzik (2026-11-03): menü/harita teması, bölüm başına varyasyon (`VARIANTS`: kök kayması + arpej/kalp atışı katmanı), boss teması (`BOSS_PROG`, 4 sn akor + bas ostinato), döngü başına kayan akor sırası, her 20 akorda 2 akorluk nefes arası. Kullanıcı telefonda dinleyecek.
