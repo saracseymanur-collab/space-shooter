@@ -628,7 +628,7 @@ function baseLevelConfig() {
       interval: 84, doubleChance: 0.3,
       speed: () => 3.0 + Math.random() * 0.4,
       hp: () => Math.random() < 0.45 ? 2 : 1,
-      stack: 150, splitter: 0.06, snake: 420,
+      stack: 150, splitter: 0.06, snake: 400,
       canShoot: true, zigzag: false, fireMul: 1.2,
     };
     case 4: return { // Hunter: şeridini nişanlar → kilitler → hızlı tek atış (zamanlama / yem verme)
@@ -1165,7 +1165,7 @@ function spawnHunter(lane) {
 // Splitter: turuncu gövde (sarı gemi görselinin turuncu kopyası) + ortada parlayan çatlak.
 // Mermiyle ölünce iki küçük, hızlı parça yan şeritlere fırlar (kenardaysa biri aynı şeritte kalır).
 let pendingEnemies = []; // düşman döngüsü sırasında doğanlar (filter içinde push kaybolur)
-// Yılan: 8 turkuaz parçalı zincir. Baş dalga gibi üç şerit boyunca kıvrılarak iner, gövde aynı yolu izler.
+// Yılan: 9 turkuaz parçalı zincir (başı şerit ortasından geçerken ateş eder). Baş dalga gibi üç şerit boyunca kıvrılarak iner, gövde aynı yolu izler.
 // Parçalar ancak şerit ortasından geçerken vurulabilir (mermiler şerit ortasında). Hepsi ölürse %40 power-up düşer;
 // yılan alta ulaşırsa tek can gider ve kalan parçalar kaçar.
 const SNAKE_COL = '#25e6ff';
@@ -1193,7 +1193,7 @@ function getSnakeSprite() {
   return snakeSprite;
 }
 function spawnSnake() {
-  const n = 8, gap = 12, sn = { path: [], phase: Math.random() < 0.5 ? 0 : Math.PI, y: -40, speed: 2.2, w: 0.055, gap, segs: [] };
+  const n = 9, gap = 11, sn = { path: [], phase: Math.random() < 0.5 ? 0 : Math.PI, y: -40, speed: 2.4, w: 0.06, gap, segs: [], fireCd: 40 };
   for (let i = 0; i < n; i++) {
     const seg = {
       lane: 1, x: W / 2, y: -200, w: 38, h: 44, hp: 1, maxHp: 1, speed: 0, flash: 0,
@@ -1216,6 +1216,12 @@ function updateSnakes() {
       if (p) { sg.x = p.x; sg.y = p.y; } else sg.y = -200;
       sg.lane = nearestLane(sg.x);
     });
+    // baş, bir şeridin ortasından geçerken o şeride mermi bırakır (kovalarken kaçmak da gerekir)
+    const hd = sn.segs[0];
+    if (sn.fireCd > 0) sn.fireCd--;
+    else if (hd.hp > 0 && !hd.gone && hd.y > 60 && hd.y < H * 0.55 && Math.abs(hd.x - LANE_CENTERS[hd.lane]) < 6) {
+      if (pushShot({ x: hd.x, y: hd.y + 18, vx: 0, vy: 5, hp: 1, lane: hd.lane, curve: false })) sn.fireCd = 46;
+    }
     if (!alive.length) { // hepsi vuruldu → ödül
       const last = sn.segs[sn.segs.length - 1], r = Math.random();
       if (Math.random() < 0.4) powerups.push({ type: r < 0.4 ? 'shield' : r < 0.7 ? 'triple' : 'double', x: LANE_CENTERS[nearestLane(last.x)], y: Math.max(80, last.y), speed: 1.8, bobTimer: 0 });
@@ -2922,7 +2928,7 @@ const LEVEL_BRIEFS = [
   null,
   { title: 'SWIPE TO MOVE',   vis: 'swipe',     line: 'Swipe left or right to change lanes.', tips: ['Your ship fires automatically.', 'Red shots cost a life. Dodge them!', "Don't let enemies reach the bottom!"] },
   { title: 'SPLITTERS',       vis: 'split',     line: 'Orange ships split in two when hit. Catch the fast halves!', tips: ['The halves dart into the side lanes.', "Don't let them reach the bottom!", 'A blue shield blocks hits for a few seconds.'] },
-  { title: 'SNAKES',          vis: 'snake',     line: 'A snake of ships weaves across the lanes. Follow it and shoot every piece!', tips: ['Clear the whole snake for a chance at a power-up.', 'If it reaches the bottom, you lose a life.', 'Orange splitters are back. Catch the halves!'] },
+  { title: 'SNAKES',          vis: 'snake',     line: 'A snake of ships weaves across the lanes. Follow it and shoot every piece!', tips: ['Clear the whole snake for a chance at a power-up.', 'Its head fires as it crosses a lane.', 'If it reaches the bottom, you lose a life.', 'Orange splitters are back. Catch the halves!'] },
   { title: 'HUNTERS',         vis: 'hunter',    line: 'A Hunter aims at your lane, locks on, then fires. Slip out after the lock!', tips: ["It's shielded while aiming. Hit it when it locks or rests.", "Lure its aim into a lane you don't need.", 'Last wave: a formation. Hide in the gap!'] },
   { title: 'VOID VANGUARD',   vis: 'boss',      line: 'Survive the waves, then defeat the boss.', tips: ['Phase 1: two cannons charge. Hide in the gap.', 'Phase 2: it locks on your lane. Slip out!', 'Phase 3: shoot its shield drones first.'] },
   { title: 'CRYSTAL MINING',  vis: 'crystal',   line: 'Shoot rocks, collect crystals, fill the bar for Overdrive!', tips: ["You don't have to destroy every rock.", 'Survive 5 waves to clear the level.'] },
