@@ -586,7 +586,13 @@ function getLevelConfig() {
       hp: () => Math.random() < 0.4 ? 2 : 1,
       canShoot: true, zigzag: false,
     };
-    case 9: case 10: return { // patlayıcı kayalar
+    case 9: return { // Gunner + patlayıcı kayalar (patlama Gunner kalkanını da kırar)
+      interval: 125, doubleChance: 0.12,
+      speed: () => 1.7 + Math.random() * 0.4,
+      hp: () => { const r = Math.random(); return r < 0.15 ? 3 : r < 0.55 ? 2 : 1; },
+      canShoot: true, zigzag: false, gunner: 1100,
+    };
+    case 10: return { // patlayıcı kayalar (boss bölümü)
       interval: 100, doubleChance: 0.22,
       speed: () => 1.7 + Math.random() * 0.4,
       hp: () => { const r = Math.random(); return r < 0.15 ? 3 : r < 0.55 ? 2 : 1; },
@@ -1026,6 +1032,18 @@ function spawnEnemy(yOffset = 0) {
   });
 }
 
+// Gunner: üstte durur; şarj → seri ateş (kalkanlı, kendi şeridine) → soğuma (kalkansız, vurulabilir) döngüsü
+let gunT = 0;
+function spawnGunner(lane) {
+  enemies.push({
+    lane, x: LANE_CENTERS[lane], y: -50, w: 38, h: 44,
+    hp: 3, maxHp: 3, speed: 1.6, flash: 0,
+    fireTimer: 0, fireRate: 999, canShoot: false,
+    zigzag: false, zigzagPhase: 0, phantom: false, cloakCfg: { vis: 90, inv: 40 }, cloakT: 0, alpha: 1,
+    shiftAt: null, shiftTo: lane, curveShots: false, shift2: 0,
+    gunner: true, gState: 'enter', gT: 0, hoverY: H * (0.19 + Math.random() * 0.06), shieldHit: 0,
+  });
+}
 // Formasyon dalgası ("boşluğu bul"): iki şeritte yan yana düşman, bir şerit boş.
 // Belli bir yükseklikte ikisi aynı anda ateş eder → güvenli yer boşluk; sonra ikisini de vur.
 let formT = 0, formGap = -1, formOn = false;
@@ -1989,6 +2007,12 @@ function drawEnemy(e) {
     ctx.beginPath(); ctx.moveTo(lx - 30, 0); ctx.lineTo(lx - 30, H - e.y); ctx.moveTo(lx + 30, 0); ctx.lineTo(lx + 30, H - e.y); ctx.stroke();
     ctx.setLineDash([]);
   }
+  if (e.gunner && e.gState === 'charge') { // kendi şeridi yanıp söner + namlu ısınır
+    const blink = Math.floor(e.gT / 6) % 2 === 0, k = 1 - e.gT / 45;
+    ctx.fillStyle = `rgba(255,34,68,${blink ? 0.18 : 0.07})`; ctx.fillRect(-30, dh / 2, 60, H - e.y);
+    ctx.fillStyle = `rgba(255,34,68,${0.4 + 0.5 * k})`; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 14;
+    ctx.beginPath(); ctx.arc(0, dh / 2 + 2, 4 + 7 * k, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+  }
   if (e.formation && !e.volleyed && e.volleyAt - e.y < 80) {
     const k = 1 - Math.max(0, e.volleyAt - e.y) / 80, r = 4 + 6 * k;
     ctx.fillStyle = `rgba(255,34,68,${0.35 + 0.5 * k})`; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 12;
@@ -2011,6 +2035,17 @@ function drawEnemy(e) {
         const wsp = getWhiteSprite(img, e.maxHp);
         if (wsp) { ctx.globalAlpha = baseAlpha * (e.flash - 8) / 6; ctx.drawImage(wsp, -dw / 2, -dh / 2, dw, dh); ctx.globalAlpha = baseAlpha; }
       }
+    }
+  }
+  if (e.gunner && e.gState !== 'enter') {
+    if (e.gState === 'cool') { // kalkansız: gövde beyaz nabızla parlar → "şimdi vur"
+      const wsp = getWhiteSprite(img, e.maxHp);
+      if (wsp) { ctx.globalAlpha = 0.18 + 0.22 * (0.5 + 0.5 * Math.sin(frameCount * 0.3)); ctx.drawImage(wsp, -dw / 2, -dh / 2, dw, dh); ctx.globalAlpha = baseAlpha; }
+    } else { // önde kırmızı kalkan yayı (vurulunca parlar)
+      ctx.strokeStyle = e.shieldHit > 0 ? '#ffd0d8' : '#ff4d66'; ctx.lineWidth = e.shieldHit > 0 ? 4 : 2.5;
+      ctx.globalAlpha = 0.85; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 10;
+      ctx.beginPath(); ctx.arc(0, -dh * 0.05, dw * 0.6, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke();
+      ctx.shadowBlur = 0; ctx.globalAlpha = baseAlpha;
     }
   }
   if (e.phantom && baseAlpha < 0.45) { ctx.restore(); return; } // görünmezken can barı yok
@@ -2429,7 +2464,7 @@ const LEVEL_BRIEFS = [
   { title: 'CRYSTAL MINING',  vis: 'crystal',   line: 'Shoot rocks, collect crystals, fill the bar for Overdrive!', tips: ["You don't have to destroy every rock.", 'Survive 5 waves to clear the level.'] },
   { title: 'AMBUSH',          vis: 'ambush',    line: 'Enemies hide behind grey iron rocks.', tips: ["Iron rocks can't be destroyed and block shots.", 'Wait for the enemy to come out.'] },
   { title: 'METEOR SHOWER',   vis: 'meteor',    line: 'A flashing red lane means meteors. Move out!', tips: ["Meteors can't be shot."] },
-  { title: 'EXPLOSIVE ROCKS', vis: 'explosive', line: 'Red rocks explode and destroy everything nearby.', tips: ['Shoot them when enemies are close.'] },
+  { title: 'GUNNERS',         vis: 'gunner',    line: 'Gunners fire bursts down their lane. Hit them while they cool down!', tips: ['Their shield blocks your shots while they fire.', 'Red rocks explode and break any shield.'] },
   { title: 'ROCK TITAN',      vis: 'boss',      line: "The Rock Titan guards the fleet's escape. Bring it down!", tips: ['Shoot its rocks for crystals.'] },
   { title: 'PHANTOMS',        vis: 'phantom',   line: 'Phantoms turn invisible. Hit them while visible.', tips: ['Their flickering outline shows where they are.'] },
   { title: 'ION CLOUDS',      vis: 'ion',       line: 'Inside a blue ion cloud your guns jam.', tips: ['Steer around the clouds.'] },
@@ -2533,6 +2568,20 @@ function drawBriefVisual(kind, cx, cy, zc) {
       briefShot(cx, sy);
       const px = cx + 70 * Math.min(1, Math.max(0, (sy - cy + 6) / 20));
       if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, px - 20, cy + 16, 40, 40);
+      break;
+    }
+    case 'gunner': {
+      // şarj (şerit yanıp söner) → seri ateş → soğuma (beyaz parlar, gemi şeride girip vurur)
+      const P = 170, k = frameCount % P, gx = cx, gy = cy - 26;
+      if (k < 30 && Math.floor(k / 6) % 2 === 0) { ctx.fillStyle = 'rgba(255,34,68,0.2)'; ctx.fillRect(gx - 22, gy + 10, 44, 64); }
+      if (k >= 30 && k < 80) for (let j = 0; j < 3; j++) { const sy = gy + 18 + ((k - 30) * 2.2 + j * 22) % 66; briefShot(gx, sy); }
+      const cool = k >= 80;
+      const px = cx + 70 * (cool ? 1 - Math.min(1, (k - 80) / 12) : 1);
+      briefEnemy(3, gx, gy, 0.42);
+      if (cool) { ctx.globalAlpha = 0.3 + 0.3 * Math.sin(frameCount * 0.3); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(gx, gy, 14, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+        if (k > 94) { ctx.fillStyle = '#9fe8ff'; for (let j = 0; j < 2; j++) ctx.fillRect(gx - 1.5, cy + 4 - ((k * 6 + j * 20) % 30), 3, 8); } }
+      else { ctx.strokeStyle = '#ff4d66'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(gx, gy - 2, 22, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke(); }
+      if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, px - 16, cy + 6, 32, 32);
       break;
     }
     case 'dive': {
@@ -2801,7 +2850,7 @@ function showToast(text, color, dur = 150) { toasts.push({ text, color: color ||
 function beginLevelPlay() {
   briefing = false;
   countdown = 90; // 3 · 2 · 1 (her biri 0.5 sn), ardından GO
-  levelPlayT = 0; lastWaveSeen = 1; toasts = []; formOn = false; formGap = -1;
+  levelPlayT = 0; lastWaveSeen = 1; toasts = []; formOn = false; formGap = -1; gunT = 1100 - 240; // ilk Gunner ~4 sn sonra
   const B = LEVEL_BRIEFS[currentLevel];
   tipPlan = []; // ipuçları artık ilk karşılaşmada duraklayarak anlatılıyor
   Sound.sfx.count(3);
@@ -3706,8 +3755,13 @@ function update() {
   if (!boss && !levelEnding) {
     spawnTimer++;
     const cfg      = getLevelConfig();
-    const interval = cfg ? cfg.interval      : getSpawnInterval();
+    const interval = (cfg ? cfg.interval : getSpawnInterval()) * (enemies.some(e => e.gunner) ? 1.5 : 1); // Gunner varken daha seyrek
     const dChance  = cfg ? cfg.doubleChance  : getDoubleSpawnChance();
+    if (cfg && cfg.gunner && ++gunT >= cfg.gunner && !enemies.some(e => e.gunner)) {
+      const free = [0, 1, 2].filter(l => !enemies.some(e => e.lane === l && e.y < H * 0.4) &&
+        !asteroids.some(a => a.y < H * 0.4 && Math.abs(a.x - LANE_CENTERS[l]) < LANE_W * 0.65));
+      if (free.length) { gunT = 0; spawnGunner(free[Math.floor(Math.random() * free.length)]); }
+    }
     const lw = getWave() - (currentLevel - 1) * 5;
     if (cfg && cfg.formation && lw >= 5) {
       if (!formOn) { formOn = true; formT = 999; showToast('FORMATION · FIND THE GAP', '#ff4d66', 120); }
@@ -3800,6 +3854,20 @@ function update() {
       e.y -= e.speed;
       if (--e.diveT <= 0) { e.diveState = 2; e.lane = e.diveTo; e.shifting = 20; e.speed = 3.4; e.fireTimer = e.fireRate - 28; }
     }
+    if (e.gunner) {
+      if (e.shieldHit > 0) e.shieldHit--;
+      if (e.gState === 'enter') { if (e.y >= e.hoverY) { e.y = e.hoverY; e.gState = 'charge'; e.gT = 45; } }
+      else {
+        e.y -= e.speed; // yerinde durur
+        if (--e.gT <= 0) {
+          if (e.gState === 'charge') { e.gState = 'burst'; e.gT = 70; }
+          else if (e.gState === 'burst') { e.gState = 'cool'; e.gT = 150; } // ~1 sn mermi kuyruğu + ~1.5 sn güvenli vuruş
+          else { e.gState = 'charge'; e.gT = 45; }
+        }
+        if (e.gState === 'burst' && e.gT % 10 === 0)
+          pushShot({ x: e.x, y: e.y + 34, vx: 0, vy: 9, hp: 3, lane: e.lane, curve: false, gun: true });
+      }
+    }
     if (e.formation && !e.volleyed && e.y >= e.volleyAt) {
       e.volleyed = true;
       pushShot({ x: e.x, y: e.y + 20, vx: 0, vy: 5, hp: 1, lane: e.lane, curve: false });
@@ -3854,6 +3922,7 @@ function update() {
     if (!cloaked) bullets = bullets.filter(b => {
       const sc  = ENEMY_TIER[e.maxHp].sc;
       const hit = Math.abs(b.x - e.x) < 24 * sc && Math.abs(b.y - e.y) < 29 * sc;
+      if (hit && e.gunner && e.gState !== 'cool') { e.shieldHit = 8; return false; } // kalkan: hasar yok
       if (hit) {
         e.hp--;
         e.flash = 14;
