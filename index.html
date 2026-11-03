@@ -1502,7 +1502,7 @@ function getWhiteSprite(img, key) {
 }
 // Neon düşman görseli: renkli bölgeler parlatılıp doygunlaştırılır, siyah/gri paneller olduğu gibi kalır
 const NEON_BOOST = { val: 1.2, sat: 1.25 };
-const ENEMY_GLOW = { 1: '#6dff2a', 2: '#ffd21a', 3: '#ff2244' }; // görselin kendi renginde ince parıltı
+const ENEMY_GLOW = { 1: '#6dff2a', 2: '#ffd21a', 3: '#ff2244' }; // gemi renkleri (ölüm halkası/kıvılcım)
 const neonSprites = {};
 function getNeonSprite(img, key) {
   if (!img || !img.complete || !img.naturalWidth) return null;
@@ -1982,7 +1982,7 @@ function drawEnemy(e) {
         ctx.drawImage(img, 0, q * sh, img.naturalWidth, sh, -dw / 2 + off, -dh / 2 + q * dsh, dw, dsh + 0.5);
       }
     } else {
-      ctx.shadowColor = ENEMY_GLOW[e.maxHp] || 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 8;
+      ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 9; // renkli parıltı yok: canlı renk yeterli, siyah gölge zeminden ayırır
       ctx.drawImage(getNeonSprite(img, e.maxHp) || img, -dw / 2, -dh / 2, dw, dh);
       ctx.shadowBlur = 0;
       if (e.flash > 8) { // isabet: çok kısa beyaz parlama
@@ -2097,7 +2097,7 @@ function drawShotSprite(x, y, h, vx = 0, vy = 1) {
   ctx.save();
   ctx.translate(x, y);
   ctx.fillStyle = 'rgba(255,34,68,0.2)'; ctx.beginPath(); ctx.arc(0, 0, h * 0.42, 0, Math.PI * 2); ctx.fill();
-  ctx.rotate(-Math.atan2(vx, vy)); // uç hareket yönüne baksın (eğri mermiler)
+  ctx.rotate(Math.PI - Math.atan2(vx, vy)); // kalın baş önde, incelen kuyruk arkada; eğri mermilerde yönle döner
   ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 10;
   ctx.drawImage(eShotImg, -w / 2, -h / 2, w, h);
   ctx.restore();
