@@ -38,7 +38,10 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 ## Açık işler / son durum (2026-11-03)
 - Çift atış (double-shot) rozeti küçükken pause simgesine (‖) benziyor → kullanıcı daha sivri / açılı mermili yeni görsel üretebilir.
 - Kullanıcı son sürümü telefonda deniyor; geri bildirimlerini bekle.
-- Zorluk ölçüm botu: `SOURCES/TOOLS/bot.js` (casual/expert profilleri; `measure(levels, runs)`; gürültü ±0.4, 24-32 koşu kullan).
-- Zorluk ayarı (2026-11-03): 20 bölüm `LEVEL_TUNE` (getLevelConfig içinde, temel ayar = `baseLevelConfig`) ve `BOSS_FIRE_MUL` ile ayarlandı. Yeni mekanikler: formasyon (L2-4 son dalga, L16), dalan düşman (L3, L14, L16, L19), Gunner (L9, L12, L17). Sis bölümlerinde uyarılar sisin altında kalır → yoğun siste (L13) mekanik yok.
-- Bot zayıflığı: sis/görünmezlik bota etki etmez (Nebula insan için daha zor), kayaları vurmayı değerlendirmez.
+- Zorluk ölçüm botu: `SOURCES/TOOLS/bot.js` (casual/expert profilleri; `measure(levels, runs)` → avgHits, loseRate3, traps; gürültü ±0.4, 24-32 koşu kullan). `traps` = oyuncunun şeridi vurulacakken zamanında ulaşılabilir güvenli şerit olmayan anlar (2026-11-03: tüm bölümlerde ≤0.7/koşu, en çok L9).
+- Zorluk ayarı: `LEVEL_TUNE` (getLevelConfig, temel = `baseLevelConfig`) + `BOSS_FIRE_MUL` + spawnBoss içindeki `BOSS_HP`.
+- Sektör 1 yeniden tasarım (2026-11-03, ChatGPT önerileri + bizim seçimimiz): L1 kaydır+seyrek ateş, L2 FORMATIONS (kalkanlı sıralar, 2. ve 4. dalga), L3 SHIELD LINK (turkuaz bağ `LINK_COL`), L4 HUNTERS (nişangâh→kilit→hızlı tek atış), L5 Void Vanguard (P1 şarjlı yaylım, P2 nişan+üçlü seri, P3 + kalkan dronları; faz arası 1.5 sn nefes; HP 120). Divers ve zikzak sektör 1'den çıktı (sonraki sektörlerde ilk görüş kartıyla).
+- Her bölümde: 3. dalgada Supply Runner (gümüş-beyaz kargo, taşıdığı rozeti düşürür, kaçarsa can gitmez), son dalgada "FINAL WAVE", son düşmanda ağır çekim (`slowMoT`).
+- Bölüm ritmi şablonu: 1 ısınma · 2 baskı · 3 risk/ödül (kargo) · 4 nefes+sürpriz · 5 final. Sıradaki bölümleri tek tek bu şablonla ele al; kullanıcı level level konuşmak istiyor.
+- Kenara konan fikirler: Charger (ateşle iptal edilen şarj; ileriki sektör), Warp Gate (L13 sis yerine aday), boss'u önceki bölümde tanıtma (L9→Titan kayası, L14→drone çağırıcı, L19→tek şerit lazer).
 - Müzik (2026-11-03): menü/harita teması, bölüm başına varyasyon (`VARIANTS`: kök kayması + arpej/kalp atışı katmanı), boss teması (`BOSS_PROG`, 4 sn akor + bas ostinato), döngü başına kayan akor sırası, her 20 akorda 2 akorluk nefes arası. Kullanıcı telefonda dinleyecek.

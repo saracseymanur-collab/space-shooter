@@ -18,6 +18,28 @@ function laneDanger(l, horizon, blind) { // isabet edecek mermi/kaya/lazer: kesi
   for (const L of lasers) if (L.lane === l) d += 1e6; // `lasers` sayfa genelinde let → window.lasers değil
   return d;
 }
+// Kapana kısılma: oyuncunun şeridi kısa sürede vurulacakken, zamanında ulaşılabilecek güvenli şerit yok mu?
+// Komşu şerit ~10 karede, iki uzaktaki ~20 karede ulaşılır; yol üstündeki orta şerit geçiş anında güvenli olmalı.
+function hitWithin(l, t0, t1) {
+  const lx = LANE_CENTERS[l];
+  for (const b of eBullets) { const vy = b.vy || 4; if (vy <= 0) continue; const t = (player.y - b.y) / vy; if (t < t0 || t > t1) continue;
+    if (Math.abs(b.x + (b.vx || 0) * Math.max(0, t) - lx) < (b.big ? 44 : 30)) return true; }
+  for (const a of asteroids) { const t = (player.y - a.y) / (a.speed || 2); if (t < t0 || t > t1) continue;
+    if (Math.abs(a.x + (a.vx || 0) * Math.max(0, t) - lx) < a.size * 0.9 + 22) return true; }
+  for (const L of lasers) if (L.lane === l && L.t > L.warn - t1) return true;
+  return false;
+}
+function trapped() {
+  const cur = playerLaneNow();
+  if (!hitWithin(cur, 0, 18)) return false;               // şu an tehlike yok
+  for (const l of [0, 1, 2]) {
+    if (l === cur) continue;
+    const d = Math.abs(l - cur), arrive = d * 10;
+    if (d === 2 && hitWithin(1, 4, 14)) continue;         // geçerken ortada vurulur
+    if (!hitWithin(l, arrive - 4, arrive + 30)) return false; // zamanında ulaşılabilir güvenli şerit var
+  }
+  return true;
+}
 function laneValue(l) {
   let v = 0;
   for (const e of enemies) {
@@ -30,9 +52,10 @@ function laneValue(l) {
 }
 function runLevel(level, prof, maxFrames = 9000) { // insanlar gibi tek kararda iki şerit de kayabilir
   startLevel(level); briefing = false; countdown = 0; introCard = null; lives = 99; HITS = [];
-  let f = 0, next = 0;
+  let f = 0, next = 0, traps = 0, wasTrapped = false;
   while (f < maxFrames && state === 'play') {
     introCard = null; briefing = false;
+    const tr = trapped(); if (tr && !wasTrapped) traps++; wasTrapped = tr;
     if (f >= next) {
       next = f + prof.react + Math.floor(Math.random() * prof.react * 0.5);
       const blind = Math.random() < prof.miss, cur = player.targetLane;
@@ -47,7 +70,7 @@ function runLevel(level, prof, maxFrames = 9000) { // insanlar gibi tek kararda 
     update(); f++;
   }
   const by = {}; HITS.forEach(c => by[c] = (by[c] || 0) + 1);
-  return { level, hits: HITS.length, by, done: state === 'levelcomplete', secs: Math.round(f / 60) };
+  return { level, hits: HITS.length, by, done: state === 'levelcomplete', secs: Math.round(f / 60), traps };
 }
 // casual ≈ rahat oyuncu, expert ≈ deneyimli (test eden kişi sektör 1'i "çok kolay" bulduğunda expert ≈0 hasar alıyordu)
 window.PROFILES = {
@@ -61,7 +84,7 @@ window.measure = function (levels, runs) {
     for (const lv of levels) {
       const rs = []; for (let i = 0; i < runs; i++) rs.push(runLevel(lv, prof));
       const causes = {}; rs.forEach(r => Object.entries(r.by).forEach(([k, n]) => causes[k] = (causes[k] || 0) + n));
-      out[name][lv] = { avgHits: +(rs.reduce((a, r) => a + r.hits, 0) / runs).toFixed(2), maxHits: Math.max(...rs.map(r => r.hits)),
+      out[name][lv] = { traps: +(rs.reduce((a, r) => a + r.traps, 0) / runs).toFixed(2), avgHits: +(rs.reduce((a, r) => a + r.hits, 0) / runs).toFixed(2), maxHits: Math.max(...rs.map(r => r.hits)),
         loseRate3: rs.filter(r => r.hits >= 3).length / runs, done: rs.filter(r => r.done).length + '/' + runs, secs: rs[0].secs, causes };
     }
   }
