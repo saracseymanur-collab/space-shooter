@@ -12,8 +12,10 @@ function laneDanger(l, horizon, blind) { // isabet edecek mermi/kaya/lazer: kesi
   const lx = LANE_CENTERS[l]; let d = 0; if (blind) return 0;
   for (const b of eBullets) { const vy = b.vy || 4; if (vy <= 0) continue; const t = (player.y - b.y) / vy; if (t < -8 || t > horizon) continue;
     const xAt = b.x + (b.vx || 0) * Math.max(0, t); if (Math.abs(xAt - lx) < (b.big ? 44 : 34)) d += 1e5 / (1 + Math.max(0, t)); }
-  for (const a of asteroids) { const t = (player.y - a.y) / (a.speed || a.vy || 2); if (t < -12 || t > horizon) continue; if (Math.abs(a.x - lx) < (a.size || 20) + 24) d += 1e5 / (1 + Math.max(0, t)); }
-  for (const L of (window.lasers || [])) if (L && L.lane === l) d += 1e6;
+  for (const a of asteroids) { const t = (player.y - a.y) / (a.speed || 2); if (t < -14 || t > horizon) continue;
+    const xAt = a.x + (a.vx || 0) * Math.max(0, t); // kaya parçaları çapraz kayar
+    if (Math.abs(xAt - lx) < a.size * 0.9 + 26) d += 1e5 / (1 + Math.max(0, t)); }
+  for (const L of lasers) if (L.lane === l) d += 1e6; // `lasers` sayfa genelinde let → window.lasers değil
   return d;
 }
 function laneValue(l) {

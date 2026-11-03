@@ -535,7 +535,23 @@ function getDoubleSpawnChance() {
 }
 
 // Bölüm 1-4 için sabit level konfigürasyonu (5 = özel boss, 6+ smooth sistem)
+// Bölüm ayarı = temel ayar × LEVEL_TUNE. LEVEL_TUNE bot ölçümüyle (SOURCES/TOOLS/bot.js) 20 bölümlük
+// kademeli eğriye göre ayarlandı (2026-11-03) ve önceki sektörlerin mekaniklerini sonraki bölümlere karıştırır:
+// iMul: düşman aralığı çarpanı (>1 seyrek) · fireMul: ateş aralığı · diver/formation/gunner: sektör 1-2 mekanikleri
+const LEVEL_TUNE = {
+  6: { iMul: 1.15 }, 7: { iMul: 1.2 },
+  11: { iMul: 1.45 }, 12: { gunner: 1300, iMul: 1.4 }, 13: { iMul: 0.85 }, 14: { iMul: 1.5, diver: 0.25 },
+  16: { diver: 0.35, formation: true, iMul: 0.45, fireMul: 0.7 }, 17: { gunner: 1700, iMul: 1.2 }, 18: { fireMul: 0.9 }, 19: { diver: 0.3 },
+};
 function getLevelConfig() {
+  const c = baseLevelConfig(), t = LEVEL_TUNE[currentLevel];
+  if (!c || !t) return c;
+  const o = { ...c };
+  if (t.iMul) o.interval = c.interval * t.iMul;
+  for (const k of ['fireMul', 'diver', 'formation', 'gunner']) if (t[k] != null) o[k] = t[k];
+  return o;
+}
+function baseLevelConfig() {
   switch (currentLevel) {
     // Sektör 1 zorluk eğrisi (2026-11 bot ölçümüyle ayarlandı; deneyimli/rahat oyuncu ort. can kaybı):
     // L1 ≈0 (öğretici ama dolu), L2 ≈0.1/1, L3 ≈0.8/1, L4 ≈0.9/1.1 — her bölüm bir öncekinin üstüne ekler
@@ -587,10 +603,10 @@ function getLevelConfig() {
       canShoot: true, zigzag: false,
     };
     case 9: return { // Gunner + patlayıcı kayalar (patlama Gunner kalkanını da kırar)
-      interval: 125, doubleChance: 0.12,
+      interval: 170, doubleChance: 0.12,
       speed: () => 1.7 + Math.random() * 0.4,
       hp: () => { const r = Math.random(); return r < 0.15 ? 3 : r < 0.55 ? 2 : 1; },
-      canShoot: true, zigzag: false, gunner: 1100,
+      canShoot: true, zigzag: false, gunner: 1400,
     };
     case 10: return { // patlayıcı kayalar (boss bölümü)
       interval: 100, doubleChance: 0.22,
@@ -1100,6 +1116,8 @@ function playerLaneNow() {
 }
 
 
+// Boss zorluk ayarı: ateş/lazer/drone aralığı çarpanı (>1 = daha seyrek). Bot ölçümüyle ayarlanır.
+const BOSS_FIRE_MUL = { 5: 1.15, 10: 0.8, 15: 1.8, 20: 1.9 };
 function spawnBoss(wave) {
   const bossNum = Math.floor(wave / 5);
   const special = currentLevel % 5 === 0; // her bölgenin 5. bölümü
@@ -2850,7 +2868,7 @@ function showToast(text, color, dur = 150) { toasts.push({ text, color: color ||
 function beginLevelPlay() {
   briefing = false;
   countdown = 90; // 3 · 2 · 1 (her biri 0.5 sn), ardından GO
-  levelPlayT = 0; lastWaveSeen = 1; toasts = []; formOn = false; formGap = -1; gunT = 1100 - 240; // ilk Gunner ~4 sn sonra
+  levelPlayT = 0; lastWaveSeen = 1; toasts = []; formOn = false; formGap = -1; gunT = 99999; // ilk Gunner ~4 sn sonra (aşağıda aralığa göre ayarlanır)
   const B = LEVEL_BRIEFS[currentLevel];
   tipPlan = []; // ipuçları artık ilk karşılaşmada duraklayarak anlatılıyor
   Sound.sfx.count(3);
@@ -3373,7 +3391,7 @@ function update() {
     // Drone gönderme: Komuta Merkezi her fazda, Void Leader son fazda
     if (boss.zone === 3 || (boss.zone === 4 && boss.phase === 3)) {
       boss.droneTimer++;
-      const droneEvery = boss.zone === 4 ? 210 : [0, 230, 190, 160][boss.phase];
+      const droneEvery = (boss.zone === 4 ? 210 : [0, 230, 190, 160][boss.phase]) * (BOSS_FIRE_MUL[currentLevel] || 1);
       if (boss.droneTimer >= droneEvery) {
         boss.droneTimer = 0;
         // Drone, boss'un son atışta boş bıraktığı şeritten iner
@@ -3384,7 +3402,7 @@ function update() {
     // Void Leader: şerit lazerleri (önce uyarı, sonra ışın)
     if (boss.zone === 4 && boss.phase >= 2) {
       boss.laserTimer++;
-      const laserEvery = boss.phase === 2 ? 170 : 135;
+      const laserEvery = (boss.phase === 2 ? 170 : 135) * (BOSS_FIRE_MUL[currentLevel] || 1);
       if (boss.laserTimer >= laserEvery && lasers.length === 0) {
         boss.laserTimer = 0;
         const count = boss.phase === 2 ? 1 : 2;
@@ -3400,7 +3418,7 @@ function update() {
 
     // Boss ateş ediyor
     boss.fireTimer++;
-    if (boss.fireTimer >= boss.nextFireIn) {
+    if (boss.fireTimer >= boss.nextFireIn * (BOSS_FIRE_MUL[currentLevel] || 1)) {
       boss.fireTimer = 0;
       const bY  = boss.y + 44;
       const mk  = (x, vy, big) => ({ x, y: bY, vx: 0, vy, hp: 3, lane: -1, fromBoss: true, big: !!big });
@@ -3757,6 +3775,7 @@ function update() {
     const cfg      = getLevelConfig();
     const interval = (cfg ? cfg.interval : getSpawnInterval()) * (enemies.some(e => e.gunner) ? 1.5 : 1); // Gunner varken daha seyrek
     const dChance  = cfg ? cfg.doubleChance  : getDoubleSpawnChance();
+    if (cfg && cfg.gunner && gunT === 99999) gunT = cfg.gunner - 240;
     if (cfg && cfg.gunner && ++gunT >= cfg.gunner && !enemies.some(e => e.gunner)) {
       const free = [0, 1, 2].filter(l => !enemies.some(e => e.lane === l && e.y < H * 0.4) &&
         !asteroids.some(a => a.y < H * 0.4 && Math.abs(a.x - LANE_CENTERS[l]) < LANE_W * 0.65));
@@ -3860,8 +3879,8 @@ function update() {
       else {
         e.y -= e.speed; // yerinde durur
         if (--e.gT <= 0) {
-          if (e.gState === 'charge') { e.gState = 'burst'; e.gT = 70; }
-          else if (e.gState === 'burst') { e.gState = 'cool'; e.gT = 150; } // ~1 sn mermi kuyruğu + ~1.5 sn güvenli vuruş
+          if (e.gState === 'charge') { e.gState = 'burst'; e.gT = 60; }
+          else if (e.gState === 'burst') { e.gState = 'cool'; e.gT = 170; } // ~1 sn mermi kuyruğu + ~2 sn güvenli vuruş
           else { e.gState = 'charge'; e.gT = 45; }
         }
         if (e.gState === 'burst' && e.gT % 10 === 0)

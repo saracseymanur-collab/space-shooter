@@ -38,5 +38,7 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 ## Açık işler / son durum (2026-11-03)
 - Çift atış (double-shot) rozeti küçükken pause simgesine (‖) benziyor → kullanıcı daha sivri / açılı mermili yeni görsel üretebilir.
 - Kullanıcı son sürümü telefonda deniyor; geri bildirimlerini bekle.
-- Zorluk ölçüm botu: `SOURCES/TOOLS/bot.js` (casual/expert profilleri; `measure(levels, runs)`). Sektör 1 bununla yeniden ayarlandı (2026-11-03): ort. can kaybı L1≈0, L2≈0.2–0.9, L3≈0.9–1.3, L4≈1.3–1.6. Sektör 2-4 henüz ayarlanmadı (eğri düz, boss'lar ani sıçrama).
-- Sıradaki: sektör 1'e yeni mekanikler (formasyon/boşluğu bul, dalan düşman), sonra müzik çeşitliliği (boss teması, bölüm varyasyonu, nefes araları).
+- Zorluk ölçüm botu: `SOURCES/TOOLS/bot.js` (casual/expert profilleri; `measure(levels, runs)`; gürültü ±0.4, 24-32 koşu kullan).
+- Zorluk ayarı (2026-11-03): 20 bölüm `LEVEL_TUNE` (getLevelConfig içinde, temel ayar = `baseLevelConfig`) ve `BOSS_FIRE_MUL` ile ayarlandı. Yeni mekanikler: formasyon (L2-4 son dalga, L16), dalan düşman (L3, L14, L16, L19), Gunner (L9, L12, L17). Sis bölümlerinde uyarılar sisin altında kalır → yoğun siste (L13) mekanik yok.
+- Bot zayıflığı: sis/görünmezlik bota etki etmez (Nebula insan için daha zor), kayaları vurmayı değerlendirmez.
+- Sıradaki: müzik çeşitliliği (boss teması, bölüm varyasyonu, nefes araları, menü teması).
