@@ -55,7 +55,8 @@ bossImg.src = 'ASSETS/boss.png';
 const BOSS_W = 190, BOSS_H = 127; // 1536×1024 oranında
 
 // Düşman görsel boyutları — gerçek en/boy oranına göre (sıkı kırpılmış assetler)
-const ENEMY_SIZES = { 1: { w: 66, h: 43 }, 2: { w: 93, h: 63 }, 3: { w: 123, h: 101 } }; // görünürlük için büyütüldü
+// Şerit 130px: en büyük düşman şeridin ~%85'i (zikzakta komşu şeride taşmaz), küçükler okunur kalır
+const ENEMY_SIZES = { 1: { w: 64, h: 42 }, 2: { w: 88, h: 60 }, 3: { w: 110, h: 90 } };
 
 // Sabit oyun alanı boyutu (390×844 — iPhone standart)
 const W = 390;
@@ -142,7 +143,7 @@ const Sound = (() => {
     o.start(t); o.stop(t + dur + 0.02);
   }
   let noiseBuf = null;
-  function noise({ dur = 0.3, vol = 0.3, freq = 1200, delay = 0, bus = sfxBus }) {
+  function noise({ dur = 0.3, vol = 0.3, freq = 1200, delay = 0, bus = sfxBus, type = 'lowpass', q = 1, end = 80 }) {
     if (bus === sfxBus ? !ready() : !live()) return;
     if (!noiseBuf || noiseBuf.sampleRate !== ac.sampleRate) {
       noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
@@ -152,7 +153,7 @@ const Sound = (() => {
     const t = ac.currentTime + delay;
     const src = ac.createBufferSource(), flt = ac.createBiquadFilter(), g = ac.createGain();
     src.buffer = noiseBuf;
-    flt.type = 'lowpass'; flt.frequency.setValueAtTime(freq, t); flt.frequency.exponentialRampToValueAtTime(80, t + dur);
+    flt.type = type; flt.Q.value = q; flt.frequency.setValueAtTime(freq, t); flt.frequency.exponentialRampToValueAtTime(end, t + dur);
     g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     src.connect(flt); flt.connect(g); g.connect(bus);
     src.start(t); src.stop(t + dur);
@@ -164,13 +165,44 @@ const Sound = (() => {
     shoot()     { const n = performance.now(); if (n - lastShot < 90) return; lastShot = n;
                   noise({ dur: 0.045, vol: 0.02, freq: 1300 + Math.random() * 700 });
                   tone({ type: 'triangle', f: 200 + Math.random() * 50, f2: 110, dur: 0.05, vol: 0.014 }); },
-    hit()       { tone({ type: 'square', f: 260, f2: 140, dur: 0.05, vol: 0.05 }); },
-    explode()   { noise({ dur: 0.3, vol: 0.22, freq: 1400 }); tone({ type: 'triangle', f: 180, f2: 50, dur: 0.25, vol: 0.12 }); },
-    bigBoom()   { noise({ dur: 1.1, vol: 0.45, freq: 900 }); tone({ type: 'sine', f: 110, f2: 30, dur: 0.9, vol: 0.35 }); },
+    // İsabet (ölmeden): kısa metalik "tık"
+    hit()       { const v = 0.9 + Math.random() * 0.2; tone({ type: 'square', f: 540 * v, f2: 320 * v, dur: 0.04, vol: 0.035 }); tone({ type: 'triangle', f: 1500 * v, dur: 0.03, vol: 0.02 }); },
+    // Düşman gemisi patlaması: büyüklüğe göre farklı karakter, her seferinde perde biraz değişir
+    shipBoom(tier = 1) {
+      const v = 0.9 + Math.random() * 0.2;
+      if (tier === 1) {        // küçük: keskin, parlak "pat"
+        noise({ dur: 0.14, vol: 0.2, freq: 2600 * v, type: 'bandpass', q: 0.8, end: 600 });
+        tone({ type: 'square', f: 700 * v, f2: 160, dur: 0.09, vol: 0.05 });
+      } else if (tier === 2) { // orta: çatırdayan patlama
+        noise({ dur: 0.28, vol: 0.24, freq: 1500 * v, end: 120 });
+        tone({ type: 'triangle', f: 260 * v, f2: 60, dur: 0.24, vol: 0.13 });
+        [0.05, 0.11, 0.18].forEach(d => noise({ dur: 0.04, vol: 0.06, freq: 4000, type: 'bandpass', q: 2, delay: d, end: 2000 }));
+      } else {                 // büyük: derin gümbürtü + kuyruk
+        noise({ dur: 0.55, vol: 0.32, freq: 900 * v, end: 60 });
+        tone({ type: 'sine', f: 120 * v, f2: 32, dur: 0.5, vol: 0.26 });
+        [0.12, 0.22, 0.34, 0.45].forEach(d => noise({ dur: 0.05, vol: 0.05, freq: 3000, type: 'bandpass', q: 2, delay: d, end: 1500 }));
+      }
+    },
+    // Kaya kırılması: taşlı, kum gibi çıtırtı (gemi patlamasından ayrı)
+    rockCrack(size = 20) {
+      const v = 30 / Math.max(12, size);
+      noise({ dur: 0.18, vol: 0.16, freq: 900 * v, type: 'bandpass', q: 1.4, end: 200 });
+      tone({ type: 'square', f: 140 * v, f2: 70, dur: 0.07, vol: 0.04 });
+      [0.03, 0.07].forEach(d => noise({ dur: 0.03, vol: 0.05, freq: 5000, type: 'highpass', q: 1, delay: d, end: 3000 }));
+    },
+    explode()   { this.shipBoom(2); },
+    // Boss patlaması: uzun, katmanlı
+    bigBoom()   { noise({ dur: 1.3, vol: 0.45, freq: 900, end: 50 }); tone({ type: 'sine', f: 110, f2: 28, dur: 1.1, vol: 0.35 });
+                  [0.15, 0.35, 0.6, 0.85].forEach(d => { noise({ dur: 0.3, vol: 0.2, freq: 1400, delay: d, end: 100 }); }); },
+    // Meteor geçişi: hışırtı
+    whoosh()    { noise({ dur: 0.7, vol: 0.12, freq: 300, type: 'bandpass', q: 0.7, end: 3000 }); },
     hurt()      { tone({ type: 'sawtooth', f: 320, f2: 60, dur: 0.35, vol: 0.18 }); noise({ dur: 0.25, vol: 0.2, freq: 2500 }); },
     shield()    { tone({ type: 'sine', f: 900, f2: 1400, dur: 0.12, vol: 0.08 }); },
     powerup()   { [523, 659, 784, 1047].forEach((f, i) => tone({ type: 'triangle', f, dur: 0.1, vol: 0.12, delay: i * 0.055 })); },
     bomb()      { noise({ dur: 0.9, vol: 0.4, freq: 3000 }); tone({ type: 'sine', f: 200, f2: 40, dur: 0.7, vol: 0.3 }); },
+    // Patlayıcı kaya: derin gümbürtü + cızırtılı kuyruk
+    blast()     { noise({ dur: 0.8, vol: 0.38, freq: 1200, end: 60 }); tone({ type: 'sine', f: 90, f2: 30, dur: 0.6, vol: 0.32 });
+                  noise({ dur: 0.9, vol: 0.06, freq: 6000, type: 'highpass', q: 0.5, delay: 0.1, end: 2500 }); },
     swipe()     { tone({ type: 'sine', f: 420, f2: 700, dur: 0.06, vol: 0.03 }); },
     crystal()   { tone({ type: 'triangle', f: 1500, f2: 2100, dur: 0.07, vol: 0.05 }); },
     click()     { tone({ type: 'square', f: 660, f2: 990, dur: 0.05, vol: 0.05 }); },
@@ -477,7 +509,8 @@ let floatTexts = [];
 const BLAST_R = 150; // patlayıcı kaya etki yarıçapı (yan şeride yetişir)
 
 // Zorluk: tüm parametreler frameCount'tan türetilir (smooth, ayrık wave yok)
-function gameSec()  { return frameCount / 60; }
+let playFrames = 0; // dalga / bölüm zamanı — animasyonlar için frameCount, oyun mantığı için bu
+function gameSec()  { return playFrames / 60; }
 function getWave()  { return Math.floor(gameSec() / 14) + 1; } // her 14s bir dalga
 
 // Spawn aralığı: 80 frame → 36 frame, 160 saniyede lineer düşer
@@ -911,7 +944,7 @@ function startLevel(level) {
   currentZone = Math.ceil(level / 5);
   lives = 3;
   spawnTimer = 0;
-  frameCount     = (level - 1) * 4200;
+  playFrames     = (level - 1) * 4200;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; powerups = [];
   asteroids = []; asteroidSpawnTimer = 0;
@@ -1182,12 +1215,12 @@ function bulletHitsRock(b, a) {
 }
 // Kaya yok edildi: kombo puanı, kristal, parçalanma, patlama
 function destroyRock(a, frags, blasts) {
-  Sound.sfx.explode();
+  if (a.type !== 'explosive') Sound.sfx.rockCrack(a.size);
   spawnExplosion(a.x, a.y, a.size > 22);
   if (currentZone === 2 && !a.meteor) dropCrystals(a.x, a.y, a.isFragment ? 1 : a.size > 24 ? 3 : 2);
   if (a.type === 'explosive') {
     blasts.push({ x: a.x, y: a.y });
-    Sound.sfx.bomb();
+    Sound.sfx.blast();
     for (let i = 0; i < 6; i++) spawnExplosion(a.x + Math.cos(i) * 50, a.y + Math.sin(i) * 50, true);
     explosions.push({ x: a.x, y: a.y, vx: 0, vy: 0, life: 1, decay: 0.06, r: BLAST_R, color: 'rgba(255,120,40,0.25)', isBombFlash: true });
   }
@@ -1781,6 +1814,17 @@ function drawShip(x, y) {
     ctx.beginPath();
     ctx.arc(0, 0, 62, 0, Math.PI * 2);
     ctx.fill();
+    // parlak dış kenar + yavaş dönen altıgen ızgara
+    ctx.strokeStyle = `rgba(150,230,255,${0.85 * shieldAlpha})`; ctx.lineWidth = 2;
+    ctx.shadowColor = '#4fc8ff'; ctx.shadowBlur = 14;
+    ctx.beginPath(); ctx.arc(0, 0, 60, 0, Math.PI * 2); ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.save(); ctx.rotate(frameCount * 0.01);
+    ctx.strokeStyle = `rgba(150,230,255,${0.22 * shieldAlpha})`; ctx.lineWidth = 1;
+    for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; ngonPath(Math.cos(a) * 44, Math.sin(a) * 44, 11, 6, 0); ctx.stroke(); }
+    ctx.restore();
+    // son 1.5 saniyede yanıp söner: bitmek üzere
+    if (player.shieldTimer < 90 && Math.floor(player.shieldTimer / 8) % 2 === 0) { ctx.fillStyle = 'rgba(150,230,255,0.12)'; ctx.beginPath(); ctx.arc(0, 0, 60, 0, Math.PI * 2); ctx.fill(); }
   }
 
   ctx.globalAlpha = 1;
@@ -2142,26 +2186,45 @@ function drawPowerup(p) {
   ctx.save();
   ctx.translate(p.x, p.y + bob);
 
-  // Altıgen rozet: koyu dolgu + parlayan kenar
+  // Parlak rozet: geniş ışık halesi, nabız gibi atan altıgen, dönen kesikli dış halka, ışıltı
+  const pulse = 0.5 + 0.5 * Math.sin(p.bobTimer * 0.12);
   const glow = POWERUP_GLOW[p.type];
-  const grd = ctx.createRadialGradient(0, 0, 4, 0, 0, 26);
+  const grd = ctx.createRadialGradient(0, 0, 6, 0, 0, 38);
   grd.addColorStop(0, glow[0]);
   grd.addColorStop(1, glow[1]);
   ctx.fillStyle = grd;
-  ctx.globalAlpha = 0.6;
-  ctx.beginPath(); ctx.arc(0, 0, 26, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 0.7 + 0.3 * pulse;
+  ctx.beginPath(); ctx.arc(0, 0, 38, 0, Math.PI * 2); ctx.fill();
   ctx.globalAlpha = 1;
-  ngonPath(0, 0, 19, 6, -Math.PI / 2);
-  ctx.fillStyle = 'rgba(6,14,30,0.85)'; ctx.fill();
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 12;
+  // dönen kesikli halka
+  ctx.save(); ctx.rotate(p.bobTimer * 0.03);
+  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.setLineDash([6, 7]); ctx.globalAlpha = 0.8;
+  ctx.beginPath(); ctx.arc(0, 0, 29, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+  // altıgen gövde: renkli iç dolgu + parlak kenar
+  const sc = 1 + 0.06 * pulse;
+  ctx.scale(sc, sc);
+  ngonPath(0, 0, 22, 6, -Math.PI / 2);
+  const ig = ctx.createRadialGradient(0, -6, 2, 0, 0, 24);
+  ig.addColorStop(0, color + '66'); ig.addColorStop(1, 'rgba(6,14,30,0.92)');
+  ctx.fillStyle = ig; ctx.fill();
+  ctx.strokeStyle = color; ctx.lineWidth = 2.6;
+  ctx.shadowColor = color; ctx.shadowBlur = 18 + 10 * pulse;
   ctx.stroke();
   ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1;
+  ngonPath(0, 0, 17, 6, -Math.PI / 2); ctx.stroke();
 
-  // İkon
-  drawPowerupIcon(p.type, 10);
+  // İkon (daha büyük, beyaz parıltılı)
+  ctx.shadowColor = '#fff'; ctx.shadowBlur = 6;
+  drawPowerupIcon(p.type, 12);
+  ctx.shadowBlur = 0;
+  // köşede küçük ışıltı
+  const tw = (p.bobTimer % 60) / 60;
+  ctx.globalAlpha = Math.sin(tw * Math.PI);
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.moveTo(16, -20); ctx.lineTo(18, -16); ctx.lineTo(22, -14); ctx.lineTo(18, -12); ctx.lineTo(16, -8); ctx.lineTo(14, -12); ctx.lineTo(10, -14); ctx.lineTo(14, -16); ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 1;
 
   ctx.restore();
 }
@@ -2804,7 +2867,7 @@ function drawPause() {
   ctx.restore();
   PAUSE_BTNS.forEach((b, i) => drawButton(
     b.act === 'music' ? { ...b, label: Sound.musicOn ? 'MUSIC: ON' : 'MUSIC: OFF' } :
-    b.act === 'sfx'   ? { ...b, label: Sound.sfxOn ? 'EFFECTS: ON' : 'EFFECTS: OFF' } : b, i === 0));
+    b.act === 'sfx'   ? { ...b, label: Sound.sfxOn ? 'SOUND EFFECTS: ON' : 'SOUND EFFECTS: OFF' } : b, i === 0));
 }
 
 // --- Bomb: patlat hepsini ---
@@ -2910,6 +2973,7 @@ function update() {
     return;
   }
   levelPlayT++;
+  playFrames++;
   tipPlan.forEach(tp => { if (levelPlayT === tp.at) showToast(tp.text); });
   if (toasts.length && ++toasts[0].t >= toasts[0].dur) toasts.shift();
   if (hurtFx > 0) hurtFx--;
@@ -3219,7 +3283,7 @@ function update() {
         spawnAsteroid('normal', LANE_CENTERS[L.lane], -30, 15 + Math.random() * 5);
         const m = asteroids[asteroids.length - 1];
         m.speed = 10; m.rotSpeed = 0.2; m.meteor = true;
-        if (L.t - L.warn === 1) Sound.sfx.explode();
+        if (L.t - L.warn === 1) Sound.sfx.whoosh();
       }
       return L.t <= L.warn + L.fire;
     }
@@ -3427,7 +3491,7 @@ function update() {
     if (p.y > H + 20) return false;
 
     // Oyuncu topladı mı?
-    if (Math.abs(p.x - player.x) < 28 && Math.abs(p.y - player.y) < 34) {
+    if (Math.abs(p.x - player.x) < 32 && Math.abs(p.y - player.y) < 38) {
       if (p.type === 'shield') {
         player.shieldTimer = POWERUP_DURATION;
       } else if (p.type === 'triple') {
@@ -3532,13 +3596,13 @@ function update() {
     // Bullet hits (görünmez hayaletten mermi geçer)
     if (!cloaked) bullets = bullets.filter(b => {
       const sc  = ENEMY_TIER[e.maxHp].sc;
-      const hit = Math.abs(b.x - e.x) < 25 * sc && Math.abs(b.y - e.y) < 30 * sc;
+      const hit = Math.abs(b.x - e.x) < 24 * sc && Math.abs(b.y - e.y) < 29 * sc;
       if (hit) {
         e.hp--;
         e.flash = 14;
         if (e.hp <= 0) {
           spawnExplosion(e.x, e.y, true);
-          Sound.sfx.explode();
+          Sound.sfx.shipBoom(e.maxHp);
                 spawnPowerup(e.x, e.y);
         } else {
           spawnExplosion(e.x, e.y, false);
