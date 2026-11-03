@@ -1,4 +1,4 @@
-const CACHE = 'space-shooter-v6';
+const CACHE = 'space-shooter-v7';
 const ASSETS = ['./index.html', './manifest.json', './ASSETS/spaceship.png', './ASSETS/enemy1.png', './ASSETS/enemy2.png', './ASSETS/enemy3.png', './ASSETS/boss.png', './icon-192.png', './icon-512.png', './ASSETS/cards/deep-space.jpg', './ASSETS/cards/asteroid-belt.jpg', './ASSETS/cards/nebula.jpg', './ASSETS/cards/black-hole.jpg', './ASSETS/backgrounds/deep-space.jpg', './ASSETS/backgrounds/asteroid-belt.jpg', './ASSETS/backgrounds/nebula.jpg', './ASSETS/backgrounds/black-hole.jpg', './ASSETS/rocks/rock-small-1.png', './ASSETS/rocks/rock-small-2.png', './ASSETS/rocks/rock-small-3.png', './ASSETS/rocks/rock-medium-1.png', './ASSETS/rocks/rock-medium-2.png', './ASSETS/rocks/rock-medium-3.png', './ASSETS/rocks/rock-large-1.png', './ASSETS/rocks/rock-large-2.png', './ASSETS/rocks/rock-large-3.png'];
 
 self.addEventListener('install', e => {
