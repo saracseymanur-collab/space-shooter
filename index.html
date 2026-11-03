@@ -470,7 +470,11 @@ function loadLevelStates() {
   s[0] = 'unlocked';
   return s;
 }
+// DEV / test modunda bölümler geçici olarak açıktır: o sırada ilerleme kaydedilmez
+// (yoksa "hepsi açık" listesi kalıcı ilerleme sanılıyordu)
+const progressSavingOff = () => devMode || TEST_MODE;
 function saveLevelStates() {
+  if (progressSavingOff()) return;
   try { localStorage.setItem('ss_levels', JSON.stringify(levelStates)); } catch(e) {}
 }
 function loadZoneUnlocked() {
@@ -481,6 +485,7 @@ function loadZoneUnlocked() {
   return [false, true, true, true]; // true = locked
 }
 function saveZoneStates() {
+  if (progressSavingOff()) return;
   try { localStorage.setItem('ss_zones', JSON.stringify(MENU_CARDS.map(c => c.locked))); } catch(e) {}
 }
 let levelStates = loadLevelStates();
@@ -880,6 +885,10 @@ canvas.addEventListener('click', e => {
     if (mx > W - 52 && my > H - 36) {
       devMode = !devMode;
       levelStates = devMode ? levelStates.map(() => 'unlocked') : loadLevelStates();
+      if (!devMode) { // kayıtlı ilerlemeye dön (DEV sırasında açılan bölge kartları kilitlensin)
+        const zl = loadZoneUnlocked();
+        MENU_CARDS.forEach((c, i) => { c.locked = zl[i] && !(i > 0 && levelStates[i * 5] !== 'locked'); });
+      }
       return;
     }
     // OYNA butonu (merkez kart, kilitli değilse)
@@ -2690,11 +2699,8 @@ function drawHUD() {
   ctx.strokeStyle = HUD_COL; ctx.lineWidth = 1.5; ctx.stroke();
   ctx.fillStyle = '#e6f6ff'; ctx.fillRect(23, TOP_Y - 7, 4, 14); ctx.fillRect(31, TOP_Y - 7, 4, 14);
 
-  // Canlar: sağ üstte üç kalp — çerçevesiz, sadece altta ince bir çizgi
+  // Canlar: sağ üstte üç kalp
   for (let k = 0; k < 3; k++) drawHeart(W - 70 + k * 24, TOP_Y + 1, 8.5, k < lives);
-  ctx.strokeStyle = HUD_COL; ctx.globalAlpha = 0.35; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(W - 86, TOP_Y + TOP_H / 2); ctx.lineTo(W - 14, TOP_Y + TOP_H / 2); ctx.stroke();
-  ctx.globalAlpha = 1;
 
   // Ortada dalga ilerlemesi: etiket + eğik segmentler
   if (!boss) {
@@ -3243,7 +3249,7 @@ function update() {
             }
           }
           if (currentLevel === LEVEL_COUNT) {
-            try { localStorage.setItem('ss_complete', '1'); } catch(e) {}
+            if (!progressSavingOff()) try { localStorage.setItem('ss_complete', '1'); } catch(e) {}
           }
           lasers = []; eBullets = [];
           saveLevelStates();
