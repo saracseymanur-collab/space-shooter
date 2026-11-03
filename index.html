@@ -3863,8 +3863,12 @@ function drawMenu() {
 
     // "SECTOR 0X" etiketi
     ctx.textBaseline = 'middle';
+    ctx.fillStyle = locked ? col : '#ffffff';
+    if (!locked) { ctx.shadowColor = col; ctx.shadowBlur = 10; }
+    drawSpaced('SECTOR', cx + 30, CY + 25, 13, 700, UI_FONT, 2.5, null, 'left');
     ctx.fillStyle = col;
-    drawSpaced(`SECTOR 0${i + 1}`, cx + 34, CY + 25, 12, 600, MONO_FONT, 2.5, null, 'left');
+    drawSpaced(`0${i + 1}`, cx + 122, CY + 25, 15, 700, UI_FONT, 2, null, 'left');
+    ctx.shadowBlur = 0;
 
     // İsim + alt başlık
     ctx.fillStyle = locked ? '#6a7090' : '#f2f8ff';
@@ -3876,10 +3880,12 @@ function drawMenu() {
     const bx = cx + CW / 2 - CARD_PLAY.w / 2, by = CY + CARD_PLAY.dy;
     chamferPath(bx, by, CARD_PLAY.w, CARD_PLAY.h, 14);
     const pg = ctx.createLinearGradient(0, by, 0, by + CARD_PLAY.h);
-    pg.addColorStop(0, locked ? '#0b0e1c' : '#0c3a48'); pg.addColorStop(1, locked ? '#080a14' : '#06202c');
+    if (locked) { pg.addColorStop(0, '#0b0e1c'); pg.addColorStop(1, '#080a14'); }
+    else { pg.addColorStop(0, col + '55'); pg.addColorStop(1, col + '18'); } // bölge renginde dolgu
+    ctx.fillStyle = '#060a18'; ctx.fill();
     ctx.fillStyle = pg; ctx.fill();
-    ctx.strokeStyle = locked ? '#3a3f5c' : '#3fe0f0'; ctx.lineWidth = 2;
-    if (!locked && i === menuIdx) { ctx.shadowColor = '#3fe0f0'; ctx.shadowBlur = 12; }
+    ctx.strokeStyle = locked ? '#3a3f5c' : col; ctx.lineWidth = 2;
+    if (!locked && i === menuIdx) { ctx.shadowColor = col; ctx.shadowBlur = 14; }
     ctx.stroke(); ctx.shadowBlur = 0;
     ctx.fillStyle = locked ? '#59607f' : '#eafcff';
     if (locked) {
