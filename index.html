@@ -2089,7 +2089,21 @@ function drawBoss(b) {
 
 // --- Draw: Enemy Bullet ---
 // Gradient ve shadowBlur yerine katmanlı circle — çok daha hızlı
+// Düşman mermisi görseli (ASSETS/shots) — parıltı kodla eklenir; yüklenmezse eski çizim
+const eShotImg = new Image(); eShotImg.src = 'ASSETS/shots/enemy-shot.png';
+const eShotReady = () => eShotImg.complete && eShotImg.naturalWidth > 0;
+function drawShotSprite(x, y, h, vx = 0, vy = 1) {
+  const w = h * eShotImg.naturalWidth / eShotImg.naturalHeight;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = 'rgba(255,34,68,0.2)'; ctx.beginPath(); ctx.arc(0, 0, h * 0.42, 0, Math.PI * 2); ctx.fill();
+  ctx.rotate(-Math.atan2(vx, vy)); // uç hareket yönüne baksın (eğri mermiler)
+  ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 10;
+  ctx.drawImage(eShotImg, -w / 2, -h / 2, w, h);
+  ctx.restore();
+}
 function drawEBullet(b) {
+  if (!b.big && eShotReady()) { drawShotSprite(b.x, b.y, b.fromBoss ? 46 : 40, b.vx || 0, b.vy || 1); return; }
   ctx.save();
   ctx.translate(b.x, b.y);
 
@@ -2430,6 +2444,7 @@ function briefRock(type, x, y, size) {
   ctx.drawImage(spr, x - spr.width * k / 2, y - spr.height * k / 2, spr.width * k, spr.height * k);
 }
 function briefShot(x, y) {
+  if (eShotReady()) { drawShotSprite(x, y, 26); return; }
   ctx.fillStyle = 'rgba(12,0,4,0.85)'; ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#ff2244'; ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#ffb347'; ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI * 2); ctx.fill();
