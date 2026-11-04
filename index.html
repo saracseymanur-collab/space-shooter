@@ -606,7 +606,7 @@ function getLevelConfig() {
     for (const k of ['fireMul', 'diver', 'formation', 'gunner']) if (t[k] != null) o[k] = t[k];
   }
   o.interval *= WAVE_DENSITY;
-  for (const k of ['gunner', 'hunter', 'link', 'snake', 'sweeper']) if (o[k]) o[k] = Math.round(o[k] * WAVE_DENSITY);
+  for (const k of ['gunner', 'hunter', 'link', 'snake', 'sweeper', 'burster']) if (o[k]) o[k] = Math.round(o[k] * WAVE_DENSITY);
   return o;
 }
 function baseLevelConfig() {
@@ -640,12 +640,12 @@ function baseLevelConfig() {
       stack: 150, splitter: 0.06, rammer: 0.28,
       canShoot: true, zigzag: false, fireMul: 1.2,
     };
-    case 4: return { // Sweeper: kalkanlı taret iki şeridi kayan lazerle süpürür → güvenli üçüncü şeride geç
-      // yeni temel (hızlı iniş + şeritte üst üste) + L3'ün Rammer'ları ara sıra
-      interval: 82, doubleChance: 0.3,
-      speed: () => 3.2 + Math.random() * 0.4,
+    case 4: return { // Burster: mor gemi üstte durur, burnu parlar → şeridine hızlı 5'li seri → ~1.5 sn dinlenir (vurma anı)
+      // yeni temel (hızlı iniş + şeritte üst üste) + L2'nin bölünen düşmanları ara sıra (Rammer yok: kaçışsız an olmasın)
+      interval: 80, doubleChance: 0.3,
+      speed: () => 3.1 + Math.random() * 0.4,
       hp: () => Math.random() < 0.45 ? 2 : 1,
-      stack: 150, rammer: 0.08, sweeper: 600,
+      stack: 150, splitter: 0.08, burster: 380,
       canShoot: true, zigzag: false, fireMul: 1.4,
     };
     case 5: return { // boss öncesi 4 dalga: sektörün kısa tekrarı (hafif) — asıl sınav boss
@@ -1065,7 +1065,7 @@ function startLevel(level) {
   asteroids = []; asteroidSpawnTimer = 0;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
-  countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
+  countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
   briefing = !!LEVEL_BRIEFS[level];
   // Zone 3: sis bulutları ekranı baştan kaplasın
   const _cfg = getLevelConfig();
@@ -1345,6 +1345,21 @@ function getSweeperSprite() {
   }
   return sweeperSprite;
 }
+// Burster: mor gemi (Sweeper görseli). Üste iner; burun parlar (uyarı) → şeridine 6 karede bir 5 hızlı mermi →
+// ~1.4 sn dinlenir → tekrar. Kalkansız ama dayanıklı (zırh 1.8). Mermileri pushShot'tan geçer (kaçış yolu garantisi).
+let burstT = 0;
+function spawnBurster() {
+  const free = [0, 1, 2].filter(l => !enemies.some(e => (e.burster && e.lane === l) || (e.lane === l && e.y < 120)));
+  if (!free.length) return false;
+  const lane = free[Math.floor(Math.random() * free.length)];
+  enemies.push({
+    lane, x: LANE_CENTERS[lane], y: -60, w: 38, h: 44, hp: 3, maxHp: 3, speed: 3.0, flash: 0, armor: 1.8,
+    fireTimer: 0, fireRate: 999, canShoot: false, zigzag: false, zigzagPhase: 0, phantom: false,
+    cloakCfg: { vis: 90, inv: 40 }, cloakT: 0, alpha: 1, shiftAt: null, shiftTo: lane, curveShots: false, shift2: 0,
+    burster: true, bState: 'enter', bT: 0, bN: 0, hoverY: H * (0.13 + Math.random() * 0.08),
+  });
+  return true;
+}
 function spawnSweeper() {
   const pairs = [[0, 1], [1, 0], [1, 2], [2, 1]], pr = pairs[Math.floor(Math.random() * pairs.length)];
   enemies.push({
@@ -1590,8 +1605,8 @@ function spawnExplosion(x, y, big) {
 // gemi renginde şok halkası + kısa parlama + aynı renkte kıvılcımlar
 function spawnShipDeath(e) {
   const tier = e.runner ? 1 : e.maxHp, sz = ENEMY_SIZES[tier] ?? { w: 80, h: 60 };
-  const col = e.runner ? '#ffffff' : e.splitter ? '#ff8a2a' : e.spreader ? SPREAD_COL : e.seg ? SNAKE_COL : e.rammer ? RAM_COL : e.sweeper ? SWEEP_COL : ENEMY_GLOW[tier] || '#ff8a40';
-  const spr = e.runner ? getRunnerSprite() : e.splitter ? getSplitterSprite() : e.spreader ? getSpreaderSprite() : e.seg ? getSnakeSprite() : e.rammer ? getRammerSprite() : getNeonSprite(enemyImgs[tier], tier);
+  const col = e.runner ? '#ffffff' : e.splitter ? '#ff8a2a' : e.spreader ? SPREAD_COL : e.seg ? SNAKE_COL : e.rammer ? RAM_COL : (e.sweeper || e.burster) ? SWEEP_COL : ENEMY_GLOW[tier] || '#ff8a40';
+  const spr = e.runner ? getRunnerSprite() : e.splitter ? getSplitterSprite() : e.spreader ? getSpreaderSprite() : e.seg ? getSnakeSprite() : e.rammer ? getRammerSprite() : e.burster ? getSweeperSprite() : getNeonSprite(enemyImgs[tier], tier);
   if (e.guarding) { e.guarding.guardedBy = null; e.guarding.shieldHit = 12; e.guarding = null; } // bağ koptu
   if (e.runner && e.drop) powerups.push({ type: e.drop, x: e.x, y: e.y, speed: 1.8, bobTimer: 0 });
   // Bölümün son düşmanı: kısa ağır çekim (dramatik bitiş)
@@ -2547,7 +2562,7 @@ function drawEnemy(e) {
       }
     } else {
       ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 9; // renkli parıltı yok: canlı renk yeterli, siyah gölge zeminden ayırır
-      ctx.drawImage((e.splitter && getSplitterSprite()) || (e.spreader && getSpreaderSprite()) || (e.rammer && getRammerSprite()) || (e.sweeper && getSweeperSprite()) || getNeonSprite(img, e.maxHp) || img, -dw / 2, -dh / 2, dw, dh);
+      ctx.drawImage((e.splitter && getSplitterSprite()) || (e.spreader && getSpreaderSprite()) || (e.rammer && getRammerSprite()) || ((e.sweeper || e.burster) && getSweeperSprite()) || getNeonSprite(img, e.maxHp) || img, -dw / 2, -dh / 2, dw, dh);
       if (e.splitter) { // ortada parlayan çatlak: "ikiye ayrılacak"
         ctx.shadowBlur = 0; ctx.strokeStyle = `rgba(255,240,220,${0.55 + 0.35 * Math.sin(frameCount * 0.3)})`; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(0, -dh * 0.42); ctx.lineTo(-3, -dh * 0.15); ctx.lineTo(3, dh * 0.05); ctx.lineTo(-2, dh * 0.3); ctx.lineTo(0, dh * 0.45); ctx.stroke();
@@ -2558,6 +2573,12 @@ function drawEnemy(e) {
         if (wsp) { ctx.globalAlpha = baseAlpha * (e.flash - 8) / 6; ctx.drawImage(wsp, -dw / 2, -dh / 2, dw, dh); ctx.globalAlpha = baseAlpha; }
       }
     }
+  }
+  if (e.burster && (e.bState === 'charge' || e.bState === 'burst')) { // burun parlar: seri geliyor / sürüyor
+    const k = e.bState === 'charge' ? 1 - e.bT / 26 : 1;
+    ctx.fillStyle = `rgba(255,34,68,${0.06 + 0.1 * k})`; ctx.fillRect(-30, dh / 2, 60, H - e.y);
+    ctx.fillStyle = `rgba(255,34,68,${0.5 + 0.5 * k})`; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 14;
+    ctx.beginPath(); ctx.arc(0, dh / 2 - 2, 4 + 7 * k, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
   }
   if (e.sweeper && e.sState === 'warn') { // süpürülecek iki şerit: kırmızı bant, başlangıç şeridi daha parlak
     const blink = Math.floor(e.sT / 6) % 2 === 0, a = LANE_CENTERS[e.from] - e.x, b = LANE_CENTERS[e.to] - e.x;
@@ -3021,7 +3042,7 @@ const LEVEL_BRIEFS = [
   { title: 'SWIPE TO MOVE',   vis: 'swipe',     line: 'Swipe left or right to change lanes.', tips: ['Your ship fires automatically.', 'Red shots cost a life. Dodge them!', "Don't let enemies reach the bottom!"] },
   { title: 'SPLITTERS',       vis: 'split',     line: 'Orange ships split in two when hit. Catch the fast halves!', tips: ['The halves dart into the side lanes.', "Don't let them reach the bottom!", 'A blue shield blocks hits for a few seconds.'] },
   { title: 'RAMMERS',         vis: 'ram',       line: 'Red ships mark your lane, then ram straight down. Dodge!', tips: ['Watch for the flashing lane.', 'Its shield blocks your shots. Just get out of the way!', 'Orange splitters are back. Catch the halves!'] },
-  { title: 'SWEEPERS',        vis: 'sweep',     line: 'A turret sweeps a laser across two lanes and back. Get to the safe side!', tips: ['The red band shows the lanes it will sweep.', 'Its shield blocks your shots.', 'Rammers are back. Dodge!'] },
+  { title: 'BURSTERS',        vis: 'burst',     line: 'Violet ships fire a rapid burst, then rest. Hit them between bursts!', tips: ['A glowing nose means a burst is coming.', 'Orange splitters are back. Catch the halves!'] },
   { title: 'VOID VANGUARD',   vis: 'boss',      line: 'Survive the waves, then defeat the boss.', tips: ['Phase 1: two cannons charge. Hide in the gap.', 'Phase 2: it locks on your lane. Slip out!', 'Phase 3: shoot its shield drones first.'] },
   { title: 'CRYSTAL MINING',  vis: 'crystal',   line: 'Shoot rocks, collect crystals, fill the bar for Overdrive!', tips: ["You don't have to destroy every rock.", 'Survive 5 waves to clear the level.'] },
   { title: 'AMBUSH',          vis: 'ambush',    line: 'Enemies hide behind grey iron rocks.', tips: ["Iron rocks can't be destroyed and block shots.", 'Wait for the enemy to come out.'] },
@@ -3145,6 +3166,17 @@ function drawBriefVisual(kind, cx, cy, zc) {
       briefShot(cx, sy);
       const px = cx + 70 * Math.min(1, Math.max(0, (sy - cy + 6) / 20));
       if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, px - 20, cy + 16, 40, 40);
+      break;
+    }
+    case 'burst': {
+      // mor gemi: burun parlar → şeride hızlı 5 mermi → gemi kenarda bekler → dinlenmede şeride girip vurur
+      const P = 160, k = frameCount % P, by = cy - 30, spr = getSweeperSprite(), sz = ENEMY_SIZES[3];
+      if (spr) ctx.drawImage(spr, cx - sz.w * 0.2, by - sz.h * 0.2, sz.w * 0.4, sz.h * 0.4);
+      if (k < 20) { ctx.fillStyle = `rgba(255,34,68,${0.5 + k / 40})`; ctx.beginPath(); ctx.arc(cx, by + 14, 2 + k * 0.25, 0, Math.PI * 2); ctx.fill(); }
+      for (let j = 0; j < 5; j++) { const t0 = 20 + j * 6; if (k >= t0 && k < t0 + 40) briefShot(cx, by + 16 + (k - t0) * 1.8); }
+      const shipX = k < 70 ? cx + 70 : k < 82 ? cx + 70 - 70 * ((k - 70) / 12) : cx;
+      if (k > 90 && k < 150) { ctx.fillStyle = '#9fe8ff'; for (let j = 0; j < 2; j++) ctx.fillRect(cx - 1.5, cy + 4 - ((k * 6 + j * 20) % 30), 3, 8); }
+      if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, shipX - 16, cy + 10, 32, 32);
       break;
     }
     case 'sweep': {
@@ -4419,6 +4451,7 @@ function update() {
     }
     if (cfg && cfg.snake && ++snakeT >= cfg.snake && !snakes.length) { snakeT = 0; spawnSnake(); }
     if (cfg && cfg.sweeper && ++sweepT >= cfg.sweeper && !enemies.some(e => e.sweeper)) { sweepT = 0; spawnSweeper(); }
+    if (cfg && cfg.burster && ++burstT >= cfg.burster && enemies.filter(e => e.burster).length < 2 && spawnBurster()) burstT = 0;
     if (cfg && cfg.link && ++linkT >= cfg.link && !enemies.some(e => e.guarding) && spawnLinkPair()) linkT = 0;
     const lw = getWave() - (currentLevel - 1) * 5;
     if (lw === 3 && !runnerDone && (Math.random() < 1 / 360 || getWave() * WAVE_SEC - gameSec() < 2)) runnerDone = spawnRunner();
@@ -4538,6 +4571,17 @@ function update() {
       }
     }
     if (!e.gunner && e.shieldHit > 0) e.shieldHit--;
+    if (e.burster) {
+      if (e.bState === 'enter') { if (e.y >= e.hoverY) { e.y = e.hoverY; e.bState = 'charge'; e.bT = 26; } }
+      else {
+        e.y -= e.speed; // yerinde durur
+        if (e.bState === 'charge') { if (--e.bT <= 0) { e.bState = 'burst'; e.bT = 0; e.bN = 0; } }
+        else if (e.bState === 'burst') {
+          if (e.bT++ % 6 === 0) { pushShot({ x: e.x, y: e.y + 30, vx: 0, vy: 8, hp: 3, lane: e.lane, curve: false }); e.bN++; }
+          if (e.bN >= 5) { e.bState = 'rest'; e.bT = 84; }
+        } else if (--e.bT <= 0) { e.bState = 'charge'; e.bT = 26; }
+      }
+    }
     if (e.sweeper) {
       if (e.sState === 'enter') { if (e.y >= e.hoverY) { e.y = e.hoverY; e.sState = 'warn'; e.sT = 42; } }
       else if (e.sState === 'leave') { e.y -= e.speed + 7; if (e.y < -80) return false; } // yukarı çekilir (+ normal iniş telafisi)
@@ -4671,7 +4715,7 @@ function update() {
 
     // Reached player — kalkan varsa engelle (kalkan hasarı emer, ama bitmez)
     if (e.runner && e.y > H + 40) return false; // kargo kaçtı: sadece ödül kaçtı
-    if (e.y > H - 55 && !e.runner && !e.seg && !e.rammer && !e.sweeper) {
+    if (e.y > H - 55 && !e.runner && !e.seg && !e.rammer && !e.sweeper && !e.burster) {
       spawnShipDeath(e);
       damagePlayer('The enemy reached the ship!');
       return false;
