@@ -1605,11 +1605,11 @@ function updateRecoil() {
     // ── Ateş Koridoru ──
     case 'cwarn': // kısa uyarı: boss kızarır, üç şerit hafif kırmızı
       b.y += (home - b.y) * 0.1; // koridor öncesi hızla yukarı döner (okuma payı)
-      if (--b.rT <= 0) { b.rState = 'corridor'; b.cRows = b.final ? buildCorridor(40, [1, 1], 3, 0.6, 3) : buildCorridor(26, [1, 1], 3, 0.5, 3); /* yol her satırda kayar: seri sağ-sol, kısa */ b.cRow = 0; b.rT = 0; } break;
+      if (--b.rT <= 0) { b.rState = 'corridor'; b.cRows = b.final ? buildCorridor(40, [1, 1], 3, 0.7, 3) : buildCorridor(26, [1, 1], 3, 0.6, 3); /* yol her satırda kayar: seri sağ-sol, kısa */ b.cRow = 0; b.rT = 0; } break;
     case 'corridor':
       if (b.rT++ % 7 === 0) {
         const open = b.cRows[b.cRow++];
-        [0, 1, 2].forEach(l => { if (!open.includes(l)) eBullets.push({ x: LANE_CENTERS[l], y: b.y + 50, vx: 0, vy: 7, hp: 1, lane: l, curve: false }); });
+        [0, 1, 2].forEach(l => { if (!open.includes(l)) eBullets.push({ x: LANE_CENTERS[l], y: b.y + 50, vx: 0, vy: 7.5, hp: 1, lane: l, curve: false }); });
         if (b.cRow >= b.cRows.length) { b.rState = 'open'; b.rT = b.final ? 140 : 84; b.dropped = true; }
       } break;
     case 'dive':
@@ -1620,8 +1620,8 @@ function updateRecoil() {
       break;
     case 'slam': if (--b.rT <= 0) { b.rState = 'rise'; b.rT = 60; } break;
     case 'rise': // öfkeli: sadece ekranın yarısına kadar hızla yükselir (AÇIK), orada kısa durup hemen tekrar dalar
-      b.y += (H * 0.4 - b.y) * 0.14;
-      if (--b.rT <= 0 || b.y < H * 0.43) { b.dives++; toNext(); } break;
+      b.y += (H * 0.3 - b.y) * 0.14; // yarıdan biraz yukarı (kullanıcı: tam yarısı değil)
+      if (--b.rT <= 0 || b.y < H * 0.33) { b.dives++; toNext(); } break;
   }
   const wasShielded = b.shielded;
   b.shielded = !(b.rState === 'open' || b.rState === 'rise');
