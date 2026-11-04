@@ -38,7 +38,7 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 
 ## Son durum (2026-11-04, yeni sohbete geçerken)
 - **Sektör 1 oynanış olarak bitti, kullanıcı memnun** ("çok iyi oldu"). Sıradaki iş: **görsel geliştirmeler**.
-- Görsel iş listesi (öncelik sırası önerildi): 1) Rammer görseli (kullanıcı üretecek — Claude ölçü/stil verdi: diğer düşmanlarla aynı tarz, tepeden, burun aşağı, koçbaşı burun + ön zırh, kırmızı #ff2244, şeffaf ~512px, gölge/parıltı yok) 2) Kalkan görseli (boss metalik halkası beğenilmedi + diğer kalkanlıların kırmızı yayları) 3) Splitter / Burster / Kargo için özel sprite (şu an kodla boyanmış: `getSplitterSprite`, `getSweeperSprite`(Burster), `getRunnerSprite`) 4) Çift atış rozeti (küçükken ‖ gibi) 5) Claude: boss kenar şeride sıçrayınca gövdesi ekrandan taşıyor.
+- Görsel iş listesi (öncelik sırası önerildi): 1) Rammer görseli (kullanıcı üretecek — Claude ölçü/stil verdi: diğer düşmanlarla aynı tarz, tepeden, burun aşağı, koçbaşı burun + ön zırh, kırmızı #ff2244, şeffaf ~512px, gölge/parıltı yok) 2) Kalkan görseli (boss metalik halkası beğenilmedi + diğer kalkanlıların kırmızı yayları) 3) Splitter / Burster / Kargo için özel sprite (şu an kodla boyanmış: `getSplitterSprite`, `getSweeperSprite`(Burster), `getRunnerSprite`) 4) Çift atış rozeti (küçükken ‖ gibi) (Boss kenar şeritte ekrandan taşıyor — kullanıcı: sorun değil, kalsın.)
 - Sonraki büyük iş: sektör 2-4'ü sektör 1 gibi level level yeniden ele almak (yeni temel + hız + yeni mekanikler).
 
 ## Açık işler / geçmiş notlar

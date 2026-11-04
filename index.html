@@ -53,6 +53,9 @@ enemyImgs[3].src = 'ASSETS/enemy3.png';
 const bossImg = new Image();
 bossImg.src = 'ASSETS/boss.png';
 const BOSS_W = 190, BOSS_H = 127; // 1536×1024 oranında
+const bossShieldImg = new Image();
+bossShieldImg.src = 'ASSETS/shields/boss-shield.png'; // sektör 1 boss kalkanı (512×342, boss silüetinde)
+const BOSS_SHIELD_W = 220, BOSS_SHIELD_H = 147;
 
 // Düşman görsel boyutları — gerçek en/boy oranına göre (sıkı kırpılmış assetler)
 // Şerit 130px: en büyük düşman şeridin ~%85'i (zikzakta komşu şeride taşmaz), küçükler okunur kalır
@@ -1630,11 +1633,12 @@ function updateRecoil() {
   const wasShielded = b.shielded;
   b.shielded = !(b.rState === 'open' || b.rState === 'rise');
   b.shieldK = b.shielded ? Math.min(1, (b.shieldK || 0) + 0.08) : 0; // geri gelirken büyüyerek belirir
-  if (wasShielded && !b.shielded) { // kalkan parçalanır: halka boyunca metal kıvılcımlar
+  if (wasShielded && !b.shielded) { // kalkan parçalanır: kenar boyunca kıvılcımlar
     for (let i = 0; i < 18; i++) {
       const a = i / 18 * Math.PI * 2, sp = 2 + Math.random() * 2.5;
-      explosions.push({ x: b.x + Math.cos(a) * 104, y: b.y + Math.sin(a) * 74, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
-        life: 1, decay: 0.035 + Math.random() * 0.02, r: 2 + Math.random() * 2, color: i % 3 ? '#cfdcf5' : '#ffffff' });
+      const bs = b.special ? 1.45 : 1;
+      explosions.push({ x: b.x + Math.cos(a) * 125 * bs, y: b.y + Math.sin(a) * 70 * bs, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: 1, decay: 0.035 + Math.random() * 0.02, r: 2 + Math.random() * 2, color: i % 3 ? '#d8d4ff' : '#ffffff' });
     }
     Sound.sfx.hit();
   }
@@ -1677,21 +1681,17 @@ function drawRecoilFx(layer) {
       g.addColorStop(0, `rgba(255,255,255,${0.25 + 0.2 * q})`); g.addColorStop(1, 'rgba(255,255,255,0)');
       ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(b.x, b.y, 95, 70, 0, 0, Math.PI * 2); ctx.fill();
     }
-  } else if (layer === 'top' && b.shieldK > 0.01) { // metalik kalkan: boss'u tamamen saran zırh halkası
-    const k = b.shieldK, rx = 104 * (0.8 + 0.2 * k), ry = 74 * (0.8 + 0.2 * k), hit = b.shieldHit > 0;
-    ctx.globalAlpha = k;
-    ctx.fillStyle = hit ? 'rgba(220,235,255,0.22)' : 'rgba(150,180,230,0.10)'; // hafif cam/enerji dolgusu
-    ctx.beginPath(); ctx.ellipse(b.x, b.y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
-    const grd = ctx.createLinearGradient(b.x - rx, b.y - ry, b.x + rx, b.y + ry); // çelik parlaklığı
-    grd.addColorStop(0, '#5f7396'); grd.addColorStop(0.3, '#e9f0ff'); grd.addColorStop(0.5, '#8ea3c6'); grd.addColorStop(0.75, '#f4f8ff'); grd.addColorStop(1, '#55688c');
-    ctx.strokeStyle = hit ? '#ffffff' : grd; ctx.lineWidth = hit ? 8 : 6;
-    ctx.setLineDash([30, 7]); ctx.lineDashOffset = -frameCount * 0.6; // zırh plakaları, yavaş döner
-    ctx.beginPath(); ctx.ellipse(b.x, b.y, rx, ry, 0, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
-    ctx.strokeStyle = 'rgba(20,30,50,0.55)'; ctx.lineWidth = 1.5; // iç kontur (kalın çizgi film dili)
-    ctx.beginPath(); ctx.ellipse(b.x, b.y, rx - 4, ry - 4, 0, 0, Math.PI * 2); ctx.stroke();
-    const a0 = frameCount * 0.04; // dönen parlama
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.ellipse(b.x, b.y, rx, ry, 0, a0, a0 + 0.5); ctx.stroke();
+  } else if (layer === 'top' && b.shieldK > 0.01) { // enerji kalkanı görseli: geminin üstüne, aynı merkezde
+    const k = b.shieldK, hit = b.shieldHit > 0, sc = (b.special ? 1.45 : 1) * (0.8 + 0.2 * k); // boss ile aynı ölçek
+    const w = BOSS_SHIELD_W * sc, h = BOSS_SHIELD_H * sc;
+    if (bossShieldImg.complete && bossShieldImg.naturalWidth > 0) {
+      ctx.globalAlpha = k * (0.85 + 0.15 * Math.sin(frameCount * 0.12)); // hafif nabız
+      ctx.drawImage(bossShieldImg, b.x - w / 2, b.y - h / 2, w, h);
+      if (hit) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.6; ctx.drawImage(bossShieldImg, b.x - w / 2, b.y - h / 2, w, h); }
+    } else { // görsel yüklenmediyse basit halka
+      ctx.globalAlpha = k; ctx.strokeStyle = hit ? '#ffffff' : '#c8c8ff'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.ellipse(b.x, b.y, w / 2, h / 2, 0, 0, Math.PI * 2); ctx.stroke();
+    }
   }
   ctx.restore();
 }
@@ -5577,7 +5577,7 @@ function loop(timestamp) {
 // Resim yüklenemezse (anlık ağ hatası) birkaç kez yeniden dene — yoksa tarayıcı onu kalıcı bozuk sayıyor
 // ve gemi gibi görseller sayfa yenilenene kadar görünmüyordu.
 (function retryBrokenImages() {
-  const all = [spaceshipImg, ...enemyImgs, bossImg, ...bgImgs, eShotImg, ...Object.values(powerupImgs), ...cardImgs,
+  const all = [spaceshipImg, ...enemyImgs, bossImg, bossShieldImg, ...bgImgs, eShotImg, ...Object.values(powerupImgs), ...cardImgs,
     ...Object.values(rockImgs).flat()].filter(Boolean);
   const retry = im => {
     im._tries = (im._tries || 0) + 1;
