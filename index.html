@@ -1583,9 +1583,9 @@ function updateRecoil() {
             canShoot: false, zigzag: false, zigzagPhase: 0, phantom: false, cloakCfg: { vis: 90, inv: 40 }, cloakT: 0, alpha: 1,
             shiftAt: null, shiftTo: lane, curveShots: false, shift2: 0, rammer: true, rState: 'fall', ramAt: b.y + 50 });
           b.rState = 'waitRam'; b.rT = 120;
-        } else if (ph === 1 && (b.chainN || 0) < 2) { // faz 1 zincirleme sıçrama: art arda 3 kez seri at → sıçra, sonra uzun açık
-          b.chainN = (b.chainN || 0) + 1; b.rState = 'charge'; b.rT = 14;
-        } else { b.chainN = 0; b.rState = 'open'; b.rT = ph === 1 ? 110 : 62; b.dropped = false; }
+        } else if (ph === 1 && (b.chainN || 0) < 2) { // faz 1 zincir: her sıçramadan sonra kısa açık, sonra yeni seri
+          b.chainN = (b.chainN || 0) + 1; b.rState = 'open'; b.rT = 34; b.dropped = true;
+        } else { b.chainN = 0; b.rState = 'open'; b.rT = ph === 1 ? 90 : 62; b.dropped = false; }
       } break;
     case 'waitRam': // Rammer dalıp gidene kadar boss sadece bekler (tek saldırı)
       if (--b.rT <= 0 || !enemies.some(e => e.rammer)) { b.rState = 'open'; b.rT = 66; b.dropped = false; } break;
@@ -1596,7 +1596,11 @@ function updateRecoil() {
           canShoot: false, zigzag: false, zigzagPhase: 0, phantom: false, cloakCfg: { vis: 90, inv: 40 }, cloakT: 0, alpha: 1,
           shiftAt: null, shiftTo: b.lane, curveShots: false, shift2: 0, splitter: true });
       }
-      if (--b.rT <= 0) { if (b.final) { b.rState = 'cwarn'; b.rT = 40; } else toNext(); } break; // son çarede açık bitince koridor tekrar
+      if (--b.rT <= 0) {
+        if (b.final) { b.rState = 'cwarn'; b.rT = 40; }
+        else if (ph === 1 && b.chainN > 0) { b.rState = 'charge'; b.rT = 14; } // zincir sürüyor
+        else toNext();
+      } break; // son çarede açık bitince koridor tekrar
     // ── Dev Dalış ──
     case 'dmark': { // işaret seni gecikmeyle takip eder
       const pl = playerLaneNow();
@@ -1607,7 +1611,7 @@ function updateRecoil() {
     // ── Ateş Koridoru ──
     case 'cwarn': // kısa uyarı: boss kızarır, üç şerit hafif kırmızı
       b.y += (home - b.y) * 0.1; // koridor öncesi hızla yukarı döner (okuma payı)
-      if (--b.rT <= 0) { b.rState = 'corridor'; b.cRows = b.final ? buildCorridor(40, [1, 1], 3, 0.7, 3) : buildCorridor(26, [1, 1], 3, 0.6, 3); /* yol her satırda kayar: seri sağ-sol, kısa */ b.cRow = 0; b.rT = 0; } break;
+      if (--b.rT <= 0) { b.rState = 'corridor'; b.cRows = b.final ? buildCorridor(56, [1, 1], 3, 0.7, 3) : buildCorridor(40, [1, 1], 3, 0.6, 3); /* yol her satırda kayar: seri sağ-sol, kısa */ b.cRow = 0; b.rT = 0; } break;
     case 'corridor':
       if (b.rT++ % 7 === 0) {
         const open = b.cRows[b.cRow++];
@@ -1779,7 +1783,7 @@ function spawnBoss(wave) {
   minionT = 0;
   const bossNum = Math.floor(wave / 5);
   const special = currentLevel % 5 === 0; // her bölgenin 5. bölümü
-  const BOSS_HP = { 5: 36, 10: 130, 15: 160, 20: 220 };
+  const BOSS_HP = { 5: 32, 10: 130, 15: 160, 20: 220 };
   const hp = BOSS_HP[currentLevel] ?? 25 + bossNum * 10;
   boss = {
     x: W / 2, y: currentZone === 1 ? -130 : special ? H * 0.14 : H * 0.13, // Void Vanguard yukarıdan kadraja süzülür
@@ -4294,7 +4298,7 @@ function update() {
   if (boss) {
     const ratio = boss.hp / boss.maxHp;
     const prevPhase = boss.phase || 1;
-    boss.phase = boss.zone === 1 ? (ratio > 0.88 ? 1 : ratio > 0.5 ? 2 : 3) : ratio > 0.6 ? 1 : ratio > 0.3 ? 2 : 3;
+    boss.phase = boss.zone === 1 ? (ratio > 0.91 ? 1 : ratio > 0.5 ? 2 : 3) : ratio > 0.6 ? 1 : ratio > 0.3 ? 2 : 3;
     if (boss.phase !== prevPhase) { boss.flash = 20; boss.fireTimer = 0; } // faz geçişinde flash
 
     // Yatay hareket hızı faza göre
