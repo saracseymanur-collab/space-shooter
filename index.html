@@ -1578,7 +1578,7 @@ function updateRecoil() {
     case 'dlock': if (--b.rT <= 0) { b.rState = 'dive'; } break;
     // ── Ateş Koridoru ──
     case 'cwarn': // kısa uyarı: boss kızarır, üç şerit hafif kırmızı
-      if (--b.rT <= 0) { b.rState = 'corridor'; b.cRows = b.final ? buildCorridor(48, [1, 2], 2, 0.5, 3) : buildCorridor(34, [1, 3], 2, 0.35, 3); /* tek kayma 2 satır ortak açık, iki şerit atlama 3'er */ b.cRow = 0; b.rT = 0; } break;
+      if (--b.rT <= 0) { b.rState = 'corridor'; b.cRows = b.final ? buildCorridor(48, [1, 2], 2, 0.5, 3) : buildCorridor(34, [1, 3], 3, 0.35, 3); /* 3. faz geçişleri geniş (3 satır), son çarede dar (2) */ b.cRow = 0; b.rT = 0; } break;
     case 'corridor':
       if (b.rT++ % 8 === 0) {
         const open = b.cRows[b.cRow++];
@@ -5488,12 +5488,15 @@ let _lastTime = 0;
 let _accum = 0;
 const _STEP = 1000 / 60;
 
+// Oynanış hızı: düşman, mermi, gemi kayması, dalga süreleri hep birlikte hızlanır (2026-11-04: kullanıcı
+// "yoğunluk yerine hızlandıralım" dedi). Bot kare kare çalıştığından etkisini react/GAME_SPEED ile taklit et.
+const GAME_SPEED = 1.2;
 function loop(timestamp) {
   requestAnimationFrame(loop);
   if (_lastTime === 0) { _lastTime = timestamp; }
   const delta = Math.min(timestamp - _lastTime, 100);
   _lastTime = timestamp;
-  _accum += delta;
+  _accum += delta * (state === 'play' && !briefing ? GAME_SPEED : 1); // oynanış hızı (menü/kart normal)
   while (_accum >= _STEP) {
     _slowFlip = !_slowFlip;
     if (!(slowMoT > 0 && _slowFlip)) update(); // ağır çekimde her ikinci adım atlanır
