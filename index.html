@@ -648,13 +648,16 @@ function baseLevelConfig() {
       stack: 150, splitter: 0.08, burster: 380,
       canShoot: true, zigzag: false, fireMul: 1.4,
     };
-    case 5: return { // boss öncesi 2 kısa dalga: yeni temel + bölünen düşmanlar — asıl sınav boss
-      interval: 76, doubleChance: 0.3,
-      speed: () => 3.1 + Math.random() * 0.4,
-      hp: () => Math.random() < 0.45 ? 2 : 1,
-      stack: 150, splitter: 0.1,
-      canShoot: true, zigzag: false, fireMul: 1.3,
-    };
+    case 5: { // boss öncesi 5 dalga = sektörün özeti: 1 normal · 2 Splitter · 3 Rammer (+kargo) · 4 Burster · 5 karışık
+      const lw = getWave() - (currentLevel - 1) * 5;
+      const base = { interval: 76, doubleChance: 0.3, speed: () => 3.1 + Math.random() * 0.4,
+        hp: () => Math.random() < 0.45 ? 2 : 1, stack: 150, canShoot: true, zigzag: false, fireMul: 1.3 };
+      if (lw === 2) return { ...base, splitter: 0.3 };
+      if (lw === 3) return { ...base, rammer: 0.25 };
+      if (lw === 4) return { ...base, burster: 300, fireMul: 1.4 };
+      if (lw >= 5) return { ...base, splitter: 0.15, burster: 380, fireMul: 1.4 }; // Rammer yok: kaçışsız an olmasın
+      return base;
+    }
     // ── Zone 2: Asteroid Belt — kayalarla birlikte daha seyrek düşman ──
     case 6: return { // kristal madenciliği + hafif düşmanlar
       interval: 115, doubleChance: 0,
@@ -1483,47 +1486,77 @@ function playerLaneNow() {
 
 
 // Boss zorluk ayarı: ateş/lazer/drone aralığı çarpanı (>1 = daha seyrek). Bot ölçümüyle ayarlanır.
-// Boss öncesi dalga sayısı (L5: 2 kısa dalga ≈ 20 sn; diğerleri 4)
-const BOSS_PRE_WAVES = { 5: 2 };
+// Boss öncesi dalga sayısı (L5: 5 dalga = sektörün özeti; diğerleri 4)
+const BOSS_PRE_WAVES = { 5: 5 };
 const bossPreWaves = () => BOSS_PRE_WAVES[currentLevel] ?? 4;
 const BOSS_FIRE_MUL = { 5: 0.8, 10: 0.8, 15: 1.8, 20: 1.9 };
 // Void Vanguard — "Geri Tepen": şeride oturur; burnu parlar (şarj) → şeridine 5'li seri → sıçrayacağı şerit
 // gösterilir → oyuncudan uzak komşu şeride sıçrar → ~2 sn KALKANSIZ (vurma anı) → tekrar. %50 canda nefes +
 // ekran temizliği, sonra aynı döngü daha hızlı (6'lı seri, kısa uyarılar). Her an tek saldırı.
 function updateRecoil() {
-  const b = boss, ph2 = b.phase === 2;
-  if (b.lane == null) { b.lane = 1; b.x = LANE_CENTERS[1]; b.rState = 'idle'; b.rT = 40; b.lastPhase = 1; }
-  if (b.phase !== b.lastPhase) { b.rState = 'breath'; b.rT = 70; b.chain = false; eBullets = []; b.flash = 24; b.lastPhase = b.phase; }
+  // Faz 1: Geri Tepen (şarj → 5'li seri → varış halkası → sıçra → açık)
+  // Faz 2: + sıçradıktan sonra bir Rammer fırlatır (kaç), açıkken önüne turuncu Splitter bırakır (boss mu, parçalar mı?)
+  // Faz 3: Dev Dalış (imza) — kırmızı işaret şeridinde seni takip eder → kilit → boss o şeride dibe dalar → çarpınca iki
+  //        yere çarpar (patlama + sarsıntı) → yavaşça yükselir (AÇIK). İki dalış, bir seri döngü, tekrar. Her an tek saldırı.
+  const b = boss, ph = b.phase, home = H * 0.14;
+  if (b.lane == null) { b.lane = 1; b.x = LANE_CENTERS[1]; b.rState = 'idle'; b.rT = 40; b.lastPhase = 1; b.dives = 0; }
+  if (ph !== b.lastPhase) { b.rState = 'breath'; b.rT = 70; b.dives = 0; eBullets = []; b.flash = 24; b.lastPhase = ph; }
   if (b.shieldHit > 0) b.shieldHit--;
-  b.x += (LANE_CENTERS[b.lane] - b.x) * (b.rState === 'jump' ? 0.32 : 0.2);
+  if (b.rState !== 'dive' && b.rState !== 'slam') b.x += (LANE_CENTERS[b.lane] - b.x) * (b.rState === 'jump' ? 0.32 : 0.2);
   if (bossWarn > 0) { b.shielded = true; return; } // giriş uyarısı
+  const toCharge = () => { b.rState = 'charge'; b.rT = ph === 1 ? 40 : 32; };
+  const toNext = () => { if (ph === 3 && b.dives < 2) { b.rState = 'dmark'; b.rT = 50; b.lag = 0; } else { b.dives = 0; toCharge(); } };
   switch (b.rState) {
-    case 'idle': case 'breath':
-      if (--b.rT <= 0) { b.rState = 'charge'; b.rT = ph2 ? 30 : 40; } break;
-    case 'charge':
-      if (--b.rT <= 0) { b.rState = 'burst'; b.rT = 0; b.rN = 0; } break;
-    case 'burst': {
-      const n = b.chain ? 3 : ph2 ? 6 : 5; // 2. fazdaki ara seri kısa
-      if (b.rT++ % (ph2 ? 6 : 7) === 0) { pushShot({ x: b.x, y: b.y + 50, vx: 0, vy: 9.5, hp: 3, lane: b.lane, curve: false, fromBoss: true }); b.rN++; }
-      if (b.rN >= n) { b.rState = 'tail'; b.rT = ph2 ? 8 : 14; } break;
-    }
+    case 'idle': case 'breath': if (--b.rT <= 0) toNext(); break;
+    case 'charge': if (--b.rT <= 0) { b.rState = 'burst'; b.rT = 0; b.rN = 0; } break;
+    case 'burst':
+      if (b.rT++ % 6 === 0) { pushShot({ x: b.x, y: b.y + 50, vx: 0, vy: 9.5, hp: 3, lane: b.lane, curve: false, fromBoss: true }); b.rN++; }
+      if (b.rN >= (ph === 1 ? 5 : 6)) { b.rState = 'tail'; b.rT = 12; } break;
     case 'tail': { // sıçrama yönü: ortadaysa oyuncudan uzak tarafa, kenardaysa ortaya
       if (--b.rT > 0) break;
       const pl = playerLaneNow();
       b.jumpTo = b.lane !== 1 ? 1 : pl === 0 ? 2 : pl === 2 ? 0 : (Math.random() < 0.5 ? 0 : 2);
-      b.rState = 'sign'; b.rT = ph2 ? 16 : 24; break;
+      b.rState = 'sign'; b.rT = ph === 1 ? 24 : 18; break;
     }
-    case 'sign':
-      if (--b.rT <= 0) { b.lane = b.jumpTo; b.rState = 'jump'; b.rT = 14; } break;
-    case 'jump': // 2. faz: ilk sıçrayıştan sonra kısa şarj + 3'lü seri + bir sıçrama daha, sonra açık
+    case 'sign': if (--b.rT <= 0) { b.lane = b.jumpTo; b.rState = 'jump'; b.rT = 14; } break;
+    case 'jump':
       if (--b.rT <= 0) {
-        if (ph2 && !b.chain) { b.chain = true; b.rState = 'charge'; b.rT = 22; }
-        else { b.chain = false; b.rState = 'open'; b.rT = ph2 ? 90 : 105; }
+        if (ph === 2) { // Rammer fırlat: oyuncunun şeridini işaretleyip dalar
+          const lane = b.lane;
+          enemies.push({ lane, x: b.x, y: b.y + 40, w: 38, h: 44, hp: 2, maxHp: 2, speed: 3.2, flash: 0, fireTimer: 0, fireRate: 999,
+            canShoot: false, zigzag: false, zigzagPhase: 0, phantom: false, cloakCfg: { vis: 90, inv: 40 }, cloakT: 0, alpha: 1,
+            shiftAt: null, shiftTo: lane, curveShots: false, shift2: 0, rammer: true, rState: 'fall', ramAt: b.y + 50 });
+          b.rState = 'waitRam'; b.rT = 120;
+        } else { b.rState = 'open'; b.rT = ph === 1 ? 105 : 90; b.dropped = false; }
       } break;
+    case 'waitRam': // Rammer dalıp gidene kadar boss sadece bekler (tek saldırı)
+      if (--b.rT <= 0 || !enemies.some(e => e.rammer)) { b.rState = 'open'; b.rT = 95; b.dropped = false; } break;
     case 'open':
-      if (--b.rT <= 0) { b.rState = 'charge'; b.rT = ph2 ? 30 : 40; } break;
+      if (ph === 2 && !b.dropped && b.rT < 80) { // önüne turuncu Splitter bırakır
+        b.dropped = true;
+        enemies.push({ lane: b.lane, x: b.x, y: b.y + 50, w: 38, h: 44, hp: 2, maxHp: 2, speed: 2.8, flash: 0, fireTimer: 0, fireRate: 999,
+          canShoot: false, zigzag: false, zigzagPhase: 0, phantom: false, cloakCfg: { vis: 90, inv: 40 }, cloakT: 0, alpha: 1,
+          shiftAt: null, shiftTo: b.lane, curveShots: false, shift2: 0, splitter: true });
+      }
+      if (--b.rT <= 0) toNext(); break;
+    // ── Dev Dalış ──
+    case 'dmark': { // işaret seni gecikmeyle takip eder
+      const pl = playerLaneNow();
+      if (pl !== b.lane) { if (++b.lag >= 9) { b.lane = pl; b.lag = 0; } } else b.lag = 0;
+      if (--b.rT <= 0) { b.rState = 'dlock'; b.rT = 22; } break;
+    }
+    case 'dlock': if (--b.rT <= 0) { b.rState = 'dive'; } break;
+    case 'dive':
+      b.y += 17;
+      if (!player.dead && Math.abs(player.x - b.x) < 60 && Math.abs(player.y - b.y) < 80) damagePlayer('Crushed by the boss!');
+      if (b.y >= H - 150) { b.y = H - 150; b.rState = 'slam'; b.rT = 18; hurtFx = Math.max(hurtFx, 8);
+        spawnExplosion(b.x - 30, b.y + 40, true); spawnExplosion(b.x + 30, b.y + 40, true); Sound.sfx.shipBoom(3); } // çarpma: patlama + sarsıntı
+      break;
+    case 'slam': if (--b.rT <= 0) { b.rState = 'rise'; b.rT = 110; } break;
+    case 'rise': // yavaşça yükselir: AÇIK (en çok hasarı burada verirsin)
+      if (--b.rT <= 0 || b.y < home + 6) { b.dives++; toNext(); } break;
   }
-  b.shielded = b.rState !== 'open';
+  b.shielded = !(b.rState === 'open' || b.rState === 'rise');
 }
 function drawRecoilFx(layer) {
   if (!boss || boss.zone !== 1 || boss.rState == null) return;
@@ -1531,10 +1564,15 @@ function drawRecoilFx(layer) {
   ctx.save();
   if (layer === 'under') {
     if (st === 'charge' || st === 'burst') { // şerit + burun ışığı
-      const k = st === 'charge' ? 1 - b.rT / (b.chain ? 22 : b.phase === 2 ? 30 : 40) : 1;
+      const k = st === 'charge' ? 1 - b.rT / (b.phase === 1 ? 40 : 32) : 1;
       ctx.fillStyle = `rgba(255,34,68,${0.06 + 0.12 * k})`; ctx.fillRect(LANE_CENTERS[b.lane] - 32, b.y + 50, 64, H - b.y);
       ctx.fillStyle = `rgba(255,34,68,${0.5 + 0.5 * k})`; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 16;
       ctx.beginPath(); ctx.arc(b.x, b.y + 48, 5 + 9 * k, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+    }
+    if (st === 'dmark' || st === 'dlock') { // Dev Dalış işareti: takipte yanıp söner, kilitte koyu
+      const lock = st === 'dlock', blink = Math.floor(frameCount / 5) % 2 === 0;
+      ctx.fillStyle = `rgba(255,34,68,${lock ? 0.3 : blink ? 0.18 : 0.08})`; ctx.fillRect(LANE_CENTERS[b.lane] - 40, b.y + 50, 80, H - b.y);
+      if (lock) { ctx.translate((Math.random() - 0.5) * 4, 0); }
     }
     if (st === 'sign') { // varış yeri: hayalet halka + karşı motor alevi
       const tx = LANE_CENTERS[b.jumpTo], dir = Math.sign(tx - b.x), pulse = 0.5 + 0.5 * Math.sin(frameCount * 0.6);
@@ -1547,7 +1585,7 @@ function drawRecoilFx(layer) {
       ctx.globalAlpha = 0.85; ctx.lineWidth = b.shieldHit > 0 ? 5 : 3; ctx.strokeStyle = b.shieldHit > 0 ? '#ffffff' : '#ff4d66';
       ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 10;
       ctx.beginPath(); ctx.arc(b.x, b.y, 92, Math.PI * 0.12, Math.PI * 0.88); ctx.stroke();
-    } else if (st === 'open') { // açık: nabız gibi parlayan beyaz halka → "şimdi vur"
+    } else if (st === 'open' || st === 'rise') { // açık: nabız gibi parlayan beyaz halka → "şimdi vur"
       const q = 0.5 + 0.5 * Math.sin(frameCount * 0.35);
       ctx.strokeStyle = `rgba(255,255,255,${0.35 + 0.35 * q})`; ctx.lineWidth = 3; ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 14;
       ctx.beginPath(); ctx.ellipse(b.x, b.y, 80 + 6 * q, 56 + 4 * q, 0, 0, Math.PI * 2); ctx.stroke();
@@ -1640,7 +1678,7 @@ function drawVanguardFx(layer) {
 function spawnBoss(wave) {
   const bossNum = Math.floor(wave / 5);
   const special = currentLevel % 5 === 0; // her bölgenin 5. bölümü
-  const BOSS_HP = { 5: 48, 10: 130, 15: 160, 20: 220 };
+  const BOSS_HP = { 5: 60, 10: 130, 15: 160, 20: 220 };
   const hp = BOSS_HP[currentLevel] ?? 25 + bossNum * 10;
   boss = {
     x: W / 2, y: special ? H * 0.14 : H * 0.13,
@@ -3116,7 +3154,7 @@ const LEVEL_BRIEFS = [
   { title: 'SPLITTERS',       vis: 'split',     line: 'Orange ships split in two when hit. Catch the fast halves!', tips: ['The halves dart into the side lanes.', "Don't let them reach the bottom!", 'A blue shield blocks hits for a few seconds.'] },
   { title: 'RAMMERS',         vis: 'ram',       line: 'Red ships mark your lane, then ram straight down. Dodge!', tips: ['Watch for the flashing lane.', 'Its shield blocks your shots. Just get out of the way!', 'Orange splitters are back. Catch the halves!'] },
   { title: 'BURSTERS',        vis: 'burst',     line: 'Violet ships fire a rapid burst, then rest. Hit them between bursts!', tips: ['A glowing nose means a burst is coming.', 'Orange splitters are back. Catch the halves!'] },
-  { title: 'VOID VANGUARD',   vis: 'boss',      line: 'It fires a burst, then jumps aside. Chase it and hit it while it is open!', tips: ['The dashed ring shows where it will land.', 'Its shield is down only after a jump.', 'At half health it gets faster.'] },
+  { title: 'VOID VANGUARD',   vis: 'boss',      line: 'It fires a burst, then jumps aside. Chase it and hit it while it is open!', tips: ['The dashed ring shows where it will land.', 'Phase 2: it launches Rammers and drops splitters.', 'Phase 3: it dives at your lane. Hit it as it rises!'] },
   { title: 'CRYSTAL MINING',  vis: 'crystal',   line: 'Shoot rocks, collect crystals, fill the bar for Overdrive!', tips: ["You don't have to destroy every rock.", 'Survive 5 waves to clear the level.'] },
   { title: 'AMBUSH',          vis: 'ambush',    line: 'Enemies hide behind grey iron rocks.', tips: ["Iron rocks can't be destroyed and block shots.", 'Wait for the enemy to come out.'] },
   { title: 'METEOR SHOWER',   vis: 'meteor',    line: 'A flashing red lane means meteors. Move out!', tips: ["Meteors can't be shot."] },
@@ -4133,7 +4171,7 @@ function update() {
   if (boss) {
     const ratio = boss.hp / boss.maxHp;
     const prevPhase = boss.phase || 1;
-    boss.phase = boss.zone === 1 ? (ratio > 0.5 ? 1 : 2) : ratio > 0.6 ? 1 : ratio > 0.3 ? 2 : 3;
+    boss.phase = boss.zone === 1 ? (ratio > 0.66 ? 1 : ratio > 0.33 ? 2 : 3) : ratio > 0.6 ? 1 : ratio > 0.3 ? 2 : 3;
     if (boss.phase !== prevPhase) { boss.flash = 20; boss.fireTimer = 0; } // faz geçişinde flash
 
     // Yatay hareket hızı faza göre
@@ -4149,7 +4187,7 @@ function update() {
 
     // Dikey: her fazda üstte sabit
     const homeY = boss.special ? H * 0.14 : H * 0.13;
-    boss.y += (homeY - boss.y) * 0.025;
+    if (!(boss.zone === 1 && (boss.rState === 'dive' || boss.rState === 'slam'))) boss.y += (homeY - boss.y) * (boss.rState === 'rise' ? 0.035 : 0.025);
 
     if (boss.flash > 0) boss.flash--;
     if (boss.zone === 1) updateRecoil();

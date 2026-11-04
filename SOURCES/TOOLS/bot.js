@@ -16,6 +16,10 @@ function laneDanger(l, horizon, blind) { // isabet edecek mermi/kaya/lazer: kesi
     if (e.sState === 'warn' && horizon < 20) continue; // uyarı sırasında içinden geçmek güvenli (geçiş kontrolü kısa ufukla çağrılır)
     d += e.sState === 'sweep' ? 1e6 : 2e5; // süpürülecek iki şerit
   }
+  if (boss && boss.zone === 1 && boss.lane === l) { // Dev Dalış: işaret/kilit/dalış şeridi
+    if (boss.rState === 'dlock' || boss.rState === 'dive') d += 1e6;
+    else if (boss.rState === 'dmark' && horizon >= 20) d += 2e5;
+  }
   if (blind) return d;
   for (const b of eBullets) { const vy = b.vy || 4; if (vy <= 0) continue; const t = (player.y - b.y) / vy; if (t < -8 || t > horizon) continue;
     const xAt = b.x + (b.vx || 0) * Math.max(0, t); if (Math.abs(xAt - lx) < (b.big ? 44 : 34)) d += 1e5 / (1 + Math.max(0, t)); }
