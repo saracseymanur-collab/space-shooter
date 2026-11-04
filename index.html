@@ -54,8 +54,8 @@ const bossImg = new Image();
 bossImg.src = 'ASSETS/boss.png';
 const BOSS_W = 190, BOSS_H = 127; // 1536×1024 oranında
 const bossShieldImg = new Image();
-bossShieldImg.src = 'ASSETS/shields/boss-shield.png'; // sektör 1 boss kalkanı (512×342, boss silüetinde)
-const BOSS_SHIELD_W = 220, BOSS_SHIELD_H = 147;
+bossShieldImg.src = 'ASSETS/shields/boss-shield.png'; // sektör 1 boss kalkanı (512×352, siyah zeminden ayıklandı; v1: SOURCES/SHIELD)
+const BOSS_SHIELD_W = 220, BOSS_SHIELD_H = 151;
 
 // Düşman görsel boyutları — gerçek en/boy oranına göre (sıkı kırpılmış assetler)
 // Şerit 130px: en büyük düşman şeridin ~%85'i (zikzakta komşu şeride taşmaz), küçükler okunur kalır
@@ -2923,12 +2923,6 @@ function drawBoss(b) {
   ctx.translate(b.x, b.y);
   ctx.scale(sc, sc);
   ctx.globalAlpha = flashAlpha * (b.cloak ? 0.16 + 0.06 * Math.sin(frameCount * 0.3) : 1);
-
-  // Dış aura — gradient yerine 2 transparan circle
-  ctx.fillStyle = `rgba(${p.aura1},${0.18 * pulse})`;
-  ctx.beginPath(); ctx.arc(0, 0, 75, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = `rgba(${p.aura1},${0.22 * pulse})`;
-  ctx.beginPath(); ctx.arc(0, 0, 48, 0, Math.PI * 2); ctx.fill();
 
   // Boss görseli
   if (bossImg.complete && bossImg.naturalWidth > 0) {
