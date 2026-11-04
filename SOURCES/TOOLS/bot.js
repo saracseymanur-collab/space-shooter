@@ -6,7 +6,7 @@ window.requestAnimationFrame = () => 0;
 try { localStorage.setItem('ss_seen', JSON.stringify(Object.fromEntries(Object.keys(FIRST_SEEN).map(k => [k, 1])))); } catch (e) {}
 const _origDamage = damagePlayer;
 let HITS = [];
-damagePlayer = function (cause) { if (!player.dead && player.shieldTimer <= 0) HITS.push(cause); return _origDamage(cause); };
+damagePlayer = function (cause) { if (!player.dead && player.shieldTimer <= 0 && !(player.invuln > 0)) HITS.push(cause); return _origDamage(cause); };
 
 function laneDanger(l, horizon, blind) { // isabet edecek mermi/kaya/lazer: kesin kaçış önceliği
   const lx = LANE_CENTERS[l]; let d = 0;
