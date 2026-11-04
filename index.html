@@ -1493,6 +1493,19 @@ const BOSS_FIRE_MUL = { 5: 0.8, 10: 0.8, 15: 1.8, 20: 1.9 };
 // Void Vanguard — "Geri Tepen": şeride oturur; burnu parlar (şarj) → şeridine 5'li seri → sıçrayacağı şerit
 // gösterilir → oyuncudan uzak komşu şeride sıçrar → ~2 sn KALKANSIZ (vurma anı) → tekrar. %50 canda nefes +
 // ekran temizliği, sonra aynı döngü daha hızlı (6'lı seri, kısa uyarılar). Her an tek saldırı.
+// Ateş Koridoru: her satırda açık şerit(ler) dışındaki şeritlere mermi. Açık yol bir seferde tek şerit kayar ve
+// kayarken 'overlap' satır boyunca iki şerit birden açık kalır (geçiş anı). Mermiler yukarıdan indiği için yol önceden görülür.
+function buildCorridor(rows, hold, overlap) {
+  const out = []; let g = Math.floor(Math.random() * 3);
+  for (let i = 0; i < 3; i++) out.push([g]); // giriş: ilk açık şeride geçiş payı
+  while (out.length < rows) {
+    for (let h = 0; h < hold; h++) out.push([g]);
+    const ng = g === 0 ? 1 : g === 2 ? 1 : (Math.random() < 0.5 ? 0 : 2);
+    for (let o = 0; o < overlap; o++) out.push([g, ng]);
+    g = ng;
+  }
+  return out;
+}
 function updateRecoil() {
   // Faz 1: Geri Tepen (şarj → 5'li seri → varış halkası → sıçra → açık)
   // Faz 2: + sıçradıktan sonra bir Rammer fırlatır (kaç), açıkken önüne turuncu Splitter bırakır (boss mu, parçalar mı?)
@@ -1500,12 +1513,20 @@ function updateRecoil() {
   //        yere çarpar (patlama + sarsıntı) → yavaşça yükselir (AÇIK). İki dalış, bir seri döngü, tekrar. Her an tek saldırı.
   const b = boss, ph = b.phase, home = H * 0.14;
   if (b.lane == null) { b.lane = 1; b.x = LANE_CENTERS[1]; b.rState = 'idle'; b.rT = 40; b.lastPhase = 1; b.dives = 0; }
-  if (ph !== b.lastPhase) { b.rState = 'breath'; b.rT = 70; b.dives = 0; eBullets = []; b.flash = 24; b.lastPhase = ph; }
+  if (ph !== b.lastPhase && !b.enraged) { b.rState = 'breath'; b.rT = 70; b.dives = 0; b.corrDone = false; eBullets = []; b.flash = 24; b.lastPhase = ph; }
   if (b.shieldHit > 0) b.shieldHit--;
   if (b.rState !== 'dive' && b.rState !== 'slam') b.x += (LANE_CENTERS[b.lane] - b.x) * (b.rState === 'jump' ? 0.32 : 0.2);
   if (bossWarn > 0) { b.shielded = true; return; } // giriş uyarısı
+  // son çare: canı %10'a inince bir kez kızarır → uzun, hızlı kıvrılan Ateş Koridoru → uzun açık
+  if (!b.enraged && b.hp <= b.maxHp * 0.1) { b.enraged = true; b.rState = 'cwarn'; b.rT = 50; b.final = true; eBullets = []; b.flash = 30; b.y = Math.min(b.y, H * 0.3);
+    showToast('LAST STAND · FOLLOW THE GAP', '#ff4d66', 100); }
   const toCharge = () => { b.rState = 'charge'; b.rT = ph === 1 ? 40 : 32; };
-  const toNext = () => { if (ph === 3 && b.dives < 2) { b.rState = 'dmark'; b.rT = 50; b.lag = 0; } else { b.dives = 0; toCharge(); } };
+  const toCorridor = () => { b.rState = 'cwarn'; b.rT = 40; b.final = false; showToast('BARRAGE · FOLLOW THE GAP', '#ff4d66', 80); };
+  const toNext = () => {
+    if (ph === 3 && b.dives < 3) { b.rState = 'dmark'; b.rT = 50 - b.dives * 9; b.lag = 0; } // her dalışta işaret daha hızlı
+    else if (ph === 3 && !b.corrDone) { b.dives = 0; b.corrDone = true; toCorridor(); }
+    else { b.dives = 0; b.corrDone = false; toCharge(); }
+  };
   switch (b.rState) {
     case 'idle': case 'breath': if (--b.rT <= 0) toNext(); break;
     case 'charge': if (--b.rT <= 0) { b.rState = 'burst'; b.rT = 0; b.rN = 0; } break;
@@ -1538,14 +1559,23 @@ function updateRecoil() {
           canShoot: false, zigzag: false, zigzagPhase: 0, phantom: false, cloakCfg: { vis: 90, inv: 40 }, cloakT: 0, alpha: 1,
           shiftAt: null, shiftTo: b.lane, curveShots: false, shift2: 0, splitter: true });
       }
-      if (--b.rT <= 0) toNext(); break;
+      if (--b.rT <= 0) { if (b.final) { b.rState = 'cwarn'; b.rT = 40; } else toNext(); } break; // son çarede açık bitince koridor tekrar
     // ── Dev Dalış ──
     case 'dmark': { // işaret seni gecikmeyle takip eder
       const pl = playerLaneNow();
       if (pl !== b.lane) { if (++b.lag >= 9) { b.lane = pl; b.lag = 0; } } else b.lag = 0;
-      if (--b.rT <= 0) { b.rState = 'dlock'; b.rT = 22; } break;
+      if (--b.rT <= 0) { b.rState = 'dlock'; b.rT = 22 - b.dives * 4; } break;
     }
     case 'dlock': if (--b.rT <= 0) { b.rState = 'dive'; } break;
+    // ── Ateş Koridoru ──
+    case 'cwarn': // kısa uyarı: boss kızarır, üç şerit hafif kırmızı
+      if (--b.rT <= 0) { b.rState = 'corridor'; b.cRows = b.final ? buildCorridor(44, 4, 3) : buildCorridor(30, 5, 3); b.cRow = 0; b.rT = 0; } break;
+    case 'corridor':
+      if (b.rT++ % 9 === 0) {
+        const open = b.cRows[b.cRow++];
+        [0, 1, 2].forEach(l => { if (!open.includes(l)) eBullets.push({ x: LANE_CENTERS[l], y: b.y + 50, vx: 0, vy: 6, hp: 1, lane: l, curve: false }); });
+        if (b.cRow >= b.cRows.length) { b.rState = 'open'; b.rT = b.final ? 200 : 130; b.dropped = true; }
+      } break;
     case 'dive':
       b.y += 17;
       if (!player.dead && Math.abs(player.x - b.x) < 60 && Math.abs(player.y - b.y) < 80) damagePlayer('Crushed by the boss!');
@@ -1568,6 +1598,15 @@ function drawRecoilFx(layer) {
       ctx.fillStyle = `rgba(255,34,68,${0.06 + 0.12 * k})`; ctx.fillRect(LANE_CENTERS[b.lane] - 32, b.y + 50, 64, H - b.y);
       ctx.fillStyle = `rgba(255,34,68,${0.5 + 0.5 * k})`; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 16;
       ctx.beginPath(); ctx.arc(b.x, b.y + 48, 5 + 9 * k, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+    }
+    if (st === 'cwarn') { // koridor uyarısı: üç şerit kırmızı nabız, boss kızarır
+      const q = 0.5 + 0.5 * Math.sin(frameCount * 0.5);
+      ctx.fillStyle = `rgba(255,34,68,${0.05 + 0.08 * q})`; ctx.fillRect(0, b.y + 50, W, H - b.y);
+    }
+    if (b.enraged) { // son çare: boss etrafında kırmızı hale
+      const g = ctx.createRadialGradient(b.x, b.y, 20, b.x, b.y, 120);
+      g.addColorStop(0, 'rgba(255,34,68,0.28)'); g.addColorStop(1, 'rgba(255,34,68,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x, b.y, 120, 0, Math.PI * 2); ctx.fill();
     }
     if (st === 'dmark' || st === 'dlock') { // Dev Dalış işareti: takipte yanıp söner, kilitte koyu
       const lock = st === 'dlock', blink = Math.floor(frameCount / 5) % 2 === 0;
@@ -3154,7 +3193,7 @@ const LEVEL_BRIEFS = [
   { title: 'SPLITTERS',       vis: 'split',     line: 'Orange ships split in two when hit. Catch the fast halves!', tips: ['The halves dart into the side lanes.', "Don't let them reach the bottom!", 'A blue shield blocks hits for a few seconds.'] },
   { title: 'RAMMERS',         vis: 'ram',       line: 'Red ships mark your lane, then ram straight down. Dodge!', tips: ['Watch for the flashing lane.', 'Its shield blocks your shots. Just get out of the way!', 'Orange splitters are back. Catch the halves!'] },
   { title: 'BURSTERS',        vis: 'burst',     line: 'Violet ships fire a rapid burst, then rest. Hit them between bursts!', tips: ['A glowing nose means a burst is coming.', 'Orange splitters are back. Catch the halves!'] },
-  { title: 'VOID VANGUARD',   vis: 'boss',      line: 'It fires a burst, then jumps aside. Chase it and hit it while it is open!', tips: ['The dashed ring shows where it will land.', 'Phase 2: it launches Rammers and drops splitters.', 'Phase 3: it dives at your lane. Hit it as it rises!'] },
+  { title: 'VOID VANGUARD',   vis: 'boss',      line: 'It fires a burst, then jumps aside. Chase it and hit it while it is open!', tips: ['The dashed ring shows where it will land.', 'Phase 2: it launches Rammers and drops splitters.', 'Phase 3: it dives at your lane. Hit it as it rises!', 'Barrage: follow the one open lane!'] },
   { title: 'CRYSTAL MINING',  vis: 'crystal',   line: 'Shoot rocks, collect crystals, fill the bar for Overdrive!', tips: ["You don't have to destroy every rock.", 'Survive 5 waves to clear the level.'] },
   { title: 'AMBUSH',          vis: 'ambush',    line: 'Enemies hide behind grey iron rocks.', tips: ["Iron rocks can't be destroyed and block shots.", 'Wait for the enemy to come out.'] },
   { title: 'METEOR SHOWER',   vis: 'meteor',    line: 'A flashing red lane means meteors. Move out!', tips: ["Meteors can't be shot."] },
