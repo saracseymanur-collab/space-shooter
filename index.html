@@ -1572,8 +1572,6 @@ function updateRecoil() {
       if (--b.rT > 0) break;
       const pl = playerLaneNow();
       b.jumpTo = b.lane !== 1 ? 1 : pl === 0 ? 2 : pl === 2 ? 0 : (Math.random() < 0.5 ? 0 : 2);
-      const busy = l => enemies.some(e => e.lane === l && !e.rammer && e.y < player.y - 40);
-      if (b.lane === 1 && busy(b.jumpTo) && !busy(2 - b.jumpTo)) b.jumpTo = 2 - b.jumpTo; // önü temiz şerit tercih
       b.rState = 'sign'; b.rT = ph === 1 ? 18 : 16; break;
     }
     case 'sign': if (--b.rT <= 0) { b.lane = b.jumpTo; b.rState = 'jump'; b.rT = 14; } break;
