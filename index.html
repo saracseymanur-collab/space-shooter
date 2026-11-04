@@ -651,12 +651,12 @@ function baseLevelConfig() {
     };
     case 5: { // boss öncesi 5 dalga = sektörün özeti: 1 normal · 2 Splitter · 3 Rammer (+kargo) · 4 Burster · 5 karışık
       const lw = getWave() - (currentLevel - 1) * 5;
-      const base = { interval: 74, doubleChance: 0.32, speed: () => 3.2 + Math.random() * 0.4,
-        hp: () => Math.random() < 0.45 ? 2 : 1, stack: 150, canShoot: true, zigzag: false, fireMul: 1.25 };
-      if (lw === 2) return { ...base, splitter: 0.34 };
-      if (lw === 3) return { ...base, rammer: 0.32 };
-      if (lw === 4) return { ...base, burster: 260, fireMul: 1.2 };
-      if (lw >= 5) return { ...base, splitter: 0.2, burster: 320, fireMul: 1.2 }; // Rammer yok: kaçışsız an olmasın
+      const base = { interval: 64, doubleChance: 0.36, speed: () => 3.3 + Math.random() * 0.4,
+        hp: () => Math.random() < 0.5 ? 2 : 1, stack: 150, canShoot: true, zigzag: false, fireMul: 1.05 };
+      if (lw === 2) return { ...base, splitter: 0.38 };
+      if (lw === 3) return { ...base, rammer: 0.38 };
+      if (lw === 4) return { ...base, burster: 230, fireMul: 1.0 };
+      if (lw >= 5) return { ...base, splitter: 0.25, burster: 280, fireMul: 1.0 }; // Rammer yok: kaçışsız an olmasın
       return base;
     }
     // ── Zone 2: Asteroid Belt — kayalarla birlikte daha seyrek düşman ──
@@ -1562,7 +1562,10 @@ function updateRecoil() {
   const toCharge = () => { b.rState = 'charge'; b.rT = ph === 1 ? 26 : 24; };
   const toCorridor = () => { b.rState = 'cwarn'; b.rT = 40; b.final = false; showToast('BARRAGE · FOLLOW THE GAP', '#ff4d66', 80); };
   const toNext = () => {
-    if (ph === 2 && b.dives < 3) { b.rState = 'dmark'; b.rT = b.dives ? 22 : 40; b.lag = 0; } // faz 2 Dev Dalış (öfkeli): ilk işaret normal, sonrakiler çok kısa
+    if (ph === 2 && b.dives < 5) { // faz 2 Dev Dalış: rastgele şeritlere art arda hızlı dalışlar — sen onu takip edip yükselirken vurursun
+      b.lane = Math.floor(Math.random() * 3); // tamamen rastgele: aynı şeride tekrar da dalabilir (takip eden açgözlü oyuncu riske girer)
+      b.rState = 'dmark'; b.rT = b.dives ? 9 : 28; b.lag = 0;
+    }
     else if (ph === 3 && !b.corrDone) { b.dives = 0; b.corrDone = true; toCorridor(); } // faz 3 Ateş Koridoru: koridor ↔ seri döngüsü
     else { b.dives = 0; b.corrDone = false; toCharge(); }
   };
@@ -1598,11 +1601,8 @@ function updateRecoil() {
         else toNext();
       } break; // son çarede açık bitince koridor tekrar
     // ── Dev Dalış ──
-    case 'dmark': { // işaret seni gecikmeyle takip eder
-      const pl = playerLaneNow();
-      if (pl !== b.lane) { if (++b.lag >= 9) { b.lane = pl; b.lag = 0; } } else b.lag = 0;
-      if (--b.rT <= 0) { b.rState = 'dlock'; b.rT = b.dives ? 12 : 18; } break;
-    }
+    case 'dmark': // dalacağı şerit kırmızı yanıp söner (rastgele seçildi, seni takip etmez)
+      if (--b.rT <= 0) { b.rState = 'dlock'; b.rT = b.dives ? 7 : 14; } break;
     case 'dlock': if (--b.rT <= 0) { b.rState = 'dive'; } break;
     // ── Ateş Koridoru ──
     case 'cwarn': // kısa uyarı: boss kızarır, üç şerit hafif kırmızı
@@ -1620,7 +1620,7 @@ function updateRecoil() {
       if (b.y >= H - 150) { b.y = H - 150; b.rState = 'slam'; b.rT = 18; hurtFx = Math.max(hurtFx, 8);
         spawnExplosion(b.x - 30, b.y + 40, true); spawnExplosion(b.x + 30, b.y + 40, true); Sound.sfx.shipBoom(3); } // çarpma: patlama + sarsıntı
       break;
-    case 'slam': if (--b.rT <= 0) { b.rState = 'rise'; b.rT = 60; } break;
+    case 'slam': if (--b.rT <= 0) { b.rState = 'rise'; b.rT = 50; } break;
     case 'rise': // öfkeli: sadece ekranın yarısına kadar hızla yükselir (AÇIK), orada kısa durup hemen tekrar dalar
       b.y += (H * 0.3 - b.y) * 0.14; // yarıdan biraz yukarı (kullanıcı: tam yarısı değil)
       if (--b.rT <= 0 || b.y < H * 0.33) { b.dives++; toNext(); } break;
