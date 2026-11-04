@@ -590,7 +590,7 @@ function getDoubleSpawnChance() {
 // iMul: düşman aralığı çarpanı (>1 seyrek) · fireMul: ateş aralığı · diver/formation/gunner: sektör 1-2 mekanikleri
 const LEVEL_TUNE = {
   // 2026-11: bölümler 50 sn'ye inince (WAVE_DENSITY) kolay kalanlar için ek sıklık
-  1: { iMul: 1.3 }, // öğretici: genel sıklaşmanın çoğunu geri al
+  1: { iMul: 1.2, fireMul: 1.4 }, // öğretici ama kolay değil (kullanıcı: sektör 1 kolay)
   6: { iMul: 0.6 }, 7: { iMul: 0.9 }, 8: { iMul: 0.68 }, 9: { iMul: 0.8 },
   11: { iMul: 1.25 }, 12: { gunner: 1300, iMul: 1.4 }, 13: { iMul: 0.85 }, 14: { iMul: 1.5, diver: 0.25 },
   16: { diver: 0.35, formation: true, iMul: 0.42, fireMul: 0.7 }, 17: { gunner: 1700, iMul: 1.05 }, 18: { fireMul: 0.9, iMul: 0.85 }, 19: { diver: 0.3, iMul: 0.75 },
@@ -626,36 +626,36 @@ function baseLevelConfig() {
       };
     }
     case 2: return {
-      interval: 64, doubleChance: 0.35,
+      interval: 66, doubleChance: 0.35,
       speed: () => 3.2 + Math.random() * 0.4,
       hp: () => Math.random() < 0.5 ? 2 : 1,
-      stack: 150, splitter: 0.22, // Splitter: turuncu düşman vurulunca iki hızlı parçaya bölünür
-      canShoot: true, zigzag: false, fireMul: 1.1,
+      stack: 150, splitter: 0.23, // Splitter: turuncu düşman vurulunca iki hızlı parçaya bölünür
+      canShoot: true, zigzag: false, fireMul: 1.0,
     };
     case 3: return { // Rammer: kalkanlı (vurulamaz); şeridini işaretler, sonra çok hızlı aşağı dalar → kaç (çarparsa can gider)
       // yeni temel (hızlı iniş + şeritte üst üste) + L2'nin bölünen düşmanları ara sıra
-      interval: 74, doubleChance: 0.3,
-      speed: () => 3.0 + Math.random() * 0.4,
+      interval: 71, doubleChance: 0.32,
+      speed: () => 3.1 + Math.random() * 0.4,
       hp: () => Math.random() < 0.45 ? 2 : 1,
-      stack: 150, splitter: 0.06, rammer: 0.28,
-      canShoot: true, zigzag: false, fireMul: 1.2,
+      stack: 150, splitter: 0.08, rammer: 0.3,
+      canShoot: true, zigzag: false, fireMul: 1.1,
     };
     case 4: return { // Burster: mor gemi üstte durur, burnu parlar → şeridine hızlı 5'li seri → ~1.5 sn dinlenir (vurma anı)
       // yeni temel (hızlı iniş + şeritte üst üste) + L2'nin bölünen düşmanları ara sıra (Rammer yok: kaçışsız an olmasın)
-      interval: 80, doubleChance: 0.3,
-      speed: () => 3.1 + Math.random() * 0.4,
+      interval: 69, doubleChance: 0.33,
+      speed: () => 3.2 + Math.random() * 0.4,
       hp: () => Math.random() < 0.45 ? 2 : 1,
-      stack: 150, splitter: 0.08, burster: 380,
-      canShoot: true, zigzag: false, fireMul: 1.4,
+      stack: 150, splitter: 0.1, burster: 330,
+      canShoot: true, zigzag: false, fireMul: 1.25,
     };
     case 5: { // boss öncesi 5 dalga = sektörün özeti: 1 normal · 2 Splitter · 3 Rammer (+kargo) · 4 Burster · 5 karışık
       const lw = getWave() - (currentLevel - 1) * 5;
-      const base = { interval: 76, doubleChance: 0.3, speed: () => 3.1 + Math.random() * 0.4,
-        hp: () => Math.random() < 0.45 ? 2 : 1, stack: 150, canShoot: true, zigzag: false, fireMul: 1.3 };
-      if (lw === 2) return { ...base, splitter: 0.3 };
-      if (lw === 3) return { ...base, rammer: 0.25 };
-      if (lw === 4) return { ...base, burster: 300, fireMul: 1.4 };
-      if (lw >= 5) return { ...base, splitter: 0.15, burster: 380, fireMul: 1.4 }; // Rammer yok: kaçışsız an olmasın
+      const base = { interval: 74, doubleChance: 0.32, speed: () => 3.2 + Math.random() * 0.4,
+        hp: () => Math.random() < 0.45 ? 2 : 1, stack: 150, canShoot: true, zigzag: false, fireMul: 1.25 };
+      if (lw === 2) return { ...base, splitter: 0.34 };
+      if (lw === 3) return { ...base, rammer: 0.32 };
+      if (lw === 4) return { ...base, burster: 260, fireMul: 1.2 };
+      if (lw >= 5) return { ...base, splitter: 0.2, burster: 320, fireMul: 1.2 }; // Rammer yok: kaçışsız an olmasın
       return base;
     }
     // ── Zone 2: Asteroid Belt — kayalarla birlikte daha seyrek düşman ──
@@ -1520,7 +1520,7 @@ function updateRecoil() {
   // son çare: canı %10'a inince bir kez kızarır → uzun, hızlı kıvrılan Ateş Koridoru → uzun açık
   if (!b.enraged && b.hp <= b.maxHp * 0.1) { b.enraged = true; b.rState = 'cwarn'; b.rT = 50; b.final = true; eBullets = []; b.flash = 30; b.y = Math.min(b.y, H * 0.3);
     showToast('LAST STAND · FOLLOW THE GAP', '#ff4d66', 100); }
-  const toCharge = () => { b.rState = 'charge'; b.rT = ph === 1 ? 40 : 32; };
+  const toCharge = () => { b.rState = 'charge'; b.rT = ph === 1 ? 34 : 26; };
   const toCorridor = () => { b.rState = 'cwarn'; b.rT = 40; b.final = false; showToast('BARRAGE · FOLLOW THE GAP', '#ff4d66', 80); };
   const toNext = () => {
     if (ph === 3 && b.dives < 3) { b.rState = 'dmark'; b.rT = 50 - b.dives * 9; b.lag = 0; } // her dalışta işaret daha hızlı
@@ -1532,7 +1532,7 @@ function updateRecoil() {
     case 'charge': if (--b.rT <= 0) { b.rState = 'burst'; b.rT = 0; b.rN = 0; } break;
     case 'burst':
       if (b.rT++ % 6 === 0) { pushShot({ x: b.x, y: b.y + 50, vx: 0, vy: 9.5, hp: 3, lane: b.lane, curve: false, fromBoss: true }); b.rN++; }
-      if (b.rN >= (ph === 1 ? 5 : 6)) { b.rState = 'tail'; b.rT = 12; } break;
+      if (b.rN >= (ph === 1 ? 6 : 7)) { b.rState = 'tail'; b.rT = 10; } break;
     case 'tail': { // sıçrama yönü: ortadaysa oyuncudan uzak tarafa, kenardaysa ortaya
       if (--b.rT > 0) break;
       const pl = playerLaneNow();
@@ -1548,10 +1548,10 @@ function updateRecoil() {
             canShoot: false, zigzag: false, zigzagPhase: 0, phantom: false, cloakCfg: { vis: 90, inv: 40 }, cloakT: 0, alpha: 1,
             shiftAt: null, shiftTo: lane, curveShots: false, shift2: 0, rammer: true, rState: 'fall', ramAt: b.y + 50 });
           b.rState = 'waitRam'; b.rT = 120;
-        } else { b.rState = 'open'; b.rT = ph === 1 ? 105 : 90; b.dropped = false; }
+        } else { b.rState = 'open'; b.rT = ph === 1 ? 85 : 75; b.dropped = false; }
       } break;
     case 'waitRam': // Rammer dalıp gidene kadar boss sadece bekler (tek saldırı)
-      if (--b.rT <= 0 || !enemies.some(e => e.rammer)) { b.rState = 'open'; b.rT = 95; b.dropped = false; } break;
+      if (--b.rT <= 0 || !enemies.some(e => e.rammer)) { b.rState = 'open'; b.rT = 78; b.dropped = false; } break;
     case 'open':
       if (ph === 2 && !b.dropped && b.rT < 80) { // önüne turuncu Splitter bırakır
         b.dropped = true;
@@ -1574,7 +1574,7 @@ function updateRecoil() {
       if (b.rT++ % 9 === 0) {
         const open = b.cRows[b.cRow++];
         [0, 1, 2].forEach(l => { if (!open.includes(l)) eBullets.push({ x: LANE_CENTERS[l], y: b.y + 50, vx: 0, vy: 6, hp: 1, lane: l, curve: false }); });
-        if (b.cRow >= b.cRows.length) { b.rState = 'open'; b.rT = b.final ? 200 : 130; b.dropped = true; }
+        if (b.cRow >= b.cRows.length) { b.rState = 'open'; b.rT = b.final ? 160 : 100; b.dropped = true; }
       } break;
     case 'dive':
       b.y += 17;
@@ -1582,7 +1582,7 @@ function updateRecoil() {
       if (b.y >= H - 150) { b.y = H - 150; b.rState = 'slam'; b.rT = 18; hurtFx = Math.max(hurtFx, 8);
         spawnExplosion(b.x - 30, b.y + 40, true); spawnExplosion(b.x + 30, b.y + 40, true); Sound.sfx.shipBoom(3); } // çarpma: patlama + sarsıntı
       break;
-    case 'slam': if (--b.rT <= 0) { b.rState = 'rise'; b.rT = 110; } break;
+    case 'slam': if (--b.rT <= 0) { b.rState = 'rise'; b.rT = 90; } break;
     case 'rise': // yavaşça yükselir: AÇIK (en çok hasarı burada verirsin)
       if (--b.rT <= 0 || b.y < home + 6) { b.dives++; toNext(); } break;
   }
@@ -1594,7 +1594,7 @@ function drawRecoilFx(layer) {
   ctx.save();
   if (layer === 'under') {
     if (st === 'charge' || st === 'burst') { // şerit + burun ışığı
-      const k = st === 'charge' ? 1 - b.rT / (b.phase === 1 ? 40 : 32) : 1;
+      const k = st === 'charge' ? 1 - b.rT / (b.phase === 1 ? 34 : 26) : 1;
       ctx.fillStyle = `rgba(255,34,68,${0.06 + 0.12 * k})`; ctx.fillRect(LANE_CENTERS[b.lane] - 32, b.y + 50, 64, H - b.y);
       ctx.fillStyle = `rgba(255,34,68,${0.5 + 0.5 * k})`; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 16;
       ctx.beginPath(); ctx.arc(b.x, b.y + 48, 5 + 9 * k, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
