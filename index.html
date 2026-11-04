@@ -1578,7 +1578,7 @@ function updateRecoil() {
     case 'jump':
       if (--b.rT <= 0) {
         if (ph === 1 && (b.chainN || 0) < 2) { // faz 1 zincir: her sıçramadan sonra kısa açık, sonra yeni seri
-          b.chainN = (b.chainN || 0) + 1; b.rState = 'open'; b.rT = 34; b.dropped = true;
+          b.chainN = (b.chainN || 0) + 1; b.rState = 'open'; b.rT = 46; b.dropped = true;
         } else { b.chainN = 0; b.rState = 'open'; b.rT = ph === 1 ? 90 : 62; b.dropped = false; }
       } break;
     case 'open':
@@ -1775,7 +1775,7 @@ function spawnBoss(wave) {
   minionT = 0;
   const bossNum = Math.floor(wave / 5);
   const special = currentLevel % 5 === 0; // her bölgenin 5. bölümü
-  const BOSS_HP = { 5: 32, 10: 130, 15: 160, 20: 220 };
+  const BOSS_HP = { 5: 26, 10: 130, 15: 160, 20: 220 };
   const hp = BOSS_HP[currentLevel] ?? 25 + bossNum * 10;
   boss = {
     x: W / 2, y: currentZone === 1 ? -130 : special ? H * 0.14 : H * 0.13, // Void Vanguard yukarıdan kadraja süzülür
@@ -3969,7 +3969,7 @@ function drawHUD() {
     ctx.fillStyle = '#fff'; ctx.font = `700 9px ${UI_FONT}`; ctx.textAlign = 'center';
     ctx.shadowColor = '#000'; ctx.shadowBlur = 4;
     const bName = boss.special ? BOSS_NAMES[boss.zone] : 'BOSS';
-    ctx.fillText(`${bName}  ·  PHASE ${bPhase}`, W / 2, by + bh / 2 + 1);
+    ctx.fillText(`${bName}  ·  PHASE ${boss.zone === 1 && bPhase === 3 ? 2 : bPhase}`, W / 2, by + bh / 2 + 1); // Void Vanguard 2 faz
     ctx.shadowBlur = 0;
     barY += bh + 6;
   }
@@ -4290,7 +4290,8 @@ function update() {
   if (boss) {
     const ratio = boss.hp / boss.maxHp;
     const prevPhase = boss.phase || 1;
-    boss.phase = boss.zone === 1 ? (ratio > 0.91 ? 1 : ratio > 0.5 ? 2 : 3) : ratio > 0.6 ? 1 : ratio > 0.3 ? 2 : 3;
+    boss.phase = boss.zone === 1 ? (ratio > 0.8 ? 1 : 3) : // Void Vanguard 2 faz: zincirleme sıçrama → dalış/koridor (iç numara 3)
+      ratio > 0.6 ? 1 : ratio > 0.3 ? 2 : 3;
     if (boss.phase !== prevPhase) { boss.flash = 20; boss.fireTimer = 0; } // faz geçişinde flash
 
     // Yatay hareket hızı faza göre
