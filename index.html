@@ -1658,22 +1658,10 @@ function drawRecoilFx(layer) {
       const q = 0.5 + 0.5 * Math.sin(frameCount * 0.5);
       ctx.fillStyle = `rgba(255,34,68,${0.05 + 0.08 * q})`; ctx.fillRect(0, b.y + 50, W, H - b.y);
     }
-    if (b.enraged) { // son çare: boss etrafında kırmızı hale
-      const g = ctx.createRadialGradient(b.x, b.y, 20, b.x, b.y, 120);
-      g.addColorStop(0, 'rgba(255,34,68,0.28)'); g.addColorStop(1, 'rgba(255,34,68,0)');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x, b.y, 120, 0, Math.PI * 2); ctx.fill();
-    }
     if (st === 'dmark' || st === 'dlock') { // Dev Dalış işareti: takipte yanıp söner, kilitte koyu
       const lock = st === 'dlock', blink = Math.floor(frameCount / 5) % 2 === 0;
       ctx.fillStyle = `rgba(255,34,68,${lock ? 0.3 : blink ? 0.18 : 0.08})`; ctx.fillRect(LANE_CENTERS[b.lane] - 40, b.y + 50, 80, H - b.y);
       if (lock) { ctx.translate((Math.random() - 0.5) * 4, 0); }
-    }
-    if (st === 'sign') { // varış yeri: hayalet halka + karşı motor alevi
-      const tx = LANE_CENTERS[b.jumpTo], dir = Math.sign(tx - b.x), pulse = 0.5 + 0.5 * Math.sin(frameCount * 0.6);
-      ctx.strokeStyle = `rgba(210,190,255,${0.45 + 0.4 * pulse})`; ctx.lineWidth = 3; ctx.setLineDash([8, 6]);
-      ctx.beginPath(); ctx.ellipse(tx, b.y + 4, 54, 34, 0, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
-      ctx.fillStyle = `rgba(255,150,60,${0.6 + 0.4 * pulse})`; ctx.shadowColor = '#ff8a2a'; ctx.shadowBlur = 18;
-      ctx.beginPath(); ctx.arc(b.x - dir * 62, b.y + 8, 8 + 6 * pulse, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
     }
     if (!b.shielded && (st === 'open' || st === 'rise')) { // açık: gövdede nabız gibi beyaz parıltı → "şimdi vur"
       const q = 0.5 + 0.5 * Math.sin(frameCount * 0.35);
@@ -2928,19 +2916,6 @@ function drawBoss(b) {
   if (bossImg.complete && bossImg.naturalWidth > 0) {
     const g = getBossGlowSprite(b.zone, p.bodyGlow);
     if (g) ctx.drawImage(g.c, -g.w / 2, -g.h / 2, g.w, g.h);
-  }
-
-  // Çekirdek parıltısı — faz renginde nabız
-  ctx.fillStyle = `rgba(${p.core2},${0.35 * pulse})`; ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = `rgba(${p.core1},${0.55 * pulse})`; ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI*2); ctx.fill();
-
-  // Faz 3: alev efekti — gradient yerine transparan circle'lar
-  if (phase === 3) {
-    ctx.globalAlpha = flashAlpha * 0.45 * pulse;
-    [-28, 0, 28].forEach(fx => {
-      ctx.fillStyle = 'rgba(255,80,0,0.5)';  ctx.beginPath(); ctx.arc(fx,62,18,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle = 'rgba(255,180,0,0.7)'; ctx.beginPath(); ctx.arc(fx,58,10,0,Math.PI*2); ctx.fill();
-    });
   }
 
   ctx.globalAlpha = 1;
