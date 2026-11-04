@@ -1523,7 +1523,7 @@ function bossSolo() { return !!(boss && boss.zone === 1 && (bossWarn > 0 || BOSS
 // Yardımcı düşmanlar (fazına göre): F1 normal · F2 Splitter ağırlıklı · F3 normal + ara sıra Burster. Seyrek.
 let minionT = 0;
 function updateBossMinions() {
-  if (!boss || boss.zone !== 1 || bossSolo()) return;
+  if (!boss || boss.zone !== 1 || bossSolo() || (boss.phase || 1) === 1) return; // faz 1: sadece boss (zincirleme sıçrama dansı)
   const ph = boss.phase || 1, every = ph === 1 ? 110 : ph === 2 ? 140 : 170;
   if (++minionT < every || enemies.length >= 3) return; // en fazla 3 yardımcı
   minionT = 0;
@@ -1572,6 +1572,8 @@ function updateRecoil() {
       if (--b.rT > 0) break;
       const pl = playerLaneNow();
       b.jumpTo = b.lane !== 1 ? 1 : pl === 0 ? 2 : pl === 2 ? 0 : (Math.random() < 0.5 ? 0 : 2);
+      const busy = l => enemies.some(e => e.lane === l && !e.rammer && e.y < player.y - 40);
+      if (b.lane === 1 && busy(b.jumpTo) && !busy(2 - b.jumpTo)) b.jumpTo = 2 - b.jumpTo; // önü temiz şerit tercih
       b.rState = 'sign'; b.rT = ph === 1 ? 18 : 16; break;
     }
     case 'sign': if (--b.rT <= 0) { b.lane = b.jumpTo; b.rState = 'jump'; b.rT = 14; } break;
@@ -4920,7 +4922,8 @@ function update() {
       if (e.hp <= 0) return true; // aynı karede ölen düşmana ikinci mermi işlemez (çift ölüm/çift drop olmasın)
       const sc  = ENEMY_TIER[e.maxHp].sc;
       const hit = Math.abs(b.x - e.x) < 24 * sc && Math.abs(b.y - e.y) < 29 * sc;
-      if (hit && ((e.gunner && e.gState !== 'cool') || e.armored || e.guardedBy || (e.hunter && (e.hState === 'enter' || e.hState === 'track')) || e.rammer || e.sweeper)) { e.shieldHit = 8; return false; } // kalkan: hasar yok (rammer vurulamaz: tek çare kaçmak)
+      if (hit && e.rammer) { e.shieldHit = 8; return true; } // Rammer vurulamaz ama mermiyi yutmaz: içinden geçip arkadaki hedefe gider
+      if (hit && ((e.gunner && e.gState !== 'cool') || e.armored || e.guardedBy || (e.hunter && (e.hState === 'enter' || e.hState === 'track')) || e.sweeper)) { e.shieldHit = 8; return false; } // kalkan: hasar yok
       if (hit) {
         e.hp -= 1 / (e.armor || 1); // zırh: mermi başına hasar azalır (görünüş/can barı aynı, daha yavaş erir)
         if (e.hp < 0.001) e.hp = 0;
