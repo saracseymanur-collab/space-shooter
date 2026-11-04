@@ -1091,6 +1091,7 @@ function spawnEnemy(yOffset = 0) {
   // stack: aynı şeritte üst üste düşman (öndekiyle en az bu kadar px aralık); yoksa şeritte tek düşman
   const stackCfg = getLevelConfig(), stack = stackCfg && stackCfg.stack;
   const occupied = new Set(enemies.filter(e => !stack || e.y < stack).map(e => e.lane));
+  enemies.forEach(e => { if (e.burster) occupied.add(e.lane); }); // mor Burster'ın şeridine başka gemi girmesin (kullanıcı kararı)
   asteroids.forEach(a => {
     if (a.y < H * 0.42) {
       LANE_CENTERS.forEach((lc, li) => { if (Math.abs(a.x - lc) < LANE_W * 0.65) occupied.add(li); });
@@ -1377,8 +1378,11 @@ function spawnSweeper() {
 const spreadTargets = lane => lane === 1 ? [0, 2] : [lane, 1];
 function spreadVel(e, lane, vy) { const y0 = e.y + 24; return (LANE_CENTERS[lane] - e.x) / ((player.y - y0) / vy); }
 function spawnSplitKids(p) {
-  const side = [p.lane - 1, p.lane + 1].filter(l => l >= 0 && l <= 2);
-  const lanes = side.length === 2 ? side : [side[0], p.lane];
+  const bl = new Set(enemies.filter(e => e.burster).map(e => e.lane)); // Burster şeridine parça fırlamasın
+  let side = [p.lane - 1, p.lane + 1].filter(l => l >= 0 && l <= 2);
+  if (side.some(l => bl.has(l))) side = side.filter(l => !bl.has(l)).concat(bl.has(p.lane) ? [] : [p.lane]);
+  if (!side.length) side = [p.lane];
+  const lanes = side.length >= 2 ? side.slice(0, 2) : [side[0], side[0]];
   lanes.forEach(lane => pendingEnemies.push({
     lane, x: p.x, y: p.y, w: 38, h: 44, hp: 1, maxHp: 1, speed: 4.0, flash: 0,
     fireTimer: 0, fireRate: 999, canShoot: false, zigzag: false, zigzagPhase: 0, phantom: false,
@@ -1416,7 +1420,7 @@ function getRunnerSprite() {
 }
 function spawnRunner() {
   const pl = playerLaneNow();
-  const free = [0, 1, 2].filter(l => !enemies.some(e => e.lane === l && e.y < 70)); // sadece doğduğu yerde üst üste binmesin
+  const free = [0, 1, 2].filter(l => !enemies.some(e => e.lane === l && (e.y < 70 || e.burster))); // üst üste binmesin; Burster şeridine girmesin
   const opts = free.filter(l => l !== pl).length ? free.filter(l => l !== pl) : free;   // tercihen oyuncunun olmadığı şerit
   if (!opts.length) return false;
   const lane = opts[Math.floor(Math.random() * opts.length)];
