@@ -1647,9 +1647,8 @@ function drawRecoilFx(layer) {
   const b = boss, st = b.rState;
   ctx.save();
   if (layer === 'under') {
-    if (st === 'charge' || st === 'burst') { // şerit + burun ışığı
+    if (st === 'charge' || st === 'burst') { // burun ışığı (şerit boyaması kaldırıldı)
       const k = st === 'charge' ? 1 - b.rT / (b.phase === 1 ? (b.chainN ? 14 : 26) : 24) : 1;
-      ctx.fillStyle = `rgba(255,34,68,${0.06 + 0.12 * k})`; ctx.fillRect(LANE_CENTERS[b.lane] - 32, b.y + 50, 64, H - b.y);
       ctx.fillStyle = `rgba(255,34,68,${0.5 + 0.5 * k})`; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 16;
       ctx.beginPath(); ctx.arc(b.x, b.y + 48, 5 + 9 * k, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
     }
@@ -1657,18 +1656,18 @@ function drawRecoilFx(layer) {
       const q = 0.5 + 0.5 * Math.sin(frameCount * 0.5);
       ctx.fillStyle = `rgba(255,34,68,${0.05 + 0.08 * q})`; ctx.fillRect(0, b.y + 50, W, H - b.y);
     }
-    if (st === 'dmark') { // Dev Dalış işareti: pist çizgileri + boss'tan aşağı dolan ışık; en alta varınca dalar
-      const k = 1 - b.rT / (b.rT0 || 20), cx = LANE_CENTERS[b.lane], hw = 40, y0 = b.y + 50, y1 = H, fy = y0 + (y1 - y0) * k;
-      ctx.fillStyle = 'rgba(255,34,68,0.06)'; ctx.fillRect(cx - hw, y0, hw * 2, y1 - y0); // tüm yol: çok soluk
-      const g = ctx.createLinearGradient(cx - hw, 0, cx + hw, 0); // dolan kısım: kenarlar güçlü, orta yumuşak
-      g.addColorStop(0, 'rgba(255,34,68,0.42)'); g.addColorStop(0.3, 'rgba(255,34,68,0.14)'); g.addColorStop(0.7, 'rgba(255,34,68,0.14)'); g.addColorStop(1, 'rgba(255,34,68,0.42)');
+    if (st === 'dmark') { // Dev Dalış işareti: boss'tan aşağı dolan yumuşak ışık + içinde aşağı akan oklar (▼); en alta varınca dalar
+      const k = 1 - b.rT / (b.rT0 || 20), cx = LANE_CENTERS[b.lane], hw = 42, y0 = b.y + 50, y1 = H, fy = y0 + (y1 - y0) * k;
+      const g = ctx.createLinearGradient(cx - hw, 0, cx + hw, 0); // ortası dolu, kenarları kaybolur (lazer gibi sert kenar yok)
+      g.addColorStop(0, 'rgba(255,34,68,0)'); g.addColorStop(0.5, 'rgba(255,34,68,0.2)'); g.addColorStop(1, 'rgba(255,34,68,0)');
       ctx.fillStyle = g; ctx.fillRect(cx - hw, y0, hw * 2, fy - y0);
-      ctx.fillStyle = 'rgba(255,34,68,0.22)'; ctx.fillRect(cx - hw - 3, y0, 3, y1 - y0); ctx.fillRect(cx + hw, y0, 3, y1 - y0); // pist çizgileri (soluk iz)
-      ctx.fillStyle = 'rgba(255,34,68,0.55)'; ctx.fillRect(cx - hw - 4, y0, 6, fy - y0); ctx.fillRect(cx + hw - 2, y0, 6, fy - y0); // dolan kısımda parlak: hale
-      ctx.fillStyle = '#ff6a85'; ctx.fillRect(cx - hw - 2, y0, 2, fy - y0); ctx.fillRect(cx + hw, y0, 2, fy - y0); // ince parlak çekirdek
-      const fg = ctx.createLinearGradient(0, fy - 34, 0, fy); // dolum ucu: parlak ön cephe
-      fg.addColorStop(0, 'rgba(255,90,120,0)'); fg.addColorStop(1, 'rgba(255,170,185,0.75)');
-      ctx.fillStyle = fg; ctx.fillRect(cx - hw, fy - 34, hw * 2, 34);
+      const gap = 46, off = (frameCount * (3 + 6 * k)) % gap; // oklar aşağı akar, dalış yaklaştıkça hızlanır
+      ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (let y = y0 + off; y < fy - 6; y += gap) {
+        const a = Math.min(1, (fy - y) / 60) * (0.55 + 0.4 * k); // uca yakın oklar parlar
+        ctx.strokeStyle = `rgba(255,90,115,${a})`;
+        ctx.beginPath(); ctx.moveTo(cx - 17, y - 9); ctx.lineTo(cx, y + 7); ctx.lineTo(cx + 17, y - 9); ctx.stroke();
+      }
     }
     if (!b.shielded && (st === 'open' || st === 'rise')) { // açık: gövdede nabız gibi beyaz parıltı → "şimdi vur"
       const q = 0.5 + 0.5 * Math.sin(frameCount * 0.35);
