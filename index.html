@@ -1564,7 +1564,7 @@ function updateRecoil() {
   const toNext = () => {
     if (ph === 2 && b.dives < 5) { // faz 2 Dev Dalış: rastgele şeritlere art arda hızlı dalışlar — sen onu takip edip yükselirken vurursun
       b.lane = Math.floor(Math.random() * 3); // tamamen rastgele: aynı şeride tekrar da dalabilir (takip eden açgözlü oyuncu riske girer)
-      b.rState = 'dmark'; b.rT = b.dives ? 9 : 28; b.lag = 0;
+      b.rState = 'dmark'; b.rT = b.dives ? 13 : 28; b.lag = 0;
     }
     else if (ph === 3 && !b.corrDone) { b.dives = 0; b.corrDone = true; toCorridor(); } // faz 3 Ateş Koridoru: koridor ↔ seri döngüsü
     else { b.dives = 0; b.corrDone = false; toCharge(); }
@@ -1602,7 +1602,7 @@ function updateRecoil() {
       } break; // son çarede açık bitince koridor tekrar
     // ── Dev Dalış ──
     case 'dmark': // dalacağı şerit kırmızı yanıp söner (rastgele seçildi, seni takip etmez)
-      if (--b.rT <= 0) { b.rState = 'dlock'; b.rT = b.dives ? 7 : 14; } break;
+      if (--b.rT <= 0) { b.rState = 'dlock'; b.rT = b.dives ? 9 : 14; } break;
     case 'dlock': if (--b.rT <= 0) { b.rState = 'dive'; } break;
     // ── Ateş Koridoru ──
     case 'cwarn': // kısa uyarı: boss kızarır, üç şerit hafif kırmızı
@@ -1622,8 +1622,8 @@ function updateRecoil() {
       break;
     case 'slam': if (--b.rT <= 0) { b.rState = 'rise'; b.rT = 50; } break;
     case 'rise': // öfkeli: sadece ekranın yarısına kadar hızla yükselir (AÇIK), orada kısa durup hemen tekrar dalar
-      b.y += (H * 0.3 - b.y) * 0.14; // yarıdan biraz yukarı (kullanıcı: tam yarısı değil)
-      if (--b.rT <= 0 || b.y < H * 0.33) { b.dives++; toNext(); } break;
+      b.y += (H * 0.2 - b.y) * 0.14; // ekranın ~beşte birine (kullanıcı: rastgele dalışta biraz daha geri)
+      if (--b.rT <= 0 || b.y < H * 0.23) { b.dives++; toNext(); } break;
   }
   const wasShielded = b.shielded;
   b.shielded = !(b.rState === 'open' || b.rState === 'rise');
