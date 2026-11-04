@@ -1516,6 +1516,27 @@ function buildCorridor(rows, hold, overlap, jump2, overlap2 = overlap) {
   }
   return out;
 }
+// Boss'un "tek başına" anları: koridor, dalış, Rammer fırlatma, faz nefesi, giriş. Bu anlarda yardımcı düşman
+// gelmez ve ekrandaki düşmanlar ateş etmez → kaçışsız an olmasın.
+const BOSS_SOLO = new Set(['breath', 'cwarn', 'corridor', 'dmark', 'dlock', 'dive', 'slam', 'waitRam']);
+function bossSolo() { return !!(boss && boss.zone === 1 && (bossWarn > 0 || BOSS_SOLO.has(boss.rState))); }
+// Yardımcı düşmanlar (fazına göre): F1 normal · F2 Splitter ağırlıklı · F3 normal + ara sıra Burster. Seyrek.
+let minionT = 0;
+function updateBossMinions() {
+  if (!boss || boss.zone !== 1 || bossSolo()) return;
+  const ph = boss.phase || 1, every = ph === 1 ? 80 : ph === 2 ? 120 : 95;
+  if (++minionT < every || enemies.length >= 3) return; // en fazla 3 yardımcı
+  minionT = 0;
+  if (ph === 3 && !enemies.some(e => e.burster) && Math.random() < 0.3) { spawnBurster(); return; }
+  const n = enemies.length;
+  spawnEnemy();
+  if (enemies.length > n) {
+    const e = enemies[enemies.length - 1];
+    e.splitter = ph === 2 && Math.random() < 0.3; if (e.splitter) { e.hp = e.maxHp = 2; e.canShoot = false; }
+    e.rammer = false; e.burster = false;
+    if (e.lane === boss.lane) { e.lane = [0, 1, 2].filter(l => l !== boss.lane)[Math.random() < 0.5 ? 0 : 1]; e.x = LANE_CENTERS[e.lane]; } // boss'un içinden doğmasın
+  }
+}
 function updateRecoil() {
   // Faz 1: Geri Tepen (şarj → 5'li seri → varış halkası → sıçra → açık)
   // Faz 2: + sıçradıktan sonra bir Rammer fırlatır (kaç), açıkken önüne turuncu Splitter bırakır (boss mu, parçalar mı?)
@@ -1558,10 +1579,10 @@ function updateRecoil() {
             canShoot: false, zigzag: false, zigzagPhase: 0, phantom: false, cloakCfg: { vis: 90, inv: 40 }, cloakT: 0, alpha: 1,
             shiftAt: null, shiftTo: lane, curveShots: false, shift2: 0, rammer: true, rState: 'fall', ramAt: b.y + 50 });
           b.rState = 'waitRam'; b.rT = 120;
-        } else { b.rState = 'open'; b.rT = ph === 1 ? 70 : 72; b.dropped = false; }
+        } else { b.rState = 'open'; b.rT = ph === 1 ? 64 : 62; b.dropped = false; }
       } break;
     case 'waitRam': // Rammer dalıp gidene kadar boss sadece bekler (tek saldırı)
-      if (--b.rT <= 0 || !enemies.some(e => e.rammer)) { b.rState = 'open'; b.rT = 78; b.dropped = false; } break;
+      if (--b.rT <= 0 || !enemies.some(e => e.rammer)) { b.rState = 'open'; b.rT = 66; b.dropped = false; } break;
     case 'open':
       if (ph === 2 && !b.dropped && b.rT < 80) { // önüne turuncu Splitter bırakır
         b.dropped = true;
@@ -1579,12 +1600,12 @@ function updateRecoil() {
     case 'dlock': if (--b.rT <= 0) { b.rState = 'dive'; } break;
     // ── Ateş Koridoru ──
     case 'cwarn': // kısa uyarı: boss kızarır, üç şerit hafif kırmızı
-      if (--b.rT <= 0) { b.rState = 'corridor'; b.cRows = b.final ? buildCorridor(48, [1, 2], 2, 0.5, 3) : buildCorridor(34, [1, 3], 3, 0.35, 3); /* 3. faz geçişleri geniş (3 satır), son çarede dar (2) */ b.cRow = 0; b.rT = 0; } break;
+      if (--b.rT <= 0) { b.rState = 'corridor'; b.cRows = b.final ? buildCorridor(52, [1, 1], 3, 0.6, 3) : buildCorridor(34, [1, 3], 3, 0.35, 3); /* son çare: yol durmadan kayar, satırlar daha sık */ b.cRow = 0; b.rT = 0; } break;
     case 'corridor':
-      if (b.rT++ % 8 === 0) {
+      if (b.rT++ % (b.final ? 7 : 8) === 0) {
         const open = b.cRows[b.cRow++];
         [0, 1, 2].forEach(l => { if (!open.includes(l)) eBullets.push({ x: LANE_CENTERS[l], y: b.y + 50, vx: 0, vy: 6, hp: 1, lane: l, curve: false }); });
-        if (b.cRow >= b.cRows.length) { b.rState = 'open'; b.rT = b.final ? 160 : 100; b.dropped = true; }
+        if (b.cRow >= b.cRows.length) { b.rState = 'open'; b.rT = b.final ? 140 : 84; b.dropped = true; }
       } break;
     case 'dive':
       b.y += 17;
@@ -1592,7 +1613,7 @@ function updateRecoil() {
       if (b.y >= H - 150) { b.y = H - 150; b.rState = 'slam'; b.rT = 18; hurtFx = Math.max(hurtFx, 8);
         spawnExplosion(b.x - 30, b.y + 40, true); spawnExplosion(b.x + 30, b.y + 40, true); Sound.sfx.shipBoom(3); } // çarpma: patlama + sarsıntı
       break;
-    case 'slam': if (--b.rT <= 0) { b.rState = 'rise'; b.rT = 90; } break;
+    case 'slam': if (--b.rT <= 0) { b.rState = 'rise'; b.rT = 75; } break;
     case 'rise': // yavaşça yükselir: AÇIK (en çok hasarı burada verirsin)
       if (--b.rT <= 0 || b.y < home + 6) { b.dives++; toNext(); } break;
   }
@@ -1725,9 +1746,10 @@ function drawVanguardFx(layer) {
   ctx.restore();
 }
 function spawnBoss(wave) {
+  minionT = 0;
   const bossNum = Math.floor(wave / 5);
   const special = currentLevel % 5 === 0; // her bölgenin 5. bölümü
-  const BOSS_HP = { 5: 45, 10: 130, 15: 160, 20: 220 };
+  const BOSS_HP = { 5: 40, 10: 130, 15: 160, 20: 220 };
   const hp = BOSS_HP[currentLevel] ?? 25 + bossNum * 10;
   boss = {
     x: W / 2, y: currentZone === 1 ? -130 : special ? H * 0.14 : H * 0.13, // Void Vanguard yukarıdan kadraja süzülür
@@ -4262,7 +4284,7 @@ function update() {
     if (!(boss.zone === 1 && (boss.rState === 'dive' || boss.rState === 'slam'))) boss.y += (homeY - boss.y) * (boss.rState === 'rise' ? 0.035 : bossWarn > 0 ? 0.06 : 0.025); // girişte hızlı süzülür
 
     if (boss.flash > 0) boss.flash--;
-    if (boss.zone === 1) updateRecoil();
+    if (boss.zone === 1) { updateRecoil(); updateBossMinions(); }
 
     // Komuta Merkezi: faz 2'den itibaren periyodik olarak görünmez olur (mermi işlemez, ateş etmez)
     if (boss.zone === 3 && boss.phase >= 2) {
@@ -4695,7 +4717,7 @@ function update() {
 
   // Enemies
   updateSnakes();
-  const sweepActive = enemies.some(e => e.sweeper && (e.sState === 'warn' || e.sState === 'sweep'));
+  const sweepActive = enemies.some(e => e.sweeper && (e.sState === 'warn' || e.sState === 'sweep')) || bossSolo(); // ateş tutma
   enemies = enemies.filter(e => {
     if (e.gone) return false; // kaçan yılan parçaları
     // Pusu: demir kayanın arkasında saklanır (bu sırada vurulamaz, ateş etmez)
@@ -4750,7 +4772,7 @@ function update() {
         else if (e.bState === 'burst') {
           if (e.bT++ % 6 === 0) { pushShot({ x: e.x, y: e.y + 30, vx: 0, vy: 8, hp: 3, lane: e.lane, curve: false }); e.bN++; }
           if (e.bN >= 5) { e.bState = 'rest'; e.bT = 84; }
-        } else if (--e.bT <= 0) { e.bState = 'charge'; e.bT = 26; }
+        } else if (--e.bT <= 0 && !sweepActive) { e.bState = 'charge'; e.bT = 26; }
       }
     }
     if (e.sweeper) {
@@ -4769,7 +4791,7 @@ function update() {
       }
     }
     if (e.rammer) {
-      if (e.rState === 'fall' && e.y > e.ramAt && !sweepActive) { e.rState = 'aim'; e.rT = 36; e.lane = e.ramLane = playerLaneNow(); } // süpürmede bekler
+      if (e.rState === 'fall' && e.y > e.ramAt && (!sweepActive || (boss && boss.rState === 'waitRam'))) { e.rState = 'aim'; e.rT = 36; e.lane = e.ramLane = playerLaneNow(); } // süpürmede bekler
       else if (e.rState === 'aim') { // durmaz: sırasıyla inmeye devam eder, hedef şeride hızlı kayar
         e.x += (LANE_CENTERS[e.ramLane] - e.x) * 0.18;
         if (--e.rT <= 0) { e.rState = 'dash'; e.speed = 13; }

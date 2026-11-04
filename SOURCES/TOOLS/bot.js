@@ -58,7 +58,7 @@ function laneValue(l) {
     if (nearestLane(e.x) !== l) continue;
     v += 40 + Math.max(0, e.y) * 0.25 + e.hp * 10;     // aşağıdaki düşman daha acil
   }
-  if (boss && Math.abs(boss.x - LANE_CENTERS[l]) < 80) v += 60;
+  if (boss && Math.abs(boss.x - LANE_CENTERS[l]) < 80) v += boss.shielded === false ? 400 : 60; // açık boss = öncelik (insan gibi)
   for (const p of powerups) if (nearestLane(p.x) === l) v += 25;
   return v;
 }
