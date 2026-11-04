@@ -1656,23 +1656,22 @@ function drawRecoilFx(layer) {
       const q = 0.5 + 0.5 * Math.sin(frameCount * 0.5);
       ctx.fillStyle = `rgba(255,34,68,${0.05 + 0.08 * q})`; ctx.fillRect(0, b.y + 50, W, H - b.y);
     }
-    if (st === 'dmark') { // Dev Dalış işareti: boss'tan aşağı dolan yumuşak ışık + içinde aşağı akan oklar (▼); en alta varınca dalar
-      const k = 1 - b.rT / (b.rT0 || 20), cx = LANE_CENTERS[b.lane], hw = 42, y0 = b.y + 50, y1 = H, fy = y0 + (y1 - y0) * k;
+    if (st === 'dmark') { // Dev Dalış işareti: tüm yol boyunca yumuşak ışık + aşağı akan oklar (▼); dalış yaklaştıkça hızlanır ve parlar
+      const k = 1 - b.rT / (b.rT0 || 20), cx = LANE_CENTERS[b.lane], hw = 42, y0 = b.y + 50, y1 = H;
       const g = ctx.createLinearGradient(cx - hw, 0, cx + hw, 0); // ortası dolu, kenarları kaybolur (lazer gibi sert kenar yok)
-      g.addColorStop(0, 'rgba(255,34,68,0)'); g.addColorStop(0.5, 'rgba(255,34,68,0.2)'); g.addColorStop(1, 'rgba(255,34,68,0)');
-      ctx.fillStyle = g; ctx.fillRect(cx - hw, y0, hw * 2, fy - y0);
-      const gap = 46, off = (frameCount * (3 + 6 * k)) % gap; // oklar aşağı akar, dalış yaklaştıkça hızlanır
+      g.addColorStop(0, 'rgba(255,34,68,0)'); g.addColorStop(0.5, `rgba(255,34,68,${0.12 + 0.12 * k})`); g.addColorStop(1, 'rgba(255,34,68,0)');
+      ctx.fillStyle = g; ctx.fillRect(cx - hw, y0, hw * 2, y1 - y0);
+      const gap = 46, off = (frameCount * (3 + 6 * k)) % gap;
       ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      for (let y = y0 + off; y < fy - 6; y += gap) {
-        const a = Math.min(1, (fy - y) / 60) * (0.55 + 0.4 * k); // uca yakın oklar parlar
-        ctx.strokeStyle = `rgba(255,90,115,${a})`;
+      ctx.strokeStyle = `rgba(255,90,115,${0.5 + 0.45 * k})`;
+      for (let y = y0 + off; y < y1; y += gap) {
         ctx.beginPath(); ctx.moveTo(cx - 17, y - 9); ctx.lineTo(cx, y + 7); ctx.lineTo(cx + 17, y - 9); ctx.stroke();
       }
     }
-    if (!b.shielded && (st === 'open' || st === 'rise')) { // açık: gövdede nabız gibi beyaz parıltı → "şimdi vur"
+    if (!b.shielded && (st === 'open' || st === 'rise')) { // açık: gövdede nabız gibi mor parıltı → "şimdi vur"
       const q = 0.5 + 0.5 * Math.sin(frameCount * 0.35);
       const g = ctx.createRadialGradient(b.x, b.y, 10, b.x, b.y, 90);
-      g.addColorStop(0, `rgba(255,255,255,${0.25 + 0.2 * q})`); g.addColorStop(1, 'rgba(255,255,255,0)');
+      g.addColorStop(0, `rgba(200,90,255,${0.3 + 0.2 * q})`); g.addColorStop(1, 'rgba(200,90,255,0)'); // boss renginde (eskiden beyaz)
       ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(b.x, b.y, 95, 70, 0, 0, Math.PI * 2); ctx.fill();
     }
   } else if (layer === 'top' && b.shieldK > 0.01) { // enerji kalkanı görseli: geminin üstüne, aynı merkezde
@@ -3787,7 +3786,8 @@ function drawFeedbackOverlays() {
     const a = Math.min(1, bossWarn / 20, (bossWarnMax - bossWarn) / 12 + 0.2);
     const blink = Math.floor(bossWarn / 10) % 2 === 0;
     ctx.save(); ctx.globalAlpha = a;
-    [H * 0.42, H * 0.42 + 58].forEach(y => {
+    const wy = H * 0.42, gapH = 76; // iki çizgi arası; metin bloğu (24 + 8 + 10 px) tam ortada, çizgilerle arasında ~15 px boşluk
+    [wy, wy + gapH].forEach(y => {
       ctx.fillStyle = 'rgba(255,34,68,0.18)'; ctx.fillRect(0, y - 2, W, 4);
       ctx.save(); ctx.beginPath(); ctx.rect(0, y - 2, W, 4); ctx.clip();
       ctx.fillStyle = 'rgba(255,77,102,0.8)';
@@ -3795,10 +3795,10 @@ function drawFeedbackOverlays() {
       ctx.restore();
     });
     ctx.fillStyle = blink ? '#ff4d66' : '#ffd0d8';
-    ctx.shadowColor = '#ff2a4a'; ctx.shadowBlur = 16;
-    drawSpaced('WARNING', W / 2, H * 0.42 + 22, 24, 700, UI_FONT, 6);
+    ctx.shadowColor = '#ff2a4a'; ctx.shadowBlur = 16; ctx.textBaseline = 'middle';
+    drawSpaced('WARNING', W / 2, wy + gapH / 2 - 9, 24, 700, UI_FONT, 6);
     ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(255,220,225,0.85)';
-    drawSpaced(`${(boss && boss.special ? BOSS_NAMES[boss.zone] : 'BOSS')} APPROACHING`, W / 2, H * 0.42 + 44, 10, 700, MONO_FONT, 3);
+    drawSpaced(`${(boss && boss.special ? BOSS_NAMES[boss.zone] : 'BOSS')} APPROACHING`, W / 2, wy + gapH / 2 + 16, 10, 700, MONO_FONT, 3);
     ctx.restore();
   }
   // Bildirimler
