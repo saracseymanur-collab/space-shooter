@@ -1524,7 +1524,7 @@ function bossSolo() { return !!(boss && boss.zone === 1 && (bossWarn > 0 || BOSS
 let minionT = 0;
 function updateBossMinions() {
   if (!boss || boss.zone !== 1 || bossSolo()) return;
-  const ph = boss.phase || 1, every = ph === 1 ? 110 : ph === 2 ? 140 : 110;
+  const ph = boss.phase || 1, every = ph === 1 ? 110 : ph === 2 ? 140 : 170;
   if (++minionT < every || enemies.length >= 3) return; // en fazla 3 yardımcı
   minionT = 0;
   if (ph === 3 && !enemies.some(e => e.burster) && Math.random() < 0.3) {
@@ -1558,7 +1558,7 @@ function updateRecoil() {
   const toCharge = () => { b.rState = 'charge'; b.rT = ph === 1 ? 26 : 24; };
   const toCorridor = () => { b.rState = 'cwarn'; b.rT = 40; b.final = false; showToast('BARRAGE · FOLLOW THE GAP', '#ff4d66', 80); };
   const toNext = () => {
-    if (ph === 3 && b.dives < 3) { b.rState = 'dmark'; b.rT = 50 - b.dives * 9; b.lag = 0; } // her dalışta işaret daha hızlı
+    if (ph === 3 && b.dives < 3) { b.rState = 'dmark'; b.rT = b.dives ? 22 : 40; b.lag = 0; } // öfkeli: ilk işaret normal, sonrakiler çok kısa
     else if (ph === 3 && !b.corrDone) { b.dives = 0; b.corrDone = true; toCorridor(); }
     else { b.dives = 0; b.corrDone = false; toCharge(); }
   };
@@ -1599,27 +1599,29 @@ function updateRecoil() {
     case 'dmark': { // işaret seni gecikmeyle takip eder
       const pl = playerLaneNow();
       if (pl !== b.lane) { if (++b.lag >= 9) { b.lane = pl; b.lag = 0; } } else b.lag = 0;
-      if (--b.rT <= 0) { b.rState = 'dlock'; b.rT = 22 - b.dives * 4; } break;
+      if (--b.rT <= 0) { b.rState = 'dlock'; b.rT = b.dives ? 12 : 18; } break;
     }
     case 'dlock': if (--b.rT <= 0) { b.rState = 'dive'; } break;
     // ── Ateş Koridoru ──
     case 'cwarn': // kısa uyarı: boss kızarır, üç şerit hafif kırmızı
-      if (--b.rT <= 0) { b.rState = 'corridor'; b.cRows = b.final ? buildCorridor(52, [1, 1], 3, 0.6, 3) : buildCorridor(34, [1, 2], 3, 0.5, 3); /* son çare: yol durmadan kayar, satırlar daha sık */ b.cRow = 0; b.rT = 0; } break;
+      b.y += (home - b.y) * 0.1; // koridor öncesi hızla yukarı döner (okuma payı)
+      if (--b.rT <= 0) { b.rState = 'corridor'; b.cRows = b.final ? buildCorridor(40, [1, 1], 3, 0.6, 3) : buildCorridor(26, [1, 1], 3, 0.5, 3); /* yol her satırda kayar: seri sağ-sol, kısa */ b.cRow = 0; b.rT = 0; } break;
     case 'corridor':
-      if (b.rT++ % (b.final ? 7 : 8) === 0) {
+      if (b.rT++ % 7 === 0) {
         const open = b.cRows[b.cRow++];
-        [0, 1, 2].forEach(l => { if (!open.includes(l)) eBullets.push({ x: LANE_CENTERS[l], y: b.y + 50, vx: 0, vy: 6, hp: 1, lane: l, curve: false }); });
+        [0, 1, 2].forEach(l => { if (!open.includes(l)) eBullets.push({ x: LANE_CENTERS[l], y: b.y + 50, vx: 0, vy: 7, hp: 1, lane: l, curve: false }); });
         if (b.cRow >= b.cRows.length) { b.rState = 'open'; b.rT = b.final ? 140 : 84; b.dropped = true; }
       } break;
     case 'dive':
-      b.y += 17;
+      b.y += 26; // çok hızlı dalış
       if (!player.dead && Math.abs(player.x - b.x) < 60 && Math.abs(player.y - b.y) < 80) damagePlayer('Crushed by the boss!');
       if (b.y >= H - 150) { b.y = H - 150; b.rState = 'slam'; b.rT = 18; hurtFx = Math.max(hurtFx, 8);
         spawnExplosion(b.x - 30, b.y + 40, true); spawnExplosion(b.x + 30, b.y + 40, true); Sound.sfx.shipBoom(3); } // çarpma: patlama + sarsıntı
       break;
-    case 'slam': if (--b.rT <= 0) { b.rState = 'rise'; b.rT = 75; } break;
-    case 'rise': // yavaşça yükselir: AÇIK (en çok hasarı burada verirsin)
-      if (--b.rT <= 0 || b.y < home + 6) { b.dives++; toNext(); } break;
+    case 'slam': if (--b.rT <= 0) { b.rState = 'rise'; b.rT = 60; } break;
+    case 'rise': // öfkeli: sadece ekranın yarısına kadar hızla yükselir (AÇIK), orada kısa durup hemen tekrar dalar
+      b.y += (H * 0.4 - b.y) * 0.14;
+      if (--b.rT <= 0 || b.y < H * 0.43) { b.dives++; toNext(); } break;
   }
   const wasShielded = b.shielded;
   b.shielded = !(b.rState === 'open' || b.rState === 'rise');
@@ -1775,7 +1777,7 @@ function spawnBoss(wave) {
   minionT = 0;
   const bossNum = Math.floor(wave / 5);
   const special = currentLevel % 5 === 0; // her bölgenin 5. bölümü
-  const BOSS_HP = { 5: 40, 10: 130, 15: 160, 20: 220 };
+  const BOSS_HP = { 5: 36, 10: 130, 15: 160, 20: 220 };
   const hp = BOSS_HP[currentLevel] ?? 25 + bossNum * 10;
   boss = {
     x: W / 2, y: currentZone === 1 ? -130 : special ? H * 0.14 : H * 0.13, // Void Vanguard yukarıdan kadraja süzülür
@@ -4306,7 +4308,7 @@ function update() {
 
     // Dikey: her fazda üstte sabit
     const homeY = boss.special ? H * 0.14 : H * 0.13;
-    if (!(boss.zone === 1 && (boss.rState === 'dive' || boss.rState === 'slam'))) boss.y += (homeY - boss.y) * (boss.rState === 'rise' ? 0.035 : bossWarn > 0 ? 0.06 : 0.025); // girişte hızlı süzülür
+    if (!(boss.zone === 1 && (boss.rState === 'dive' || boss.rState === 'slam' || boss.rState === 'rise' || ((boss.rState === 'dmark' || boss.rState === 'dlock') && boss.dives > 0)))) boss.y += (homeY - boss.y) * (boss.rState === 'rise' ? 0.035 : bossWarn > 0 ? 0.06 : 0.025); // girişte hızlı süzülür
 
     if (boss.flash > 0) boss.flash--;
     if (boss.zone === 1) { updateRecoil(); updateBossMinions(); }
