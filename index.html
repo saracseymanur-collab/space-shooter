@@ -5569,6 +5569,21 @@ function loop(timestamp) {
   render();
 }
 
+// Resim yüklenemezse (anlık ağ hatası) birkaç kez yeniden dene — yoksa tarayıcı onu kalıcı bozuk sayıyor
+// ve gemi gibi görseller sayfa yenilenene kadar görünmüyordu.
+(function retryBrokenImages() {
+  const all = [spaceshipImg, ...enemyImgs, bossImg, ...bgImgs, eShotImg, ...Object.values(powerupImgs), ...cardImgs,
+    ...Object.values(rockImgs).flat()].filter(Boolean);
+  const retry = im => {
+    im._tries = (im._tries || 0) + 1;
+    if (im._tries > 4) return;
+    setTimeout(() => { const base = im.src.split('?')[0]; im.src = base + '?r=' + im._tries; }, 500 * im._tries);
+  };
+  all.forEach(im => {
+    im.addEventListener('error', () => retry(im));
+    if (im.complete && !im.naturalWidth) retry(im); // dinleyici eklenmeden önce düşmüş olabilir
+  });
+})();
 if (BOSS_MODE) {
   levelStates = levelStates.map(() => 'unlocked');
   startLevel(5);
