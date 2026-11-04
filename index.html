@@ -3193,7 +3193,8 @@ const LEVEL_BRIEFS = [
   { title: 'SPLITTERS',       vis: 'split',     line: 'Orange ships split in two when hit. Catch the fast halves!', tips: ['The halves dart into the side lanes.', "Don't let them reach the bottom!", 'A blue shield blocks hits for a few seconds.'] },
   { title: 'RAMMERS',         vis: 'ram',       line: 'Red ships mark your lane, then ram straight down. Dodge!', tips: ['Watch for the flashing lane.', 'Its shield blocks your shots. Just get out of the way!', 'Orange splitters are back. Catch the halves!'] },
   { title: 'BURSTERS',        vis: 'burst',     line: 'Violet ships fire a rapid burst, then rest. Hit them between bursts!', tips: ['A glowing nose means a burst is coming.', 'Orange splitters are back. Catch the halves!'] },
-  { title: 'VOID VANGUARD',   vis: 'boss',      line: 'It fires a burst, then jumps aside. Chase it and hit it while it is open!', tips: ['The dashed ring shows where it will land.', 'Phase 2: it launches Rammers and drops splitters.', 'Phase 3: it dives at your lane. Hit it as it rises!', 'Barrage: follow the one open lane!'] },
+  // Boss bölümü: anlatım yok (her şey sektörde öğretildi), boss görünmez — sürpriz + esprili uğurlama
+  { title: 'SOMETHING BIG',   vis: 'eyes',      line: "Five waves, then a very large problem. Good luck. You'll need it.", tips: [] },
   { title: 'CRYSTAL MINING',  vis: 'crystal',   line: 'Shoot rocks, collect crystals, fill the bar for Overdrive!', tips: ["You don't have to destroy every rock.", 'Survive 5 waves to clear the level.'] },
   { title: 'AMBUSH',          vis: 'ambush',    line: 'Enemies hide behind grey iron rocks.', tips: ["Iron rocks can't be destroyed and block shots.", 'Wait for the enemy to come out.'] },
   { title: 'METEOR SHOWER',   vis: 'meteor',    line: 'A flashing red lane means meteors. Move out!', tips: ["Meteors can't be shot."] },
@@ -3253,7 +3254,7 @@ function drawBriefVisual(kind, cx, cy, zc) {
   const t = frameCount * 0.04, L = [-70, 0, 70];
   ctx.save();
   // şerit çizgileri: her sahnede ortak zemin
-  if (kind !== 'crystal' && kind !== 'boss') L.forEach(dx => { ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fillRect(cx + dx - 1, cy - 40, 2, 80); });
+  if (kind !== 'crystal' && kind !== 'boss' && kind !== 'eyes') L.forEach(dx => { ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fillRect(cx + dx - 1, cy - 40, 2, 80); });
   switch (kind) {
     case 'swipe': {
       // Parmak ekrana değer, yana kayar, kalkar → gemi bir şerit kayar (ok yok: "basılacak buton" algısı olmasın)
@@ -3455,6 +3456,15 @@ function drawBriefVisual(kind, cx, cy, zc) {
       ctx.beginPath(); for (let k = 0; k <= 40; k++) { const y = cy - 38 + k * 2, x = cx + Math.sin(k * 0.35) * 40; k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke();
       ctx.setLineDash([]); ctx.globalAlpha = 1;
       briefEnemy(2, cx + Math.sin(t * 2) * 40, cy, 0.55);
+      break;
+    }
+    case 'eyes': { // karanlıkta yanıp sönen iki kırmızı göz: boss'u göstermeden merak uyandırır
+      const blink = (frameCount % 150) < 6 ? 0.1 : 1, glow = 0.6 + 0.4 * Math.sin(frameCount * 0.06);
+      const g = ctx.createRadialGradient(cx, cy, 4, cx, cy, 90); g.addColorStop(0, 'rgba(0,0,0,0.65)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(cx, cy, 120, 46, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = `rgba(255,34,68,${glow})`; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 18;
+      [-22, 22].forEach(dx => { ctx.beginPath(); ctx.ellipse(cx + dx, cy, 9, 4.5 * blink, dx < 0 ? 0.25 : -0.25, 0, Math.PI * 2); ctx.fill(); });
+      ctx.shadowBlur = 0;
       break;
     }
     case 'boss': {
