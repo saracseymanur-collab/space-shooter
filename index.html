@@ -1567,7 +1567,7 @@ function updateRecoil() {
     case 'charge': if (--b.rT <= 0) { b.rState = 'burst'; b.rT = 0; b.rN = 0; } break;
     case 'burst':
       if (b.rT++ % 6 === 0) { pushShot({ x: b.x, y: b.y + 50, vx: 0, vy: 9.5, hp: 3, lane: b.lane, curve: false, fromBoss: true }); b.rN++; }
-      if (b.rN >= (ph === 1 ? 6 : 7)) { b.rState = 'tail'; b.rT = 10; } break;
+      if (b.rN >= (ph === 1 ? (b.chainN < 2 ? 4 : 5) : 7)) { b.rState = 'tail'; b.rT = 10; } break; // faz 1 zincirde kısa seriler
     case 'tail': { // sıçrama yönü: ortadaysa oyuncudan uzak tarafa, kenardaysa ortaya
       if (--b.rT > 0) break;
       const pl = playerLaneNow();
@@ -1583,7 +1583,9 @@ function updateRecoil() {
             canShoot: false, zigzag: false, zigzagPhase: 0, phantom: false, cloakCfg: { vis: 90, inv: 40 }, cloakT: 0, alpha: 1,
             shiftAt: null, shiftTo: lane, curveShots: false, shift2: 0, rammer: true, rState: 'fall', ramAt: b.y + 50 });
           b.rState = 'waitRam'; b.rT = 120;
-        } else { b.rState = 'open'; b.rT = ph === 1 ? 95 : 62; b.dropped = false; } // faz 1: uzun açık (yakalaması kolay)
+        } else if (ph === 1 && (b.chainN || 0) < 2) { // faz 1 zincirleme sıçrama: art arda 3 kez seri at → sıçra, sonra uzun açık
+          b.chainN = (b.chainN || 0) + 1; b.rState = 'charge'; b.rT = 14;
+        } else { b.chainN = 0; b.rState = 'open'; b.rT = ph === 1 ? 110 : 62; b.dropped = false; }
       } break;
     case 'waitRam': // Rammer dalıp gidene kadar boss sadece bekler (tek saldırı)
       if (--b.rT <= 0 || !enemies.some(e => e.rammer)) { b.rState = 'open'; b.rT = 66; b.dropped = false; } break;
@@ -1641,7 +1643,7 @@ function drawRecoilFx(layer) {
   ctx.save();
   if (layer === 'under') {
     if (st === 'charge' || st === 'burst') { // şerit + burun ışığı
-      const k = st === 'charge' ? 1 - b.rT / (b.phase === 1 ? 26 : 24) : 1;
+      const k = st === 'charge' ? 1 - b.rT / (b.phase === 1 ? (b.chainN ? 14 : 26) : 24) : 1;
       ctx.fillStyle = `rgba(255,34,68,${0.06 + 0.12 * k})`; ctx.fillRect(LANE_CENTERS[b.lane] - 32, b.y + 50, 64, H - b.y);
       ctx.fillStyle = `rgba(255,34,68,${0.5 + 0.5 * k})`; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 16;
       ctx.beginPath(); ctx.arc(b.x, b.y + 48, 5 + 9 * k, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
