@@ -480,6 +480,7 @@ let frameCount = 0;
 let boss = null;
 let lastWaveForBoss = -1;
 let bossKillTimer = 0;
+let bossWarnMax = 150;
 let slowMoT = 0, _slowFlip = false; // son düşmanda kısa ağır çekim (update'ler yarı hızda)
 let returnToMap = false;
 let levelCompleteType = 'boss'; // 'boss' | 'clear'
@@ -1740,7 +1741,7 @@ function spawnBoss(wave) {
   enemies = [];
   asteroids = []; // clear asteroids during boss fight
   lasers = [];
-  bossWarn = 150;
+  bossWarn = bossWarnMax = currentZone === 1 ? 90 : 150; // Void Vanguard: ekran temizlenince kısa uyarı
   boss.fireTimer = -100; boss.droneTimer = -100; boss.laserTimer = -100; // uyarı sırasında ateş yok
   Sound.sfx.bossIn(); Sound.sfx.warning();
 }
@@ -2835,6 +2836,20 @@ function getBossSprite(zone) {
   return bossSprites[zone];
 }
 
+// Boss görseli + parıltısı bir kez önceden çizilir (her karede büyük resme shadowBlur iPhone'da kare atlatıyordu)
+const bossGlowCache = {};
+function getBossGlowSprite(zone, glow) {
+  const key = zone + glow;
+  if (!bossGlowCache[key]) {
+    const pad = 24, bw = BOSS_W, bh = BOSS_H, c = document.createElement('canvas');
+    c.width = Math.ceil((bw + pad * 2) * DPR); c.height = Math.ceil((bh + pad * 2) * DPR);
+    const g = c.getContext('2d'); g.scale(DPR, DPR);
+    g.shadowColor = glow; g.shadowBlur = 18;
+    g.drawImage(getBossSprite(zone), pad, pad, bw, bh);
+    bossGlowCache[key] = { c, w: bw + pad * 2, h: bh + pad * 2 };
+  }
+  return bossGlowCache[key];
+}
 // --- Draw: Boss ---
 function drawBoss(b) {
   const sc    = b.special ? 1.45 : 1.0;
@@ -2863,10 +2878,8 @@ function drawBoss(b) {
 
   // Boss görseli
   if (bossImg.complete && bossImg.naturalWidth > 0) {
-    const bw = BOSS_W, bh = BOSS_H;
-    ctx.shadowColor = p.bodyGlow; ctx.shadowBlur = 18;
-    ctx.drawImage(getBossSprite(b.zone), -bw / 2, -bh / 2, bw, bh);
-    ctx.shadowBlur = 0;
+    const g = getBossGlowSprite(b.zone, p.bodyGlow);
+    if (g) ctx.drawImage(g.c, -g.w / 2, -g.h / 2, g.w, g.h);
   }
 
   // Çekirdek parıltısı — faz renginde nabız
@@ -3742,7 +3755,7 @@ function drawFeedbackOverlays() {
   }
   // Boss uyarısı: üstte ve altta kırmızı şerit, yanıp sönen yazı
   if (bossWarn > 0) {
-    const a = Math.min(1, bossWarn / 20, (150 - bossWarn) / 12 + 0.2);
+    const a = Math.min(1, bossWarn / 20, (bossWarnMax - bossWarn) / 12 + 0.2);
     const blink = Math.floor(bossWarn / 10) % 2 === 0;
     ctx.save(); ctx.globalAlpha = a;
     [H * 0.42, H * 0.42 + 58].forEach(y => {
@@ -4246,7 +4259,7 @@ function update() {
 
     // Dikey: her fazda üstte sabit
     const homeY = boss.special ? H * 0.14 : H * 0.13;
-    if (!(boss.zone === 1 && (boss.rState === 'dive' || boss.rState === 'slam'))) boss.y += (homeY - boss.y) * (boss.rState === 'rise' ? 0.035 : 0.025);
+    if (!(boss.zone === 1 && (boss.rState === 'dive' || boss.rState === 'slam'))) boss.y += (homeY - boss.y) * (boss.rState === 'rise' ? 0.035 : bossWarn > 0 ? 0.06 : 0.025); // girişte hızlı süzülür
 
     if (boss.flash > 0) boss.flash--;
     if (boss.zone === 1) updateRecoil();
@@ -5496,7 +5509,7 @@ function loop(timestamp) {
   if (_lastTime === 0) { _lastTime = timestamp; }
   const delta = Math.min(timestamp - _lastTime, 100);
   _lastTime = timestamp;
-  _accum += delta * (state === 'play' && !briefing ? GAME_SPEED : 1); // oynanış hızı (menü/kart normal)
+  _accum += delta * (state === 'play' && !briefing && !(countdown > 0) && !introCard ? GAME_SPEED : 1); // oynanış hızı (menü, kart, 3-2-1 normal)
   while (_accum >= _STEP) {
     _slowFlip = !_slowFlip;
     if (!(slowMoT > 0 && _slowFlip)) update(); // ağır çekimde her ikinci adım atlanır
