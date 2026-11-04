@@ -1543,7 +1543,7 @@ function updateBossMinions() {
 }
 function updateRecoil() {
   // Faz 1: Geri Tepen (şarj → 5'li seri → varış halkası → sıçra → açık)
-  // Faz 2: sıçradıktan sonra açılır, açıkken önüne turuncu Splitter bırakır (boss mu, parçalar mı?) — Rammer fırlatmaz (kullanıcı kararı)
+  // Faz 2: Geri Tepen daha hızlı (6-7'li seri) — Rammer/Splitter/yardımcı gemi yok (kullanıcı kararları)
   // Faz 3: Dev Dalış (imza) — kırmızı işaret şeridinde seni takip eder → kilit → boss o şeride dibe dalar → çarpınca iki
   //        yere çarpar (patlama + sarsıntı) → yavaşça yükselir (AÇIK). İki dalış, bir seri döngü, tekrar. Her an tek saldırı.
   const b = boss, ph = b.phase, home = H * 0.14;
@@ -1582,7 +1582,7 @@ function updateRecoil() {
         } else { b.chainN = 0; b.rState = 'open'; b.rT = ph === 1 ? 90 : 62; b.dropped = false; }
       } break;
     case 'open':
-      if (ph === 2 && !b.dropped && b.rT < 80) { // önüne turuncu Splitter bırakır
+      if (false && ph === 2 && !b.dropped && b.rT < 80) { // (kaldırıldı) önüne turuncu Splitter bırakırdı
         b.dropped = true;
         enemies.push({ lane: b.lane, x: b.x, y: b.y + 50, w: 38, h: 44, hp: 2, maxHp: 2, speed: 2.8, flash: 0, fireTimer: 0, fireRate: 999,
           canShoot: false, zigzag: false, zigzagPhase: 0, phantom: false, cloakCfg: { vis: 90, inv: 40 }, cloakT: 0, alpha: 1,
@@ -4309,7 +4309,7 @@ function update() {
     if (!(boss.zone === 1 && (boss.rState === 'dive' || boss.rState === 'slam' || boss.rState === 'rise' || ((boss.rState === 'dmark' || boss.rState === 'dlock') && boss.dives > 0)))) boss.y += (homeY - boss.y) * (boss.rState === 'rise' ? 0.035 : bossWarn > 0 ? 0.06 : 0.025); // girişte hızlı süzülür
 
     if (boss.flash > 0) boss.flash--;
-    if (boss.zone === 1) { updateRecoil(); updateBossMinions(); }
+    if (boss.zone === 1) updateRecoil(); // yardımcı gemiler kaldırıldı (kullanıcı: küçükleri kovalamaktan boss'u vuramıyordu) — updateBossMinions kullanılmıyor
 
     // Komuta Merkezi: faz 2'den itibaren periyodik olarak görünmez olur (mermi işlemez, ateş etmez)
     if (boss.zone === 3 && boss.phase >= 2) {
