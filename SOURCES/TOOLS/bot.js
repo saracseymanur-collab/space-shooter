@@ -3,6 +3,7 @@
 // İnsan benzeri bot: her `react` karede bir karar verir, `miss` olasılıkla o kararda tehlikeleri görmez,
 // bir kararda en fazla bir şerit kayar (tek swipe). Dönen: bölüm başına hasar sayısı ve sebepleri.
 window.requestAnimationFrame = () => 0;
+Object.keys(FIRST_SEEN).forEach(k => seenIntro[k] = 1); // sayfa açıkken yüklenince de açıklama kartları dondurmasın
 try { localStorage.setItem('ss_seen', JSON.stringify(Object.fromEntries(Object.keys(FIRST_SEEN).map(k => [k, 1])))); } catch (e) {}
 const _origDamage = damagePlayer;
 let HITS = [];
@@ -17,7 +18,7 @@ function laneDanger(l, horizon, blind) { // isabet edecek mermi/kaya/lazer: kesi
     d += e.sState === 'sweep' ? 1e6 : 2e5; // süpürülecek iki şerit
   }
   if (boss && boss.zone === 1 && boss.lane === l) { // Dev Dalış: işaret/kilit/dalış şeridi
-    if (boss.rState === 'dlock' || boss.rState === 'dive') d += 1e6;
+    if (boss.rState === 'dive' || (boss.rState === 'dmark' && boss.rT < (boss.rT0 || 20) * 0.45)) d += 1e6; // dolumun son kısmı = eski kilit
     else if (boss.rState === 'dmark' && horizon >= 20) d += 2e5;
   }
   if (blind) return d;

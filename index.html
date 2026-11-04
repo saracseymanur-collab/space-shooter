@@ -1525,7 +1525,7 @@ function buildCorridor(rows, hold, overlap, jump2, overlap2 = overlap) {
 }
 // Boss'un "tek başına" anları: koridor, dalış, faz nefesi, giriş. Bu anlarda yardımcı düşman
 // gelmez ve ekrandaki düşmanlar ateş etmez → kaçışsız an olmasın.
-const BOSS_SOLO = new Set(['breath', 'cwarn', 'corridor', 'dmark', 'dlock', 'dive', 'slam']);
+const BOSS_SOLO = new Set(['breath', 'cwarn', 'corridor', 'dmark', 'dive', 'slam']);
 function bossSolo() { return !!(boss && boss.zone === 1 && (bossWarn > 0 || BOSS_SOLO.has(boss.rState))); }
 // Yardımcı düşmanlar (fazına göre): F1 normal · F2 Splitter ağırlıklı · F3 normal + ara sıra Burster. Seyrek.
 let minionT = 0;
@@ -1569,7 +1569,7 @@ function updateRecoil() {
       // ağırlıklı rastgele: orta şerit daha sık (ortada saklanılamasın), aynı şeride üst üste nadiren
       const w = [0, 1, 2].map(l => (l === 1 ? 1.5 : 1) * (b.dives > 0 && l === b.lane ? 0.3 : 1));
       let r = Math.random() * (w[0] + w[1] + w[2]); b.lane = r < w[0] ? 0 : r < w[0] + w[1] ? 1 : 2;
-      b.rState = 'dmark'; b.rT = b.dives ? 13 : 28; b.lag = 0;
+      b.rState = 'dmark'; b.rT = b.rT0 = b.dives ? 18 : 32; b.lag = 0; // tek uyarı (kilit aşaması kaldırıldı)
     }
     else if (ph === 3 && !b.corrDone) { b.dives = 0; b.corrDone = true; toCorridor(); } // faz 3 Ateş Koridoru: koridor ↔ seri döngüsü
     else { b.dives = 0; b.corrDone = false; toCharge(); }
@@ -1606,9 +1606,8 @@ function updateRecoil() {
         else toNext();
       } break; // son çarede açık bitince koridor tekrar
     // ── Dev Dalış ──
-    case 'dmark': // dalacağı şerit kırmızı yanıp söner (rastgele seçildi, seni takip etmez)
-      if (--b.rT <= 0) { b.rState = 'dlock'; b.rT = b.dives ? 9 : 14; } break;
-    case 'dlock': if (--b.rT <= 0) { b.rState = 'dive'; } break;
+    case 'dmark': // dalacağı şerit: ışık boss'tan aşağı dolar, dolunca dalar (rastgele seçildi, seni takip etmez)
+      if (--b.rT <= 0) { b.rState = 'dive'; } break;
     // ── Ateş Koridoru ──
     case 'cwarn': // kısa uyarı: boss kızarır, üç şerit hafif kırmızı
       b.y += (home - b.y) * 0.1; // koridor öncesi hızla yukarı döner (okuma payı)
@@ -1658,10 +1657,18 @@ function drawRecoilFx(layer) {
       const q = 0.5 + 0.5 * Math.sin(frameCount * 0.5);
       ctx.fillStyle = `rgba(255,34,68,${0.05 + 0.08 * q})`; ctx.fillRect(0, b.y + 50, W, H - b.y);
     }
-    if (st === 'dmark' || st === 'dlock') { // Dev Dalış işareti: takipte yanıp söner, kilitte koyu
-      const lock = st === 'dlock', blink = Math.floor(frameCount / 5) % 2 === 0;
-      ctx.fillStyle = `rgba(255,34,68,${lock ? 0.3 : blink ? 0.18 : 0.08})`; ctx.fillRect(LANE_CENTERS[b.lane] - 40, b.y + 50, 80, H - b.y);
-      if (lock) { ctx.translate((Math.random() - 0.5) * 4, 0); }
+    if (st === 'dmark') { // Dev Dalış işareti: pist çizgileri + boss'tan aşağı dolan ışık; en alta varınca dalar
+      const k = 1 - b.rT / (b.rT0 || 20), cx = LANE_CENTERS[b.lane], hw = 40, y0 = b.y + 50, y1 = H, fy = y0 + (y1 - y0) * k;
+      ctx.fillStyle = 'rgba(255,34,68,0.06)'; ctx.fillRect(cx - hw, y0, hw * 2, y1 - y0); // tüm yol: çok soluk
+      const g = ctx.createLinearGradient(cx - hw, 0, cx + hw, 0); // dolan kısım: kenarlar güçlü, orta yumuşak
+      g.addColorStop(0, 'rgba(255,34,68,0.42)'); g.addColorStop(0.3, 'rgba(255,34,68,0.14)'); g.addColorStop(0.7, 'rgba(255,34,68,0.14)'); g.addColorStop(1, 'rgba(255,34,68,0.42)');
+      ctx.fillStyle = g; ctx.fillRect(cx - hw, y0, hw * 2, fy - y0);
+      ctx.fillStyle = 'rgba(255,34,68,0.22)'; ctx.fillRect(cx - hw - 3, y0, 3, y1 - y0); ctx.fillRect(cx + hw, y0, 3, y1 - y0); // pist çizgileri (soluk iz)
+      ctx.fillStyle = 'rgba(255,34,68,0.55)'; ctx.fillRect(cx - hw - 4, y0, 6, fy - y0); ctx.fillRect(cx + hw - 2, y0, 6, fy - y0); // dolan kısımda parlak: hale
+      ctx.fillStyle = '#ff6a85'; ctx.fillRect(cx - hw - 2, y0, 2, fy - y0); ctx.fillRect(cx + hw, y0, 2, fy - y0); // ince parlak çekirdek
+      const fg = ctx.createLinearGradient(0, fy - 34, 0, fy); // dolum ucu: parlak ön cephe
+      fg.addColorStop(0, 'rgba(255,90,120,0)'); fg.addColorStop(1, 'rgba(255,170,185,0.75)');
+      ctx.fillStyle = fg; ctx.fillRect(cx - hw, fy - 34, hw * 2, 34);
     }
     if (!b.shielded && (st === 'open' || st === 'rise')) { // açık: gövdede nabız gibi beyaz parıltı → "şimdi vur"
       const q = 0.5 + 0.5 * Math.sin(frameCount * 0.35);
@@ -4282,7 +4289,7 @@ function update() {
 
     // Dikey: her fazda üstte sabit
     const homeY = boss.special ? H * 0.14 : H * 0.13;
-    if (!(boss.zone === 1 && (boss.rState === 'dive' || boss.rState === 'slam' || boss.rState === 'rise' || ((boss.rState === 'dmark' || boss.rState === 'dlock') && boss.dives > 0)))) boss.y += (homeY - boss.y) * (boss.rState === 'rise' ? 0.035 : bossWarn > 0 ? 0.06 : 0.025); // girişte hızlı süzülür
+    if (!(boss.zone === 1 && (boss.rState === 'dive' || boss.rState === 'slam' || boss.rState === 'rise' || (boss.rState === 'dmark' && boss.dives > 0)))) boss.y += (homeY - boss.y) * (boss.rState === 'rise' ? 0.035 : bossWarn > 0 ? 0.06 : 0.025); // girişte hızlı süzülür
 
     if (boss.flash > 0) boss.flash--;
     if (boss.zone === 1) updateRecoil(); // yardımcı gemiler kaldırıldı (kullanıcı: küçükleri kovalamaktan boss'u vuramıyordu) — updateBossMinions kullanılmıyor
