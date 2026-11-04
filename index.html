@@ -514,7 +514,7 @@ function loadLevelStates() {
 }
 // DEV / test modunda bölümler geçici olarak açıktır: o sırada ilerleme kaydedilmez
 // (yoksa "hepsi açık" listesi kalıcı ilerleme sanılıyordu)
-const progressSavingOff = () => devMode || TEST_MODE;
+const progressSavingOff = () => devMode || TEST_MODE || BOSS_MODE; // ?boss=true: doğrudan boss testi, ilerleme kaydedilmez
 function saveLevelStates() {
   if (progressSavingOff()) return;
   try { localStorage.setItem('ss_levels', JSON.stringify(levelStates)); } catch(e) {}
