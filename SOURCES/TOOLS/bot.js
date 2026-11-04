@@ -88,6 +88,9 @@ function runLevel(level, prof, maxFrames = 9000) { // insanlar gibi tek kararda 
 window.PROFILES = {
   casual: { react: 18, miss: 0.08, horizon: 60 },
   expert: { react: 8,  miss: 0.01, horizon: 80 },
+  // pro = kullanıcıya en yakın (2026-11-04 kalibrasyon: kullanıcı "kolay" dediği sürümde pro 0–0.7 can kaybediyordu).
+  // Kısa ufuk önemli: iyi oyuncu son ana kadar ateş edip son anda kaçar; uzun ufuk boş şeritte bekletip düşmanları kaçırır.
+  pro:    { react: 10, miss: 0,    horizon: 35 },
 };
 window.measure = function (levels, runs) {
   const out = {};

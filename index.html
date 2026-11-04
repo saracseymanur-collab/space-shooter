@@ -596,7 +596,7 @@ const LEVEL_TUNE = {
   16: { diver: 0.35, formation: true, iMul: 0.42, fireMul: 0.7 }, 17: { gunner: 1700, iMul: 1.05 }, 18: { fireMul: 0.9, iMul: 0.85 }, 19: { diver: 0.3, iMul: 0.75 },
 };
 // Bölümler 70 → 50 sn kısalınca zorluk düşmesin diye: düşman sıklığı ve özel düşman aralıkları sıklaşır
-const WAVE_DENSITY = 0.72;
+const WAVE_DENSITY = 0.66; // (2026-11-04: kullanıcı "bir tık daha zor" → 0.72'den)
 function getLevelConfig() {
   const c = baseLevelConfig(), t = LEVEL_TUNE[currentLevel];
   if (!c) return c;
@@ -1495,14 +1495,23 @@ const BOSS_FIRE_MUL = { 5: 0.8, 10: 0.8, 15: 1.8, 20: 1.9 };
 // ekran temizliği, sonra aynı döngü daha hızlı (6'lı seri, kısa uyarılar). Her an tek saldırı.
 // Ateş Koridoru: her satırda açık şerit(ler) dışındaki şeritlere mermi. Açık yol bir seferde tek şerit kayar ve
 // kayarken 'overlap' satır boyunca iki şerit birden açık kalır (geçiş anı). Mermiler yukarıdan indiği için yol önceden görülür.
-function buildCorridor(rows, hold, overlap) {
+// hold: [min,max] satır aynı şeritte; jump2: kenardan kenara (iki şerit) atlama ihtimali — ortadan geçiş satırlarıyla
+function buildCorridor(rows, hold, overlap, jump2, overlap2 = overlap) {
   const out = []; let g = Math.floor(Math.random() * 3);
   for (let i = 0; i < 3; i++) out.push([g]); // giriş: ilk açık şeride geçiş payı
   while (out.length < rows) {
-    for (let h = 0; h < hold; h++) out.push([g]);
-    const ng = g === 0 ? 1 : g === 2 ? 1 : (Math.random() < 0.5 ? 0 : 2);
-    for (let o = 0; o < overlap; o++) out.push([g, ng]);
-    g = ng;
+    const h = hold[0] + Math.floor(Math.random() * (hold[1] - hold[0] + 1));
+    for (let k = 0; k < h; k++) out.push([g]);
+    if (g !== 1 && Math.random() < jump2) { // iki şerit: g → orta → karşı kenar (art arda iki hızlı kaydırma)
+      const ng = 2 - g;
+      for (let o = 0; o < overlap2; o++) out.push([g, 1]);
+      for (let o = 0; o < overlap2; o++) out.push([1, ng]);
+      g = ng;
+    } else {
+      const ng = g === 0 ? 1 : g === 2 ? 1 : (Math.random() < 0.5 ? 0 : 2);
+      for (let o = 0; o < overlap; o++) out.push([g, ng]);
+      g = ng;
+    }
   }
   return out;
 }
@@ -1520,7 +1529,7 @@ function updateRecoil() {
   // son çare: canı %10'a inince bir kez kızarır → uzun, hızlı kıvrılan Ateş Koridoru → uzun açık
   if (!b.enraged && b.hp <= b.maxHp * 0.1) { b.enraged = true; b.rState = 'cwarn'; b.rT = 50; b.final = true; eBullets = []; b.flash = 30; b.y = Math.min(b.y, H * 0.3);
     showToast('LAST STAND · FOLLOW THE GAP', '#ff4d66', 100); }
-  const toCharge = () => { b.rState = 'charge'; b.rT = ph === 1 ? 34 : 26; };
+  const toCharge = () => { b.rState = 'charge'; b.rT = ph === 1 ? 26 : 24; };
   const toCorridor = () => { b.rState = 'cwarn'; b.rT = 40; b.final = false; showToast('BARRAGE · FOLLOW THE GAP', '#ff4d66', 80); };
   const toNext = () => {
     if (ph === 3 && b.dives < 3) { b.rState = 'dmark'; b.rT = 50 - b.dives * 9; b.lag = 0; } // her dalışta işaret daha hızlı
@@ -1537,7 +1546,7 @@ function updateRecoil() {
       if (--b.rT > 0) break;
       const pl = playerLaneNow();
       b.jumpTo = b.lane !== 1 ? 1 : pl === 0 ? 2 : pl === 2 ? 0 : (Math.random() < 0.5 ? 0 : 2);
-      b.rState = 'sign'; b.rT = ph === 1 ? 24 : 18; break;
+      b.rState = 'sign'; b.rT = ph === 1 ? 18 : 16; break;
     }
     case 'sign': if (--b.rT <= 0) { b.lane = b.jumpTo; b.rState = 'jump'; b.rT = 14; } break;
     case 'jump':
@@ -1548,7 +1557,7 @@ function updateRecoil() {
             canShoot: false, zigzag: false, zigzagPhase: 0, phantom: false, cloakCfg: { vis: 90, inv: 40 }, cloakT: 0, alpha: 1,
             shiftAt: null, shiftTo: lane, curveShots: false, shift2: 0, rammer: true, rState: 'fall', ramAt: b.y + 50 });
           b.rState = 'waitRam'; b.rT = 120;
-        } else { b.rState = 'open'; b.rT = ph === 1 ? 85 : 75; b.dropped = false; }
+        } else { b.rState = 'open'; b.rT = ph === 1 ? 70 : 72; b.dropped = false; }
       } break;
     case 'waitRam': // Rammer dalıp gidene kadar boss sadece bekler (tek saldırı)
       if (--b.rT <= 0 || !enemies.some(e => e.rammer)) { b.rState = 'open'; b.rT = 78; b.dropped = false; } break;
@@ -1569,9 +1578,9 @@ function updateRecoil() {
     case 'dlock': if (--b.rT <= 0) { b.rState = 'dive'; } break;
     // ── Ateş Koridoru ──
     case 'cwarn': // kısa uyarı: boss kızarır, üç şerit hafif kırmızı
-      if (--b.rT <= 0) { b.rState = 'corridor'; b.cRows = b.final ? buildCorridor(44, 4, 3) : buildCorridor(30, 5, 3); b.cRow = 0; b.rT = 0; } break;
+      if (--b.rT <= 0) { b.rState = 'corridor'; b.cRows = b.final ? buildCorridor(48, [1, 2], 2, 0.5, 3) : buildCorridor(34, [1, 3], 2, 0.35, 3); /* tek kayma 2 satır ortak açık, iki şerit atlama 3'er */ b.cRow = 0; b.rT = 0; } break;
     case 'corridor':
-      if (b.rT++ % 9 === 0) {
+      if (b.rT++ % 8 === 0) {
         const open = b.cRows[b.cRow++];
         [0, 1, 2].forEach(l => { if (!open.includes(l)) eBullets.push({ x: LANE_CENTERS[l], y: b.y + 50, vx: 0, vy: 6, hp: 1, lane: l, curve: false }); });
         if (b.cRow >= b.cRows.length) { b.rState = 'open'; b.rT = b.final ? 160 : 100; b.dropped = true; }
@@ -1594,7 +1603,7 @@ function drawRecoilFx(layer) {
   ctx.save();
   if (layer === 'under') {
     if (st === 'charge' || st === 'burst') { // şerit + burun ışığı
-      const k = st === 'charge' ? 1 - b.rT / (b.phase === 1 ? 34 : 26) : 1;
+      const k = st === 'charge' ? 1 - b.rT / (b.phase === 1 ? 26 : 24) : 1;
       ctx.fillStyle = `rgba(255,34,68,${0.06 + 0.12 * k})`; ctx.fillRect(LANE_CENTERS[b.lane] - 32, b.y + 50, 64, H - b.y);
       ctx.fillStyle = `rgba(255,34,68,${0.5 + 0.5 * k})`; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 16;
       ctx.beginPath(); ctx.arc(b.x, b.y + 48, 5 + 9 * k, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
@@ -1717,10 +1726,10 @@ function drawVanguardFx(layer) {
 function spawnBoss(wave) {
   const bossNum = Math.floor(wave / 5);
   const special = currentLevel % 5 === 0; // her bölgenin 5. bölümü
-  const BOSS_HP = { 5: 60, 10: 130, 15: 160, 20: 220 };
+  const BOSS_HP = { 5: 45, 10: 130, 15: 160, 20: 220 };
   const hp = BOSS_HP[currentLevel] ?? 25 + bossNum * 10;
   boss = {
-    x: W / 2, y: special ? H * 0.14 : H * 0.13,
+    x: W / 2, y: currentZone === 1 ? -130 : special ? H * 0.14 : H * 0.13, // Void Vanguard yukarıdan kadraja süzülür
     vx: currentLevel === 10 ? 2.2 : special ? 1.9 : 1.2 + bossNum * 0.2,
     cloak: 0, droneTimer: 0, laserTimer: 0,
     hp, maxHp: hp, flash: 0,
@@ -4139,7 +4148,7 @@ function update() {
   if (!boss) {
     const lvWaveNow = Math.min(currentLevel % 5 === 0 ? bossPreWaves() : 5, Math.floor(Math.max(0, gameSec() - (currentLevel - 1) * LEVEL_SEC) / WAVE_SEC) + 1);
     if (lvWaveNow > lastWaveSeen) {
-      if (lvWaveNow === 5 && currentLevel % 5 !== 0) showToast('FINAL WAVE', '#ff4d66', 110);
+      if (lvWaveNow === (currentLevel % 5 === 0 ? bossPreWaves() : 5)) showToast('FINAL WAVE', '#ff4d66', 110);
       else showToast(`WAVE ${lastWaveSeen} CLEAR`, null, 90);
       Sound.sfx.wave(); lastWaveSeen = lvWaveNow;
     }
@@ -4200,7 +4209,8 @@ function update() {
   const currentWave = getWave();
   if (currentWave !== lastWaveForBoss) {
     lastWaveForBoss = currentWave;
-    if (currentLevel === currentZone * 5 && currentWave - (currentLevel - 1) * 5 > bossPreWaves() && !boss) spawnBoss(currentLevel * 5);
+    // boss: ön dalgalar bitti VE ekrandaki tüm gemiler vuruldu → uyarı + boss yukarıdan yavaşça girer
+    if (currentLevel === currentZone * 5 && currentWave - (currentLevel - 1) * 5 > bossPreWaves() && !boss && !enemies.length && !pendingEnemies.length) spawnBoss(currentLevel * 5);
   }
 
   // Level tamamlama: 5 dalgayı geçince bölüm biter (boss seviyesi hariç)
@@ -4220,7 +4230,7 @@ function update() {
   if (boss) {
     const ratio = boss.hp / boss.maxHp;
     const prevPhase = boss.phase || 1;
-    boss.phase = boss.zone === 1 ? (ratio > 0.66 ? 1 : ratio > 0.33 ? 2 : 3) : ratio > 0.6 ? 1 : ratio > 0.3 ? 2 : 3;
+    boss.phase = boss.zone === 1 ? (ratio > 0.85 ? 1 : ratio > 0.5 ? 2 : 3) : ratio > 0.6 ? 1 : ratio > 0.3 ? 2 : 3;
     if (boss.phase !== prevPhase) { boss.flash = 20; boss.fireTimer = 0; } // faz geçişinde flash
 
     // Yatay hareket hızı faza göre
@@ -4581,7 +4591,7 @@ function update() {
   floatTexts = floatTexts.filter(f => { f.t++; f.y -= f.big ? 0.4 : 0.9; return f.t < (f.big ? 90 : 50); });
 
   // Normal spawn — boss savaşında ve level bitiş bekleme aşamasında durur
-  const levelEnding = currentLevel !== currentZone * 5 && getWave() > currentLevel * 5;
+  const levelEnding = currentLevel !== currentZone * 5 ? getWave() > currentLevel * 5 : getWave() - (currentLevel - 1) * 5 > bossPreWaves(); // boss bölümünde: ön dalgalar bitti
   if (!boss && !levelEnding) {
     spawnTimer++;
     const cfg      = getLevelConfig();
