@@ -1516,9 +1516,9 @@ function buildCorridor(rows, hold, overlap, jump2, overlap2 = overlap) {
   }
   return out;
 }
-// Boss'un "tek başına" anları: koridor, dalış, Rammer fırlatma, faz nefesi, giriş. Bu anlarda yardımcı düşman
+// Boss'un "tek başına" anları: koridor, dalış, faz nefesi, giriş. Bu anlarda yardımcı düşman
 // gelmez ve ekrandaki düşmanlar ateş etmez → kaçışsız an olmasın.
-const BOSS_SOLO = new Set(['breath', 'cwarn', 'corridor', 'dmark', 'dlock', 'dive', 'slam', 'waitRam']);
+const BOSS_SOLO = new Set(['breath', 'cwarn', 'corridor', 'dmark', 'dlock', 'dive', 'slam']);
 function bossSolo() { return !!(boss && boss.zone === 1 && (bossWarn > 0 || BOSS_SOLO.has(boss.rState))); }
 // Yardımcı düşmanlar (fazına göre): F1 normal · F2 Splitter ağırlıklı · F3 normal + ara sıra Burster. Seyrek.
 let minionT = 0;
@@ -1543,7 +1543,7 @@ function updateBossMinions() {
 }
 function updateRecoil() {
   // Faz 1: Geri Tepen (şarj → 5'li seri → varış halkası → sıçra → açık)
-  // Faz 2: + sıçradıktan sonra bir Rammer fırlatır (kaç), açıkken önüne turuncu Splitter bırakır (boss mu, parçalar mı?)
+  // Faz 2: sıçradıktan sonra açılır, açıkken önüne turuncu Splitter bırakır (boss mu, parçalar mı?) — Rammer fırlatmaz (kullanıcı kararı)
   // Faz 3: Dev Dalış (imza) — kırmızı işaret şeridinde seni takip eder → kilit → boss o şeride dibe dalar → çarpınca iki
   //        yere çarpar (patlama + sarsıntı) → yavaşça yükselir (AÇIK). İki dalış, bir seri döngü, tekrar. Her an tek saldırı.
   const b = boss, ph = b.phase, home = H * 0.14;
@@ -1579,18 +1579,10 @@ function updateRecoil() {
     case 'sign': if (--b.rT <= 0) { b.lane = b.jumpTo; b.rState = 'jump'; b.rT = 14; } break;
     case 'jump':
       if (--b.rT <= 0) {
-        if (ph === 2) { // Rammer fırlat: oyuncunun şeridini işaretleyip dalar
-          const lane = b.lane;
-          enemies.push({ lane, x: b.x, y: b.y + 40, w: 38, h: 44, hp: 2, maxHp: 2, speed: 3.2, flash: 0, fireTimer: 0, fireRate: 999,
-            canShoot: false, zigzag: false, zigzagPhase: 0, phantom: false, cloakCfg: { vis: 90, inv: 40 }, cloakT: 0, alpha: 1,
-            shiftAt: null, shiftTo: lane, curveShots: false, shift2: 0, rammer: true, rState: 'fall', ramAt: b.y + 50 });
-          b.rState = 'waitRam'; b.rT = 120;
-        } else if (ph === 1 && (b.chainN || 0) < 2) { // faz 1 zincir: her sıçramadan sonra kısa açık, sonra yeni seri
+        if (ph === 1 && (b.chainN || 0) < 2) { // faz 1 zincir: her sıçramadan sonra kısa açık, sonra yeni seri
           b.chainN = (b.chainN || 0) + 1; b.rState = 'open'; b.rT = 34; b.dropped = true;
         } else { b.chainN = 0; b.rState = 'open'; b.rT = ph === 1 ? 90 : 62; b.dropped = false; }
       } break;
-    case 'waitRam': // Rammer dalıp gidene kadar boss sadece bekler (tek saldırı)
-      if (--b.rT <= 0 || !enemies.some(e => e.rammer)) { b.rState = 'open'; b.rT = 66; b.dropped = false; } break;
     case 'open':
       if (ph === 2 && !b.dropped && b.rT < 80) { // önüne turuncu Splitter bırakır
         b.dropped = true;
@@ -4827,7 +4819,7 @@ function update() {
       }
     }
     if (e.rammer) {
-      if (e.rState === 'fall' && e.y > e.ramAt && (!sweepActive || (boss && boss.rState === 'waitRam'))) { e.rState = 'aim'; e.rT = 36; e.lane = e.ramLane = playerLaneNow(); } // süpürmede bekler
+      if (e.rState === 'fall' && e.y > e.ramAt && !sweepActive) { e.rState = 'aim'; e.rT = 36; e.lane = e.ramLane = playerLaneNow(); } // süpürmede bekler
       else if (e.rState === 'aim') { // durmaz: sırasıyla inmeye devam eder, hedef şeride hızlı kayar
         e.x += (LANE_CENTERS[e.ramLane] - e.x) * 0.18;
         if (--e.rT <= 0) { e.rState = 'dash'; e.speed = 13; }
@@ -4922,8 +4914,7 @@ function update() {
       if (e.hp <= 0) return true; // aynı karede ölen düşmana ikinci mermi işlemez (çift ölüm/çift drop olmasın)
       const sc  = ENEMY_TIER[e.maxHp].sc;
       const hit = Math.abs(b.x - e.x) < 24 * sc && Math.abs(b.y - e.y) < 29 * sc;
-      if (hit && e.rammer) { e.shieldHit = 8; return true; } // Rammer vurulamaz ama mermiyi yutmaz: içinden geçip arkadaki hedefe gider
-      if (hit && ((e.gunner && e.gState !== 'cool') || e.armored || e.guardedBy || (e.hunter && (e.hState === 'enter' || e.hState === 'track')) || e.sweeper)) { e.shieldHit = 8; return false; } // kalkan: hasar yok
+      if (hit && ((e.gunner && e.gState !== 'cool') || e.armored || e.guardedBy || (e.hunter && (e.hState === 'enter' || e.hState === 'track')) || e.rammer || e.sweeper)) { e.shieldHit = 8; return false; } // kalkan: hasar yok (rammer vurulamaz: tek çare kaçmak)
       if (hit) {
         e.hp -= 1 / (e.armor || 1); // zırh: mermi başına hasar azalır (görünüş/can barı aynı, daha yavaş erir)
         if (e.hp < 0.001) e.hp = 0;
