@@ -113,7 +113,7 @@ const Sound = (() => {
   // iPhone: ses yalnızca bir dokunuşun SONUNDA açılabilir; açılırken duyulmayan kısa bir ses çalınır.
   // Kesintiden (kilit ekranı, bildirim, uzun duraklama) sonra açılamazsa bir sonraki dokunuşta baştan kurulur.
   function init() {
-    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch(e) {} // iOS 17+: medya sesi
+    try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch(e) {} // iOS 17+: oyun sesi — sessiz anahtarına uyar ('playback' anahtarı yok sayıyordu)
     if (ac && (needsRebuild || ac.state === 'closed')) { try { ac.close(); } catch(e) {} ac = null; needsRebuild = false; }
     if (!ac) { try { create(); } catch(e) { ac = null; return; } }
     if (ac.state !== 'running') {
@@ -4242,11 +4242,10 @@ function update() {
 
   // Boss spawn tespiti: sadece 5. bölümde
   const currentWave = getWave();
-  if (currentWave !== lastWaveForBoss) {
-    lastWaveForBoss = currentWave;
-    // boss: ön dalgalar bitti VE ekrandaki tüm gemiler vuruldu → uyarı + boss yukarıdan yavaşça girer
-    if (currentLevel === currentZone * 5 && currentWave - (currentLevel - 1) * 5 > bossPreWaves() && !boss && !enemies.length && !pendingEnemies.length) spawnBoss(currentLevel * 5);
-  }
+  if (currentWave !== lastWaveForBoss) lastWaveForBoss = currentWave;
+  // boss: ön dalgalar bitti VE ekrandaki tüm gemiler vuruldu → hemen uyarı + boss yukarıdan süzülür
+  // (her karede kontrol: eskiden sadece dalga değişiminde bakılıyordu → son gemiden sonra ~10 sn boşluk)
+  if (currentLevel === currentZone * 5 && currentWave - (currentLevel - 1) * 5 > bossPreWaves() && !boss && !enemies.length && !pendingEnemies.length) spawnBoss(currentLevel * 5);
 
   // Level tamamlama: 5 dalgayı geçince bölüm biter (boss seviyesi hariç)
   const _zoneLastLevel = currentZone * 5;
