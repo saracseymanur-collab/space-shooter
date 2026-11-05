@@ -19,6 +19,12 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 - Oklu butonları sevmiyor (PLAY/CONTINUE'da ok yok).
 - Görselleri kullanıcı üretir; Claude ölçü/stil yönlendirmesi verir, kırpar/boyutlandırır, oyunda karşılaştırır.
 
+## Hikâye (2026-11-05 yeni karar)
+- Onaylı hikâye belgesi: **`SOURCES/STORY/STORY.md`** (V1.0, tüm panel metinleri İngilizce; altında eski metinler + neden değiştiği). Hikâyeyle ilgili her işte önce onu oku.
+- Özet: Astra kayıp koloni sanılıyor → sinyal → kurtarma filosu pusuya düşer, tek sen kalırsın → düşman kim belli değil (Act I) → Astra bağlantısı (Act II, L10 sonu: amblem + "...see you among the stars") → gerçek (Act III, L15 sonu 3 panel) → final: Void Leader = ağabey; boss yenilince oyun durur, INCOMING TRANSMISSION, ANSWER / IGNORE → iki son (Reunion / Silence). Düşman hareketi adı artık **Void Rebellion** (tüm Astra değil).
+- Oyunda henüz ESKİ metinler duruyor (`INTRO_PANELS`, `ZONE_TRANSITION_MESSAGES`, `ENDING_PANELS`, `MENU_CARDS` alt başlıkları, `LEVEL_BRIEFS` ROCK TITAN / COMMAND CENTER satırları "Void Colony"/"fleet's escape"). Kullanıcı adım adım güncellemek istiyor: 1) giriş 7 panel 2) bölge geçişleri (3→4 üç panel, ipuçları) 3) menü alt başlıkları + brief satırları 4) final seçim ekranı + iki son (en büyük iş: boss 0 HP'de patlamaz, oyun durur, iki buton).
+- Açık kararlar: ana gezegenin adı, kardeş isimleri, zaman aralığı, ipuçlarının sunumu (metin paneli mi), ağabeyin teslim olmasının inandırıcılığı.
+
 ## Oyunun yapısı
 - 4 bölge × 5 bölüm = 20 bölüm: Deep Space (1-5), Asteroid Belt (6-10), Nebula (11-15), Black Hole (16-20). Her bölgenin 5. bölümü boss.
 - Bölge renkleri `SECTOR_COLORS`; HUD rengi bölgeye göre (`HUD_COL`).

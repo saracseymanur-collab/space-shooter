@@ -417,13 +417,14 @@ let devMode = false;
 let resetConfirmT = 0, resetDoneT = 0; // RESET butonu: onay ve 'DONE' göstergesi
 
 // --- Intro Cinematic ---
-const INTRO_PANELS = [
-  "Humanity discovered a new planet — Astra. Thousands of settlers set out with hope.",
-  "Then the Dark Wave came. No one was ready. Two planets. One night.",
-  "Those stranded on Astra transformed. Mutated. They could never return home — they were not welcomed.",
-  "From the ruins, rage was born. They built the Void Colony. First to survive. Then for revenge.",
-  "Now they are coming. The planet is weak. The army is gone.",
-  "Only you remain. And that has to be enough.",
+const INTRO_PANELS = [ // hikâye V1.0 (SOURCES/STORY/STORY.md): düşman kim belli değil
+  "Humanity found a new world. Far beyond the stars, they called it Astra.",
+  "Thousands went to build a new home. For a while, they succeeded.",
+  "Then came the Dark Wave. Astra went silent. No one answered.",
+  "Years passed. Astra was declared lost. Until one final signal appeared.",
+  "A rescue fleet was sent. You were among them. But someone was waiting.",
+  "It was a trap. Your fleet was destroyed. You alone survived.",
+  "The enemy is heading for your home. No reinforcements. No way back. Only you can stop them.",
 ];
 const ENDING_PANELS = [
   "The Void Leader is gone — swallowed by the black hole it called home.",
@@ -433,6 +434,7 @@ const ENDING_PANELS = [
   "You came to save one planet. Maybe you saved two.",
   "THE END",
 ];
+const INTRO_IMGS = INTRO_PANELS.map((_, i) => { const im = new Image(); im.src = `ASSETS/story/intro-${i + 1}.jpg`; return im; }); // panel görselleri (852×1846; orijinaller SOURCES/STORY/intro)
 let cinePanels = INTRO_PANELS; // intro ve final sinematiği aynı ekranı kullanır
 let introPanelIdx = 0;
 let introAlpha = 0;
@@ -2609,7 +2611,14 @@ function drawZoneTransition() {
 function drawIntro() {
   ctx.fillStyle = '#000008';
   ctx.fillRect(0, 0, W, H);
-  drawStars();
+  const pImg = cinePanels === INTRO_PANELS ? INTRO_IMGS[introPanelIdx] : null;
+  const hasImg = pImg && pImg.complete && pImg.naturalWidth > 0;
+  if (hasImg) { // görsel panelle birlikte kararıp açılır; alt kısım metin için koyulaşır
+    ctx.globalAlpha = introAlpha; ctx.drawImage(pImg, 0, 0, W, H); ctx.globalAlpha = 1;
+    const sh = ctx.createLinearGradient(0, H * 0.42, 0, H * 0.62);
+    sh.addColorStop(0, 'rgba(0,0,8,0)'); sh.addColorStop(1, 'rgba(0,0,8,0.75)');
+    ctx.fillStyle = sh; ctx.fillRect(0, H * 0.42, W, H * 0.58);
+  } else drawStars();
 
   ctx.save();
   ctx.textAlign = 'center';
@@ -2618,7 +2627,7 @@ function drawIntro() {
   // Sabit çerçeve: etiket, iki çizgi ve noktalar her panelde aynı yerde durur (sadece metin değişir)
   const isEnding = cinePanels === ENDING_PANELS;
   const col = isEnding ? '#ffd040' : '#3fd3ff';
-  const top = Math.round(H * 0.33), bot = Math.round(H * 0.67);
+  const top = Math.round(H * (hasImg ? 0.6 : 0.33)), bot = Math.round(H * (hasImg ? 0.86 : 0.67)); // görsel varsa metin altta
   const grd = ctx.createLinearGradient(40, 0, W - 40, 0);
   grd.addColorStop(0, 'rgba(255,255,255,0)'); grd.addColorStop(0.5, col); grd.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.strokeStyle = grd; ctx.lineWidth = 1; ctx.globalAlpha = 0.6;
