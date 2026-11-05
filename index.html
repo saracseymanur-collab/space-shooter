@@ -1702,6 +1702,15 @@ function drawFireball(x, y, r, a) { // titreyen ateş topu: kırmızı dış hal
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 }
+const softGlows = {};
+function getSoftGlow(col) { // önceden çizilmiş yumuşak yuvarlak ışık (her karede gradyan/shadowBlur yok)
+  if (!softGlows[col]) {
+    const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+    const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, col); gr.addColorStop(0.45, col + '88'); gr.addColorStop(1, col + '00');
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64); softGlows[col] = c;
+  }
+  return softGlows[col];
+}
 function drawRecoilFx(layer) {
   if (!boss || boss.zone !== 1 || boss.rState == null) return;
   const b = boss, st = b.rState;
@@ -2873,11 +2882,19 @@ function drawEnemy(e) {
       }
     }
   }
-  if (e.burster && (e.bState === 'charge' || e.bState === 'burst')) { // burun parlar: seri geliyor / sürüyor
-    const k = e.bState === 'charge' ? 1 - e.bT / 26 : 1;
-    ctx.fillStyle = `rgba(255,34,68,${0.06 + 0.1 * k})`; ctx.fillRect(-30, dh / 2, 60, H - e.y);
-    ctx.fillStyle = `rgba(255,34,68,${0.5 + 0.5 * k})`; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 14;
-    ctx.beginPath(); ctx.arc(0, dh / 2 - 2, 4 + 7 * k, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+  if (e.burster && (e.bState === 'charge' || e.bState === 'burst')) { // boss gibi: pembe ısınma + burunda büyüyen ateş topu → seri
+    const k = e.bState === 'charge' ? 1 - e.bT / 26 : 1, ny = dh / 2 - 4;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = baseAlpha * (e.bState === 'charge' ? 0.45 * k : 0.3);
+    ctx.drawImage(getSoftGlow('#ff3d7f'), -dw * 0.6, -dh * 0.6, dw * 1.2, dh * 1.2); ctx.restore(); // gövdeye pembe ısınma
+    ctx.lineWidth = 2; ctx.lineCap = 'round';
+    for (const p of (e.sparks || [])) { // emilen kıvılcımlar
+      const q = p.t / p.life, ez = q * q, ez2 = Math.max(0, ez - 0.1);
+      ctx.globalAlpha = baseAlpha * Math.min(1, q * 3); ctx.strokeStyle = p.col;
+      ctx.beginPath(); ctx.moveTo(p.ox * (1 - ez2), ny + p.oy * (1 - ez2)); ctx.lineTo(p.ox * (1 - ez), ny + p.oy * (1 - ez)); ctx.stroke();
+    }
+    ctx.globalAlpha = baseAlpha;
+    if (e.bState === 'charge') drawFireball(0, ny, 4 + 10 * k, 1);
+    else drawFireball(0, ny, 10 + 3 * Math.sin(frameCount * 1.1), 0.9);
   }
   if (e.sweeper && e.sState === 'warn') { // süpürülecek iki şerit: kırmızı bant, başlangıç şeridi daha parlak
     const blink = Math.floor(e.sT / 6) % 2 === 0, a = LANE_CENTERS[e.from] - e.x, b = LANE_CENTERS[e.to] - e.x;
@@ -2891,14 +2908,25 @@ function drawEnemy(e) {
     ctx.fillStyle = g; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 18;
     ctx.fillRect(-22, dh / 2 - 6, 44, H - e.y); ctx.shadowBlur = 0;
   }
-  if (e.rammer && e.rState === 'aim') { // işaretlenen şerit yanıp söner, gemi titrer
-    const blink = Math.floor(e.rT / 5) % 2 === 0, lx = LANE_CENTERS[e.ramLane] - e.x;
-    ctx.fillStyle = `rgba(255,34,68,${blink ? 0.24 : 0.09})`; ctx.fillRect(lx - 30, dh / 2, 60, H - e.y);
+  if (e.rammer && e.rState === 'aim') { // boss dalışı gibi: şeritte yumuşak kırmızı ışık + aşağı akan oklar; gemi titrer
+    const k = 1 - e.rT / 36, lx = LANE_CENTERS[e.ramLane] - e.x, hw = 36, y0 = dh / 2, y1 = H - e.y;
+    const g = ctx.createLinearGradient(lx - hw, 0, lx + hw, 0);
+    g.addColorStop(0, 'rgba(255,34,68,0)'); g.addColorStop(0.5, `rgba(255,34,68,${0.1 + 0.1 * k})`); g.addColorStop(1, 'rgba(255,34,68,0)');
+    ctx.fillStyle = g; ctx.fillRect(lx - hw, y0, hw * 2, y1 - y0);
+    const gap = 38, off = (frameCount * (3 + 5 * k)) % gap;
+    ctx.lineWidth = 3.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = `rgba(255,90,115,${0.45 + 0.45 * k})`;
+    ctx.beginPath();
+    for (let y = y0 + off; y < y1; y += gap) { ctx.moveTo(lx - 12, y - 6); ctx.lineTo(lx, y + 5); ctx.lineTo(lx + 12, y - 6); }
+    ctx.stroke();
     ctx.translate((Math.random() - 0.5) * 4, 0);
   }
-  if (e.rammer && e.rState === 'dash') { // dalış izi
-    ctx.strokeStyle = 'rgba(255,90,110,0.55)'; ctx.lineWidth = 3;
-    [-14, 0, 14].forEach(o => { ctx.beginPath(); ctx.moveTo(o, -dh / 2); ctx.lineTo(o, -dh / 2 - 60); ctx.stroke(); });
+  if (e.rammer && e.rState === 'dash' && e.dashY0 != null) { // dalış izi: arkasında kaybolan kırmızı kopyalar
+    const spr = getRammerSprite();
+    if (spr) for (let i = 1; i <= 3; i++) {
+      if (e.y - i * 30 < e.dashY0) break;
+      ctx.globalAlpha = baseAlpha * 0.35 * (1 - i / 4); ctx.drawImage(spr, -dw / 2, -dh / 2 - i * 30, dw, dh);
+    }
+    ctx.globalAlpha = baseAlpha;
   }
   if (e.spreader && e.sprCharge > 0) { // çapraz atış uyarısı: mermilerin gideceği yollar kesikli çizgi
     const k = 1 - e.sprCharge / 26;
@@ -2922,6 +2950,13 @@ function drawEnemy(e) {
     if (e.gunner && e.gState === 'cool') { // kalkansız: gövde beyaz nabızla parlar → "şimdi vur"
       const wsp = getWhiteSprite(img, e.maxHp);
       if (wsp) { ctx.globalAlpha = 0.18 + 0.22 * (0.5 + 0.5 * Math.sin(frameCount * 0.3)); ctx.drawImage(wsp, -dw / 2, -dh / 2, dw, dh); ctx.globalAlpha = baseAlpha; }
+    } else if (!e.guardedBy && bossShieldImg.complete && bossShieldImg.naturalWidth) { // boss kalkanının kırmızı küçük hali (vurulunca parlar)
+      const sw = dw * 1.25, sh = sw * bossShieldImg.naturalHeight / bossShieldImg.naturalWidth, img2 = getTintedShield(BOSS_MOODS.red.tint);
+      ctx.globalAlpha = baseAlpha * (0.85 + 0.15 * Math.sin(frameCount * 0.12 + e.x)); ctx.drawImage(img2, -sw / 2, -sh / 2, sw, sh);
+      let glow = e.shieldHit > 0 ? 0.6 : 0;
+      if (e.rammer && e.rState === 'aim') glow = Math.max(glow, 0.25 + 0.35 * (0.5 + 0.5 * Math.sin(frameCount * 0.6))); // dalış öncesi nabız
+      if (glow) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = baseAlpha * glow; ctx.drawImage(img2, -sw / 2, -sh / 2, sw, sh); ctx.globalCompositeOperation = 'source-over'; }
+      ctx.globalAlpha = baseAlpha;
     } else { // önde kırmızı kalkan yayı (vurulunca parlar)
       const sc2 = e.guardedBy ? LINK_COL : '#ff4d66'; // bağ kalkanı turkuaz: bağın rengiyle aynı
       ctx.strokeStyle = e.shieldHit > 0 ? '#ffffff' : sc2; ctx.lineWidth = e.shieldHit > 0 ? 4 : 2.5;
@@ -3465,7 +3500,7 @@ function drawBriefVisual(kind, cx, cy, zc) {
       // mor gemi: burun parlar → şeride hızlı 5 mermi → gemi kenarda bekler → dinlenmede şeride girip vurur
       const P = 160, k = frameCount % P, by = cy - 30, spr = getSweeperSprite(), sz = ENEMY_SIZES[3];
       if (spr) ctx.drawImage(spr, cx - sz.w * 0.2, by - sz.h * 0.2, sz.w * 0.4, sz.h * 0.4);
-      if (k < 20) { ctx.fillStyle = `rgba(255,34,68,${0.5 + k / 40})`; ctx.beginPath(); ctx.arc(cx, by + 14, 2 + k * 0.25, 0, Math.PI * 2); ctx.fill(); }
+      if (k < 20) drawFireball(cx, by + 14, 2 + k * 0.25, 1); else if (k < 50) drawFireball(cx, by + 14, 5 + Math.sin(frameCount * 1.1), 0.9); // burunda büyüyen ateş
       for (let j = 0; j < 5; j++) { const t0 = 20 + j * 6; if (k >= t0 && k < t0 + 40) briefShot(cx, by + 16 + (k - t0) * 1.8); }
       const shipX = k < 70 ? cx + 70 : k < 82 ? cx + 70 - 70 * ((k - 70) / 12) : cx;
       if (k > 90 && k < 150) { ctx.fillStyle = '#9fe8ff'; for (let j = 0; j < 2; j++) ctx.fillRect(cx - 1.5, cy + 4 - ((k * 6 + j * 20) % 30), 3, 8); }
@@ -3491,7 +3526,10 @@ function drawBriefVisual(kind, cx, cy, zc) {
       const P = 130, k = frameCount % P, spr = getRammerSprite(), sz = ENEMY_SIZES[2];
       let ry = cy - 34 + Math.min(k, 30) * 0.3;
       if (k >= 62) ry += (k - 62) * 5;
-      if (k >= 30 && k < 62 && Math.floor(k / 5) % 2 === 0) { ctx.fillStyle = 'rgba(255,34,68,0.22)'; ctx.fillRect(cx - 22, ry + 10, 44, cy + 44 - ry - 10); }
+      if (k >= 30 && k < 62) { // şeride aşağı akan oklar (oyundaki gibi)
+        ctx.save(); ctx.strokeStyle = 'rgba(255,90,115,0.85)'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.beginPath();
+        for (let y = ry + 14 + (frameCount * 1.5) % 18; y < cy + 44; y += 18) { ctx.moveTo(cx - 7, y - 4); ctx.lineTo(cx, y + 3); ctx.lineTo(cx + 7, y - 4); }
+        ctx.stroke(); ctx.restore(); }
       const shipX = k < 44 ? cx : cx + 70 * Math.min(1, (k - 44) / 10);
       if (spr && ry < cy + 44) { ctx.save(); ctx.beginPath(); ctx.rect(cx - 140, cy - 44, 280, 88); ctx.clip();
         ctx.drawImage(spr, cx - sz.w * 0.22 + (k >= 30 && k < 62 ? (Math.random() - 0.5) * 3 : 0), ry - sz.h * 0.22, sz.w * 0.44, sz.h * 0.44); ctx.restore(); }
@@ -4864,11 +4902,18 @@ function update() {
     }
     if (!e.gunner && e.shieldHit > 0) e.shieldHit--;
     if (e.burster) {
+      if (e.sparks) e.sparks = e.sparks.filter(p => ++p.t < p.life);
       if (e.launch) e.x += (LANE_CENTERS[e.lane] - e.x) * 0.2;
       if (e.bState === 'enter') { if (e.y >= e.hoverY) { e.y = e.hoverY; e.bState = 'charge'; e.bT = 26; } }
       else {
         e.y -= e.speed; // yerinde durur
-        if (e.bState === 'charge') { if (--e.bT <= 0) { e.bState = 'burst'; e.bT = 0; e.bN = 0; } }
+        if (e.bState === 'charge') {
+          if (e.bT % 3 === 0) { // burna çekilen kıvılcımlar (boss'taki gibi, daha az)
+            const a = Math.random() * Math.PI * 2, r = 34 + Math.random() * 22;
+            (e.sparks || (e.sparks = [])).push({ ox: Math.cos(a) * r, oy: Math.sin(a) * r * 0.7, t: 0, life: 12 + Math.random() * 5, col: Math.random() < 0.5 ? '#ffd27a' : '#ff6a3a' });
+          }
+          if (--e.bT <= 0) { e.bState = 'burst'; e.bT = 0; e.bN = 0; }
+        }
         else if (e.bState === 'burst') {
           if (e.bT++ % 6 === 0) { pushShot({ x: e.x, y: e.y + 30, vx: 0, vy: 8, hp: 3, lane: e.lane, curve: false }); e.bN++; }
           if (e.bN >= 5) { e.bState = 'rest'; e.bT = 84; }
@@ -4894,7 +4939,7 @@ function update() {
       if (e.rState === 'fall' && e.y > e.ramAt && !sweepActive) { e.rState = 'aim'; e.rT = 36; e.lane = e.ramLane = playerLaneNow(); } // süpürmede bekler
       else if (e.rState === 'aim') { // durmaz: sırasıyla inmeye devam eder, hedef şeride hızlı kayar
         e.x += (LANE_CENTERS[e.ramLane] - e.x) * 0.18;
-        if (--e.rT <= 0) { e.rState = 'dash'; e.speed = 13; }
+        if (--e.rT <= 0) { e.rState = 'dash'; e.speed = 13; e.dashY0 = e.y; }
       }
       else if (e.rState === 'dash') {
         if (!player.dead && Math.abs(e.x - player.x) < 30 && Math.abs(e.y - player.y) < 44) {
