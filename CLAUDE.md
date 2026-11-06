@@ -50,7 +50,7 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 
 ## Sektör 2 yeniden yapımı (2026-11-06 başladı, kullanıcı taslağı onayladı; adım adım)
 - Taslak: L6 Slalom · L7 Pusu (kayaların arkasından) · L8 Patlatma (meteorun yeni hali, madenciler kaya patlatır) · L9 Yük Gemileri (Gunner yerine; üstte şerit değiştirir, arkasına kaya bırakır, kovalanır) · L10 Rock Titan (Kaya Fırlatma → Matkap Dalışı → Göçük; zırh döküldükçe Astra amblemi görünür, sonra 2→3 paneli + "...see you among the stars").
-- L6 yapıldı (ASTEROID RUN): `SLALOM_WAVES` + `updateSlalom`; normal düşman yok, tüm saha tek hızla akar (`sl` bayrağı), demir kapılar + kırılır kaya (size 24: parçalanmaz) + nöbetçi gemi (`scout`: geçerse can gitmez, sadece çarparsa) + kristal öbeği + 3. dalgada kargo. Bot (react 22/10/12): casual 3.5, expert 0.47, pro 0, traps ≤0.66. Kullanıcı telefonda deneyecek.
+- L6 yapıldı (ASTEROID RUN): `SLALOM_WAVES` + `updateSlalom`; normal düşman yok, tüm saha tek hızla akar (`sl` bayrağı), demir kapılar + kırılır kaya (size 24: parçalanmaz) + boşlukta nöbetçi gemi (normal kural: vurulmazsa can gider) + 3. dalgada kargo. Kristal/Overdrive L6'da yok (kullanıcı: "manasız"), L7'de başlar. Bot (react 22/10/12): casual 3.5, expert 0.47, pro 0, traps ≤0.66. Kullanıcı telefonda deneyecek.
 - Mağaza planı: App Store + Google Play, Capacitor; depo gizleme mağaza hazırlığına kadar bekliyor.
 
 ## Önceki durum (2026-11-04)
