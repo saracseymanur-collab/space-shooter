@@ -618,12 +618,13 @@ function getLevelConfig() {
 // L6 dalgaları: 1 ısınma · 2 baskı · 3 kargo · 4 nefes (seyrek kapı, çok kırılır kaya) · 5 final
 // spd: akış hızı (px/kare) · every: kapı aralığı (kare) · two: iki kayalı kapı olasılığı · brk: ikinci kayanın kırılır olma olasılığı
 // jump: boşluğun iki şerit atlama olasılığı · scout: boşlukta nöbetçi gemi olasılığı
+// chase: iki kapı arasında yol dışı gemi olasılığı (git, vur, sonraki boşluğa yetiş) · dbl: art arda çift kapı olasılığı
 const SLALOM_WAVES = [
-  { spd: 4.6, every: 68, two: 0.7,  brk: 0.4, jump: 0.05, scout: 0.1 },
-  { spd: 5.2, every: 58, two: 0.9,  brk: 0.3, jump: 0.2,  scout: 0.35 },
-  { spd: 5.4, every: 54, two: 0.95, brk: 0.3, jump: 0.3,  scout: 0.3, cargo: true },
-  { spd: 6.0, every: 60, two: 0.4,  brk: 0.6, jump: 0.2,  scout: 0.5 },
-  { spd: 6.6, every: 48, two: 1,    brk: 0.2, jump: 0.35, scout: 0.3 },
+  { spd: 4.6, every: 68, two: 0.7,  brk: 0.4, jump: 0.05, scout: 0.1,  chase: 0,    dbl: 0 },
+  { spd: 5.2, every: 58, two: 0.9,  brk: 0.3, jump: 0.2,  scout: 0.2,  chase: 0.15, dbl: 0.1 },
+  { spd: 5.4, every: 54, two: 0.95, brk: 0.3, jump: 0.3,  scout: 0.2,  chase: 0.2,  dbl: 0.15, cargo: true },
+  { spd: 6.4, every: 56, two: 0.4,  brk: 0.6, jump: 0.2,  scout: 0.3,  chase: 0.32, dbl: 0.1 },
+  { spd: 7.0, every: 46, two: 1,    brk: 0.2, jump: 0.35, scout: 0.2,  chase: 0.22, dbl: 0.25 },
 ];
 function baseLevelConfig() {
   switch (currentLevel) {
@@ -1080,7 +1081,7 @@ function startLevel(level) {
   playFrames     = (level - 1) * LEVEL_SEC * 60;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; shards = []; powerups = [];
-  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1;
+  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
   countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
@@ -2099,7 +2100,13 @@ function dropCrystals(x, y, n) {
 }
 // Demir kayanın arkasına saklanan düşman
 // --- L6 Slalom: tüm saha tek hızla akar (kaya, nöbetçi, kargo). Kristal/Overdrive yok: vuracak az şey var, L7'de başlar ---
-let slalomSpd = 0, slalomGap = 1;
+let slalomSpd = 0, slalomGap = 1, slalomNext = 1, slalomWait = 0, slalomShort = false;
+// Sıradaki boşluk: çoğunlukla komşu şerit, bazen aynı yer, bazen karşı kenar (adj: çift kapıda hep komşu)
+function pickSlalomGap(from, w, adj) {
+  if (!adj && Math.random() < 0.15) return from;
+  if (from === 1) return Math.random() < 0.5 ? 0 : 2;
+  return !adj && Math.random() < w.jump ? 2 - from : 1;
+}
 const slalomFast = () => state === 'play' && slalomSpd > 0 && currentLevel === 6;
 function spawnSlalomScout(lane, y) {
   enemies.push({
@@ -2112,17 +2119,22 @@ function spawnSlalomScout(lane, y) {
   });
 }
 function updateSlalom(w) {
-  if (!slalomSpd) slalomSpd = w.spd;
+  if (!slalomSpd) { slalomSpd = w.spd; slalomWait = w.every; }
   slalomSpd += (w.spd - slalomSpd) * 0.02; // dalga değişince saha yumuşakça hızlanır
   asteroids.forEach(a => { if (a.sl) a.speed = slalomSpd; });
   enemies.forEach(e => { if (e.sl) e.speed = slalomSpd; });
-  if (++asteroidSpawnTimer < w.every) return;
+  asteroidSpawnTimer++;
+  // Yol dışı gemi: sonraki kapının hemen önünde, boşluğun yanındaki şeritte; bu kapıdan oraya bir hamlede gidilir
+  if (asteroidSpawnTimer === Math.floor(slalomWait * 0.7) && !slalomShort && Math.random() < w.chase) {
+    const ls = [0, 1, 2].filter(l => Math.abs(l - slalomNext) === 1 && Math.abs(l - slalomGap) <= 1);
+    if (ls.length) spawnSlalomScout(ls[Math.floor(Math.random() * ls.length)], -46);
+  }
+  if (asteroidSpawnTimer < slalomWait) return;
   asteroidSpawnTimer = 0;
-  // Sıradaki boşluk: çoğunlukla komşu şerit, bazen aynı yer, bazen karşı kenar
-  const r = Math.random();
-  if (r < 0.15) { /* aynı şerit */ }
-  else if (slalomGap === 1) slalomGap = Math.random() < 0.5 ? 0 : 2;
-  else slalomGap = Math.random() < w.jump ? 2 - slalomGap : 1;
+  slalomGap = slalomNext;
+  slalomShort = !slalomShort && Math.random() < w.dbl; // çift kapı: bir sonraki kapı erken gelir
+  slalomWait = slalomShort ? Math.max(34, Math.round(w.every * 0.7)) : w.every;
+  slalomNext = pickSlalomGap(slalomGap, w, slalomShort);
   const others = [0, 1, 2].filter(l => l !== slalomGap).sort(() => Math.random() - 0.5);
   const lanes = Math.random() < w.two ? others : others.slice(0, 1);
   lanes.forEach((l, i) => {
@@ -3435,7 +3447,7 @@ const LEVEL_BRIEFS = [
   { title: 'BURSTERS',        vis: 'burst',     line: 'Violet ships fire a rapid burst, then rest. Hit them between bursts!', tips: ['A glowing nose means a burst is coming.', 'Orange splitters are back. Catch the halves!'] },
   // Boss bölümü: anlatım yok (her şey sektörde öğretildi), boss görünmez — sürpriz + esprili uğurlama
   { title: 'DANGER AHEAD',    vis: 'eyes',      line: "Something dangerous is waiting for you. Good luck. You'll need it.", tips: [] },
-  { title: 'ASTEROID RUN',    vis: 'slalom',    line: "Iron rocks can't be shot. Weave through the gaps at full speed!", tips: ['Other rocks can be shot out of the way.', 'Shoot the ships in the gaps!'] },
+  { title: 'ASTEROID RUN',    vis: 'slalom',    line: "Iron rocks can't be shot. Weave through the gaps at full speed!", tips: ['Other rocks can be shot out of the way.', 'Shoot every ship before it gets past you!'] },
   { title: 'AMBUSH',          vis: 'ambush',    line: 'Enemies hide behind grey iron rocks.', tips: ["Iron rocks can't be destroyed and block shots.", 'Wait for the enemy to come out.'] },
   { title: 'METEOR SHOWER',   vis: 'meteor',    line: 'A flashing red lane means meteors. Move out!', tips: ["Meteors can't be shot."] },
   { title: 'GUNNERS',         vis: 'gunner',    line: 'Gunners fire bursts down their lane. Hit them while they cool down!', tips: ['Their shield blocks your shots while they fire.', 'Red rocks explode and break any shield.'] },
