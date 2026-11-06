@@ -5664,12 +5664,9 @@ function drawMap() {
 
     const cy = R.y + R.h / 2;
     const brief = LEVEL_BRIEFS[lv];
-    const title = isBoss ? 'BOSS' : brief ? brief.title : `LEVEL ${String(i + 1).padStart(2, '0')}`;
-    const sub = isBoss ? BOSS_NAMES[currentZone] : '';
+    const title = isBoss ? BOSS_NAMES[currentZone] : brief ? brief.title : `LEVEL ${String(i + 1).padStart(2, '0')}`;
     ctx.fillStyle = locked ? 'rgba(200,210,230,0.45)' : '#fff';
-    drawSpaced(title, R.x + 54, sub ? cy - 9 : cy, isBoss ? 18 : 15, 700, UI_FONT, 3, R.w - 78, 'left');
-    ctx.fillStyle = locked ? 'rgba(200,210,230,0.3)' : completed ? zc : isBoss ? '#ff9db0' : 'rgba(190,225,255,0.8)';
-    drawSpaced(sub, R.x + 54, cy + 13, 10, 600, MONO_FONT, 2, R.w - 68, 'left');
+    drawSpaced(title, R.x + 54, cy, isBoss ? 18 : 15, 700, UI_FONT, 3, R.w - 78, 'left');
 
     // Sol simge: tik / kilit / kafatası
     const ix = R.x + 28;
