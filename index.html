@@ -5528,124 +5528,77 @@ function drawMenu() {
 }
 
 // --- Draw: Level Map (görev düğümleri) ---
-// Alttan yukarı: Level 1 … Boss. Köşeli görev kartları, aralarında bağlantı çizgisi.
-const MAP_NODE_W = 270, MAP_NODE_H = 62, MAP_BOSS_H = 82, MAP_GAP = 30, MAP_TOP = 230;
+// Alttan yukarı: Level 1 … Boss. Köşeli görev kartları, solda gemi yolu.
+const MAP_NODE_W = 296, MAP_NODE_H = 62, MAP_BOSS_H = 82, MAP_GAP = 30, MAP_TOP = 230;
 // Rota haritası (önce sektör 1): giriş → 5 durak → çıkış, kıvrımlı yol üzerinde gemi simgesi
-const MAP_ROUTES = {
-  1: { from: 'FROM THE AMBUSH SITE', to: 'TO ASTEROID BELT',
-       pts: [[195, 772], [108, 680], [282, 580], [108, 480], [282, 380], [195, 276], [195, 206]] },
+// Kartların solundaki düz yol: alttan girilir, üstten çıkılır; gemi bu yolda gider
+const MAP_PATH_X = 40, MAP_PATH_IN = 716, MAP_PATH_OUT = 196;
+const MAP_ENDS = {
+  1: ['FROM THE AMBUSH SITE', 'TO ASTEROID BELT'],
+  2: ['FROM DEEP SPACE', 'TO THE NEBULA'],
+  3: ['FROM ASTEROID BELT', 'TO THE BLACK HOLE'],
+  4: ['FROM THE NEBULA', 'TO THE LAST SIGNAL'],
 };
-const MAP_SEG = 24; // yol üzerinde segment başına örnek
-function mapRouteSamples(zone) {
-  const R = MAP_ROUTES[zone];
-  if (R.samples) return R.samples;
-  const P = R.pts, out = [];
-  for (let i = 0; i < P.length - 1; i++) { // Catmull-Rom: duraklardan geçen yumuşak yol
-    const p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(P.length - 1, i + 2)];
-    for (let k = 0; k < MAP_SEG; k++) {
-      const t = k / MAP_SEG, t2 = t * t, t3 = t2 * t;
-      const f = n => 0.5 * (2 * p1[n] + (p2[n] - p0[n]) * t + (2 * p0[n] - 5 * p1[n] + 4 * p2[n] - p3[n]) * t2 + (3 * p1[n] - p0[n] - 3 * p2[n] + p3[n]) * t3);
-      out.push([f(0), f(1)]);
-    }
-  }
-  out.push(P[P.length - 1]);
-  return R.samples = out;
-}
-function mapRouteAt(zone, prog) { // prog: 0 = giriş, 1 = ilk durak … 6 = çıkış
-  const S = mapRouteSamples(zone), f = Math.max(0, Math.min(S.length - 1.001, prog * MAP_SEG)), i = Math.floor(f), k = f - i;
-  const a = S[i], b = S[i + 1];
-  return { x: a[0] + (b[0] - a[0]) * k, y: a[1] + (b[1] - a[1]) * k, ang: Math.atan2(b[1] - a[1], b[0] - a[0]) };
-}
-function mapNodeRadius(i) { return i === 4 ? 40 : 30; }
 function mapNodeRect(i) {
   // i: 0 = bölgenin ilk bölümü (en altta), 4 = boss (en üstte)
-  if (MAP_ROUTES[currentZone]) { // durak + yanındaki yazı dokunulabilir
-    const [nx, ny] = MAP_ROUTES[currentZone].pts[i + 1], r = mapNodeRadius(i) + 12, left = nx >= W / 2;
-    return i === 4 ? { x: 16, y: ny - r, w: nx + r - 16, h: r * 2 } : { x: left ? 40 : nx - r, y: ny - r, w: left ? nx + r - 40 : W - 40 - nx + r, h: r * 2 };
-  }
   const h = i === 4 ? MAP_BOSS_H : MAP_NODE_H;
   let y = MAP_TOP + MAP_BOSS_H + MAP_GAP + (3 - i) * (MAP_NODE_H + MAP_GAP);
   if (i === 4) y = MAP_TOP;
-  return { x: W / 2 - MAP_NODE_W / 2, y, w: MAP_NODE_W, h };
+  return { x: W - 16 - MAP_NODE_W, y, w: MAP_NODE_W, h };
 }
 let mapPress = null; // { i, lv, t } — dokunma geri bildirimi, ardından bölüm başlar
 let mapShip = null;  // { zone, p }: haritadaki gemi; bölüm bitince yeni hedefe uçar
-function drawRouteMap(zc, base) {
-  const R = MAP_ROUTES[currentZone], S = mapRouteSamples(currentZone);
-  let nextI = -1;
-  for (let i = 0; i < 5; i++) if (levelStates[base + i] === 'unlocked') { nextI = i; break; }
-  const reached = nextI < 0 ? 5 : nextI; // ilk bitmemiş durağa kadar olan yol açık
+function mapPathY(p) { // p: 0 = giriş, 1 = ilk durak … 5 = boss, 6 = çıkış
+  const stop = k => {
+    if (k <= 0) return MAP_PATH_IN;
+    if (k >= 6) return MAP_PATH_OUT;
+    const R = mapNodeRect(k - 1); return R.y + R.h / 2;
+  };
+  const k = Math.max(0, Math.min(5, Math.floor(p))), t = Math.max(0, Math.min(1, p - k));
+  return stop(k) + (stop(k + 1) - stop(k)) * t;
+}
+function drawMapPath(zc, base, nextI) {
+  const reached = nextI < 0 ? 5 : nextI; // bitirilen durak sayısı
   const target = reached + 0.62;         // gemi sıradaki durağa yaklaşmış bekler
   if (!mapShip || mapShip.zone !== currentZone || mapShip.p > target) mapShip = { zone: currentZone, p: target };
   if (mapShip.p < target) mapShip.p = Math.min(target, mapShip.p + 0.014);
+  const X = MAP_PATH_X, shipY = mapPathY(mapShip.p), pulse = 0.5 + 0.5 * Math.sin(frameCount * 0.08);
 
-  // Yol: geçilen kısım dolu, kalan kısım kesikli
-  const cut = (reached + 1) * MAP_SEG;
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 2.5; ctx.setLineDash([3, 11]);
-  ctx.beginPath(); S.forEach(([x, y], k) => { if (k < cut) return; k === cut ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }); ctx.stroke();
+  // Yol: geminin geçtiği kısım dolu, kalan kısım kesikli
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 2.5; ctx.setLineDash([3, 10]);
+  ctx.beginPath(); ctx.moveTo(X, shipY); ctx.lineTo(X, MAP_PATH_OUT); ctx.stroke();
   ctx.setLineDash([]);
-  ctx.strokeStyle = zc; ctx.lineWidth = 3.5; ctx.shadowColor = zc; ctx.shadowBlur = 10;
-  ctx.beginPath(); S.forEach(([x, y], k) => { if (k > cut) return; k === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }); ctx.stroke();
+  ctx.strokeStyle = zc; ctx.lineWidth = 3; ctx.shadowColor = zc; ctx.shadowBlur = 10;
+  ctx.beginPath(); ctx.moveTo(X, MAP_PATH_IN); ctx.lineTo(X, shipY); ctx.stroke();
   ctx.shadowBlur = 0;
 
   // Giriş ve çıkış
-  const P = R.pts, ends = [[P[0], R.from, 20, zc], [P[6], R.to, -14, nextI < 0 ? zc : 'rgba(220,230,250,0.55)']];
-  ends.forEach(([[x, y], label, dy, col]) => {
+  const [from, to] = MAP_ENDS[currentZone];
+  [[MAP_PATH_IN, from, zc], [MAP_PATH_OUT, to, nextI < 0 ? zc : 'rgba(220,230,250,0.6)']].forEach(([y, label, col]) => {
     ctx.fillStyle = col;
-    ctx.beginPath(); ctx.moveTo(x, y - 6); ctx.lineTo(x + 6, y); ctx.lineTo(x, y + 6); ctx.lineTo(x - 6, y); ctx.closePath(); ctx.fill();
-    drawSpaced(label, W / 2, y + dy, 10, 600, MONO_FONT, 2, W - 40);
+    ctx.beginPath(); ctx.moveTo(X, y - 6); ctx.lineTo(X + 6, y); ctx.lineTo(X, y + 6); ctx.lineTo(X - 6, y); ctx.closePath(); ctx.fill();
+    drawSpaced(label, X + 16, y, 10, 600, MONO_FONT, 2, null, 'left');
   });
 
-  // Duraklar
-  const pulse = 0.5 + 0.5 * Math.sin(frameCount * 0.08);
+  // Duraklar: her kartın hizasında nokta + karta giden kısa çizgi
   for (let i = 0; i < 5; i++) {
-    const [nx, ny] = P[i + 1], r = mapNodeRadius(i), st = levelStates[base + i], lv = base + i + 1;
-    const isBoss = i === 4, isNext = i === nextI, locked = st === 'locked', completed = st === 'completed';
-    const pressed = mapPress && mapPress.i === i;
-    const accent = locked ? 'rgba(150,160,190,0.4)' : isBoss ? '#ff4d66' : zc;
-    ctx.save();
-    ctx.translate(nx, ny);
-    if (pressed) { const sc = 1 + 0.1 * Math.sin(Math.min(1, mapPress.t / 10) * Math.PI); ctx.scale(sc, sc); }
-    if (isNext) { ctx.strokeStyle = accent; ctx.globalAlpha = 0.5 * (1 - pulse); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, r + 4 + pulse * 10, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; }
-    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2);
-    ctx.fillStyle = locked ? 'rgba(10,12,24,0.92)' : completed ? (isBoss ? 'rgba(90,16,40,0.95)' : 'rgba(10,50,74,0.95)') : isBoss ? 'rgba(60,12,32,0.95)' : 'rgba(8,24,44,0.95)';
-    ctx.fill();
-    ctx.strokeStyle = accent; ctx.lineWidth = isNext || pressed ? 3 : 2;
-    if (isNext || pressed) { ctx.shadowColor = accent; ctx.shadowBlur = 10 + 10 * pulse; }
-    ctx.stroke(); ctx.shadowBlur = 0;
-    ctx.strokeStyle = accent; ctx.fillStyle = accent; ctx.lineWidth = 3;
-    if (completed) {
-      ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(-3, 8); ctx.lineTo(11, -8); ctx.stroke();
-    } else if (locked) {
-      ctx.lineWidth = 2.2; ctx.beginPath(); ctx.arc(0, -4, 6, Math.PI, 0); ctx.stroke(); ctx.fillRect(-8, -4, 16, 12);
-    } else if (isBoss) {
-      ctx.lineWidth = 2.2; ctx.beginPath(); ctx.arc(0, -3, 11, Math.PI * 0.9, Math.PI * 2.1); ctx.lineTo(7, 11); ctx.lineTo(-7, 11); ctx.closePath(); ctx.stroke();
-      ctx.beginPath(); ctx.arc(-4, -3, 2.4, 0, Math.PI * 2); ctx.arc(4, -3, 2.4, 0, Math.PI * 2); ctx.fill();
-    } else {
-      ctx.fillStyle = '#fff'; drawSpaced(String(i + 1), 0, 1, 20, 700, UI_FONT, 0);
-    }
-    ctx.restore();
-
-    // Yazı: durağın yanında, ekranın boş tarafında
-    const brief = LEVEL_BRIEFS[lv];
-    const title = isBoss ? 'BOSS' : `LEVEL ${String(i + 1).padStart(2, '0')}`;
-    const sub = isBoss ? BOSS_NAMES[currentZone] : isNext ? 'NEXT MISSION' : (brief ? brief.title : '');
-    const toLeft = nx >= W / 2 || isBoss, tw = isBoss ? 120 : 130;
-    const tx = toLeft ? nx - r - 14 - tw / 2 : nx + r + 14 + tw / 2;
-    ctx.fillStyle = locked ? 'rgba(200,210,230,0.45)' : '#fff';
-    drawSpaced(title, tx, ny - 9, isBoss ? 15 : 13, 700, UI_FONT, 2, tw);
-    ctx.fillStyle = locked ? 'rgba(200,210,230,0.3)' : isBoss ? '#ff9db0' : completed ? zc : 'rgba(190,225,255,0.85)';
-    drawSpaced(sub, tx, ny + 11, 9, 600, MONO_FONT, 1.5, tw);
+    const R = mapNodeRect(i), y = R.y + R.h / 2, st = levelStates[base + i];
+    const locked = st === 'locked', isNext = i === nextI, isBoss = i === 4;
+    const col = locked ? 'rgba(150,160,190,0.45)' : isBoss ? '#ff4d66' : zc, r = isBoss ? 7 : 5.5;
+    ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(X + r, y); ctx.lineTo(R.x, y); ctx.stroke();
+    if (isNext) { ctx.globalAlpha = 0.6 * (1 - pulse); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(X, y, r + 3 + pulse * 7, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; }
+    ctx.beginPath(); ctx.arc(X, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = st === 'completed' ? col : '#070a18'; ctx.fill();
+    ctx.lineWidth = 2; ctx.stroke();
   }
 
-  // Gemi: yol üstünde süzülür, burnu gidiş yönünde
+  // Gemi
   if (spaceshipImg.complete && spaceshipImg.naturalWidth) {
-    const q = mapRouteAt(currentZone, mapShip.p), bob = Math.sin(frameCount * 0.06) * 2;
     ctx.save();
-    ctx.translate(q.x, q.y + bob); ctx.rotate(q.ang + Math.PI / 2);
     ctx.shadowColor = zc; ctx.shadowBlur = 12;
-    ctx.drawImage(spaceshipImg, -24, -24, 48, 48);
+    ctx.drawImage(spaceshipImg, X - 21, shipY + Math.sin(frameCount * 0.06) * 2 - 21, 42, 42);
     ctx.restore();
   }
 }
@@ -5681,21 +5634,10 @@ function drawMap() {
     ctx.fillStyle = k < done ? zc : 'rgba(255,255,255,0.12)'; ctx.fill();
   }
 
-  if (MAP_ROUTES[currentZone]) { drawRouteMap(zc, base); ctx.restore(); return; }
-
-  // Bağlantı çizgileri
-  for (let i = 0; i < 4; i++) {
-    const a = mapNodeRect(i), b = mapNodeRect(i + 1);
-    const ok = levelStates[base + i] === 'completed';
-    ctx.strokeStyle = ok ? zc : levelStates[base + i + 1] !== 'locked' ? zc : 'rgba(255,255,255,0.15)';
-    ctx.globalAlpha = ok ? 0.8 : 0.5; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(W / 2, a.y); ctx.lineTo(W / 2, b.y + b.h); ctx.stroke();
-  }
-  ctx.globalAlpha = 1;
-
   // Sıradaki görev: kilidi açık, tamamlanmamış ilk bölüm
   let nextI = -1;
   for (let i = 0; i < 5; i++) if (levelStates[base + i] === 'unlocked') { nextI = i; break; }
+  drawMapPath(zc, base, nextI);
 
   for (let i = 0; i < 5; i++) {
     const R = mapNodeRect(i), st = levelStates[base + i], lv = base + i + 1;
@@ -5705,7 +5647,8 @@ function drawMap() {
     const accent = locked ? 'rgba(150,160,190,0.35)' : completed ? zc : isBoss ? '#ff4d66' : zc;
     ctx.save();
     const sc = pressed ? 1 + 0.06 * Math.sin(Math.min(1, mapPress.t / 10) * Math.PI) : 1;
-    ctx.translate(W / 2, R.y + R.h / 2); ctx.scale(sc, sc); ctx.translate(-W / 2, -(R.y + R.h / 2));
+    const cx = R.x + R.w / 2;
+    ctx.translate(cx, R.y + R.h / 2); ctx.scale(sc, sc); ctx.translate(-cx, -(R.y + R.h / 2));
     chamferPath(R.x, R.y, R.w, R.h, 12);
     const g = ctx.createLinearGradient(0, R.y, 0, R.y + R.h);
     if (locked) { g.addColorStop(0, 'rgba(14,16,30,0.9)'); g.addColorStop(1, 'rgba(8,9,18,0.9)'); }
@@ -5724,9 +5667,9 @@ function drawMap() {
     const title = isBoss ? 'BOSS' : `LEVEL ${String(i + 1).padStart(2, '0')}`;
     const sub = isBoss ? BOSS_NAMES[currentZone] : completed ? (brief ? brief.title : '') : isNext ? 'NEXT MISSION' : (brief ? brief.title : '');
     ctx.fillStyle = locked ? 'rgba(200,210,230,0.45)' : '#fff';
-    drawSpaced(title, W / 2, cy - 9, isBoss ? 18 : 15, 700, UI_FONT, 3);
+    drawSpaced(title, cx, cy - 9, isBoss ? 18 : 15, 700, UI_FONT, 3);
     ctx.fillStyle = locked ? 'rgba(200,210,230,0.3)' : completed ? zc : isBoss ? '#ff9db0' : 'rgba(190,225,255,0.8)';
-    drawSpaced(sub, W / 2, cy + 13, 10, 600, MONO_FONT, 2, R.w - 70);
+    drawSpaced(sub, cx, cy + 13, 10, 600, MONO_FONT, 2, R.w - 70);
 
     // Sol simge: tik / kilit / kafatası
     const ix = R.x + 28;
