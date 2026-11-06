@@ -1082,7 +1082,7 @@ function startLevel(level) {
   playFrames     = (level - 1) * LEVEL_SEC * 60;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; shards = []; powerups = [];
-  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false;
+  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
   countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
@@ -2101,14 +2101,37 @@ function dropCrystals(x, y, n) {
 }
 // Demir kayanın arkasına saklanan düşman
 // --- L6 Slalom: tüm saha tek hızla akar (kaya, nöbetçi, kargo). Kristal/Overdrive yok: vuracak az şey var, L7'de başlar ---
-let slalomSpd = 0, slalomGap = 1, slalomNext = 1, slalomWait = 0, slalomShort = false, slalomChase = false;
+let slalomSpd = 0, slalomGap = 1, slalomNext = 1, slalomWait = 0, slalomShort = false, slalomChase = false, slalomOutro = 0;
 // Sıradaki boşluk: çoğunlukla komşu şerit, bazen aynı yer, bazen karşı kenar (adj: çift kapıda hep komşu)
 function pickSlalomGap(from, w, adj) {
   if (!adj && Math.random() < 0.15) return from;
   if (from === 1) return Math.random() < 0.5 ? 0 : 2;
   return !adj && Math.random() < w.jump ? 2 - from : 1;
 }
-const slalomFast = () => state === 'play' && slalomSpd > 0 && currentLevel === 6;
+const slalomFast = () => state === 'play' && slalomSpd > 0 && currentLevel === 6 && slalomOutro === 0;
+const SLALOM_OUTRO = 170; // bölüm sonu: hız düşer, ilerideki maden görünür
+// Kapıları duvar gibi gösteren küçük demir kayalar (kapalı iki şerit arası + ekran kenarı); boşluğa asla girmez
+function addSlalomFiller(x) {
+  const a = spawnAsteroid('iron', x);
+  a.size = 15; a.y = -a.size - 28; a.speed = slalomSpd; a.sl = true; a.rotSpeed = 0.012;
+}
+// Bölüm sonu silüeti: kuşağın derinindeki gizli maden (kullanıcı görsel üretene kadar kodla çizilir)
+function drawMineSilhouette() {
+  const k = Math.min(1, slalomOutro / 90), e = 1 - (1 - k) * (1 - k), y = -90 + e * 210;
+  const pts = [[0, 44], [40, 12], [70, 36], [100, -34], [118, -34], [126, 22], [165, 48], [188, -66], [204, -66], [212, 30], [250, 52], [284, -12], [300, -12], [320, 38], [360, 20], [390, 46]];
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, slalomOutro / 40);
+  ctx.beginPath(); ctx.moveTo(0, -10);
+  pts.forEach(([x, dy]) => ctx.lineTo(x, y + dy));
+  ctx.lineTo(W, -10); ctx.closePath();
+  ctx.fillStyle = '#050308'; ctx.fill();
+  ctx.strokeStyle = 'rgba(255,140,60,0.4)'; ctx.lineWidth = 1.5; ctx.stroke();
+  if (Math.floor(frameCount / 24) % 2 === 0) {
+    ctx.fillStyle = '#ff2244';
+    [[109, -34], [196, -66], [292, -12]].forEach(([x, dy]) => { ctx.beginPath(); ctx.arc(x, y + dy, 3, 0, Math.PI * 2); ctx.fill(); });
+  }
+  ctx.restore();
+}
 function spawnSlalomScout(lane, y) {
   enemies.push({
     lane, x: LANE_CENTERS[lane], y, w: 38, h: 44,
@@ -2146,6 +2169,10 @@ function updateSlalom(w) {
     a.y = -a.size - 10; a.speed = slalomSpd; a.sl = true; a.rotSpeed = brk ? 0.02 : 0.01;
     if (brk) a.hp = a.maxHp = 2;
   });
+  if (lanes.includes(0)) addSlalomFiller(14);
+  if (lanes.includes(2)) addSlalomFiller(W - 14);
+  if (lanes.includes(0) && lanes.includes(1)) addSlalomFiller(LANE_W);
+  if (lanes.includes(1) && lanes.includes(2)) addSlalomFiller(LANE_W * 2);
   const half = w.every * slalomSpd / 2; // iki kapının ortası
   if (Math.random() < w.scout) spawnSlalomScout(slalomGap, -46);
   if (w.cargo && !runnerDone && spawnRunner()) {
@@ -4471,7 +4498,9 @@ function update() {
   // Level tamamlama: 5 dalgayı geçince bölüm biter (boss seviyesi hariç)
   const _zoneLastLevel = currentZone * 5;
   if (slowMoT > 0) slowMoT--;
-  if (currentLevel !== _zoneLastLevel && !boss && currentWave > currentLevel * 5 && enemies.length === 0 && slowMoT <= 0 && !asteroids.some(a => a.sl)) {
+  if (currentLevel !== _zoneLastLevel && !boss && currentWave > currentLevel * 5 && enemies.length === 0 && slowMoT <= 0 && !asteroids.some(a => a.sl) && slalomSpd > 0 && slalomOutro < SLALOM_OUTRO) {
+    if (slalomOutro++ === 0) showToast('SOMETHING IS OUT THERE', '#ffb347', SLALOM_OUTRO);
+  } else if (currentLevel !== _zoneLastLevel && !boss && currentWave > currentLevel * 5 && enemies.length === 0 && slowMoT <= 0 && !asteroids.some(a => a.sl)) {
     levelStates[currentLevel - 1] = 'completed';
     levelStates[currentLevel] = 'unlocked';
     saveLevelStates();
@@ -5717,6 +5746,7 @@ function render() {
 
   asteroids.forEach(drawAsteroid);
   drawIonClouds();
+  if (slalomOutro > 0) drawMineSilhouette();
   drawCrystals();
   bullets.forEach(drawBullet);
   drawSnakeBodies();
