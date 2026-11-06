@@ -57,7 +57,7 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 - L6'da taşlar "çok aynı" görünüyor; şekiller çeşitlendirilecek. Demir kayada şimdilik 3 sprite var (`ASSETS/rocks/rock-large-*`, gri boyanıyor). Kullanıcıdan yeni taş görselleri istenecek (uzun, köşeli, çatlak vb.; şeffaf PNG); yeni dosya gelince `sw.js` CACHE + ASSETS güncellenecek.
 
 ## Harita (2026-11-06)
-- Kıvrımlı rota denendi, kullanıcı eski kartları daha derli toplu buldu. Şimdi 4 sektörde de: düz köşeli kartlar (`mapNodeRect`, sağa yaslı) + solda düz yol (`drawMapPath`, `mapPathY`, `MAP_PATH_X`), her kartın hizasında durak, gemi `mapShip` (bölüm bitince sonraki durağa uçar), yolun iki ucunda `MAP_ENDS` yazıları. Sektör 4'ün "TO THE LAST SIGNAL" yazısı geçici.
+- Kıvrımlı rota denendi, kullanıcı eski kartları daha derli toplu buldu. Şimdi 4 sektörde de: düz köşeli kartlar (`mapNodeRect`, adı sola yaslı, LEVEL yazısı yok) + solda düz yol (`drawMapPath`, `mapPathY`, `MAP_PATH_X`), her kartın hizasında durak, gemi `mapShip` (bölüm bitince sonraki durağa uçar), yolun iki ucunda `MAP_ENDS` yazıları. Sektör 4'ün "TO THE LAST SIGNAL" yazısı geçici.
 
 ## Önceki durum (2026-11-04)
 - **Sektör 1 oynanış olarak bitti, kullanıcı memnun** ("çok iyi oldu"). Sıradaki iş: **görsel geliştirmeler**.

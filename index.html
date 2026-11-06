@@ -5529,10 +5529,10 @@ function drawMenu() {
 
 // --- Draw: Level Map (görev düğümleri) ---
 // Alttan yukarı: Level 1 … Boss. Köşeli görev kartları, solda gemi yolu.
-const MAP_NODE_W = 296, MAP_NODE_H = 62, MAP_BOSS_H = 82, MAP_GAP = 30, MAP_TOP = 230;
+const MAP_NODE_W = 262, MAP_NODE_H = 62, MAP_BOSS_H = 82, MAP_GAP = 30, MAP_TOP = 230;
 // Rota haritası (önce sektör 1): giriş → 5 durak → çıkış, kıvrımlı yol üzerinde gemi simgesi
 // Kartların solundaki düz yol: alttan girilir, üstten çıkılır; gemi bu yolda gider
-const MAP_PATH_X = 40, MAP_PATH_IN = 716, MAP_PATH_OUT = 196;
+const MAP_PATH_X = 50, MAP_PATH_IN = 716, MAP_PATH_OUT = 196;
 const MAP_ENDS = {
   1: ['FROM THE AMBUSH SITE', 'TO ASTEROID BELT'],
   2: ['FROM DEEP SPACE', 'TO THE NEBULA'],
@@ -5544,7 +5544,7 @@ function mapNodeRect(i) {
   const h = i === 4 ? MAP_BOSS_H : MAP_NODE_H;
   let y = MAP_TOP + MAP_BOSS_H + MAP_GAP + (3 - i) * (MAP_NODE_H + MAP_GAP);
   if (i === 4) y = MAP_TOP;
-  return { x: W - 16 - MAP_NODE_W, y, w: MAP_NODE_W, h };
+  return { x: MAP_PATH_X + 38, y, w: MAP_NODE_W, h };
 }
 let mapPress = null; // { i, lv, t } — dokunma geri bildirimi, ardından bölüm başlar
 let mapShip = null;  // { zone, p }: haritadaki gemi; bölüm bitince yeni hedefe uçar
@@ -5667,9 +5667,9 @@ function drawMap() {
     const title = isBoss ? 'BOSS' : brief ? brief.title : `LEVEL ${String(i + 1).padStart(2, '0')}`;
     const sub = isBoss ? BOSS_NAMES[currentZone] : isNext ? 'NEXT MISSION' : '';
     ctx.fillStyle = locked ? 'rgba(200,210,230,0.45)' : '#fff';
-    drawSpaced(title, cx, sub ? cy - 9 : cy, isBoss ? 18 : 15, 700, UI_FONT, 3, R.w - 76);
+    drawSpaced(title, R.x + 54, sub ? cy - 9 : cy, isBoss ? 18 : 15, 700, UI_FONT, 3, R.w - 78, 'left');
     ctx.fillStyle = locked ? 'rgba(200,210,230,0.3)' : completed ? zc : isBoss ? '#ff9db0' : 'rgba(190,225,255,0.8)';
-    drawSpaced(sub, cx, cy + 13, 10, 600, MONO_FONT, 2, R.w - 70);
+    drawSpaced(sub, R.x + 54, cy + 13, 10, 600, MONO_FONT, 2, R.w - 68, 'left');
 
     // Sol simge: tik / kilit / kafatası
     const ix = R.x + 28;
