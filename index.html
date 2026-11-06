@@ -597,7 +597,7 @@ function getDoubleSpawnChance() {
 const LEVEL_TUNE = {
   // 2026-11: bölümler 50 sn'ye inince (WAVE_DENSITY) kolay kalanlar için ek sıklık
   1: { iMul: 1.2, fireMul: 1.4 }, // öğretici ama kolay değil (kullanıcı: sektör 1 kolay)
-  6: { iMul: 0.6 }, 7: { iMul: 0.9 }, 8: { iMul: 0.68 }, 9: { iMul: 0.8 },
+  7: { iMul: 0.9 }, 8: { iMul: 0.68 }, 9: { iMul: 0.8 },
   11: { iMul: 1.25 }, 12: { gunner: 1300, iMul: 1.4 }, 13: { iMul: 0.85 }, 14: { iMul: 1.5, diver: 0.25 },
   16: { diver: 0.35, formation: true, iMul: 0.42, fireMul: 0.7 }, 17: { gunner: 1700, iMul: 1.05 }, 18: { fireMul: 0.9, iMul: 0.85 }, 19: { diver: 0.3, iMul: 0.75 },
 };
@@ -615,6 +615,16 @@ function getLevelConfig() {
   for (const k of ['gunner', 'hunter', 'link', 'snake', 'sweeper', 'burster']) if (o[k]) o[k] = Math.round(o[k] * WAVE_DENSITY);
   return o;
 }
+// L6 dalgaları: 1 ısınma · 2 baskı · 3 kargo · 4 nefes (seyrek kapı, çok kırılır kaya) · 5 final
+// spd: akış hızı (px/kare) · every: kapı aralığı (kare) · two: iki kayalı kapı olasılığı · brk: ikinci kayanın kırılır olma olasılığı
+// jump: boşluğun iki şerit atlama olasılığı · scout: boşlukta nöbetçi gemi olasılığı
+const SLALOM_WAVES = [
+  { spd: 4.6, every: 68, two: 0.7,  brk: 0.4, jump: 0.05, scout: 0.1 },
+  { spd: 5.2, every: 58, two: 0.9,  brk: 0.3, jump: 0.2,  scout: 0.35 },
+  { spd: 5.4, every: 54, two: 0.95, brk: 0.3, jump: 0.3,  scout: 0.3, cargo: true },
+  { spd: 6.0, every: 60, two: 0.4,  brk: 0.6, jump: 0.2,  scout: 0.5 },
+  { spd: 6.6, every: 48, two: 1,    brk: 0.2, jump: 0.35, scout: 0.3 },
+];
 function baseLevelConfig() {
   switch (currentLevel) {
     // Sektör 1 zorluk eğrisi (2026-11 bot ölçümüyle ayarlandı; deneyimli/rahat oyuncu ort. can kaybı):
@@ -665,12 +675,10 @@ function baseLevelConfig() {
       return base;
     }
     // ── Zone 2: Asteroid Belt — kayalarla birlikte daha seyrek düşman ──
-    case 6: return { // kristal madenciliği + hafif düşmanlar
-      interval: 115, doubleChance: 0,
-      speed: () => 1.5 + Math.random() * 0.3,
-      hp: () => Math.random() < 0.3 ? 2 : 1,
-      canShoot: false, zigzag: false,
-    };
+    case 6: { // Slalom: kuşağa dalış. Normal düşman yok; demir kaya kapıları hızla iner, boşluktan geçilir (updateSlalom)
+      const lw = Math.min(5, getWave() - (currentLevel - 1) * 5);
+      return { interval: 999, doubleChance: 0, speed: () => 5, hp: () => 1, canShoot: false, zigzag: false, slalom: SLALOM_WAVES[lw - 1] };
+    }
     case 7: return { // pusu: düşmanlar demir kayaların arkasından çıkar
       interval: 140, doubleChance: 0.05,
       speed: () => 1.6 + Math.random() * 0.4,
@@ -1072,7 +1080,7 @@ function startLevel(level) {
   playFrames     = (level - 1) * LEVEL_SEC * 60;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; shards = []; powerups = [];
-  asteroids = []; asteroidSpawnTimer = 0;
+  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
   countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
@@ -2090,6 +2098,54 @@ function dropCrystals(x, y, n) {
   for (let i = 0; i < n; i++) crystals.push({ x, y, vx: (Math.random() - 0.5) * 3.5, vy: 1.7 + Math.random() * 0.6, t: Math.random() * 100 });
 }
 // Demir kayanın arkasına saklanan düşman
+// --- L6 Slalom: tüm saha tek hızla akar (kaya, nöbetçi, kristal, kargo) ---
+let slalomSpd = 0, slalomGap = 1;
+const slalomFast = () => state === 'play' && slalomSpd > 0 && currentLevel === 6;
+function spawnSlalomScout(lane, y) {
+  enemies.push({
+    lane, x: LANE_CENTERS[lane], y, w: 38, h: 44,
+    hp: 1, maxHp: 1, speed: slalomSpd, flash: 0,
+    fireTimer: 0, fireRate: 999, canShoot: false,
+    zigzag: false, zigzagPhase: 0, phantom: false, cloakCfg: { vis: 90, inv: 40 }, cloakT: 0, alpha: 1,
+    shiftAt: null, shiftTo: lane, curveShots: false, shift2: 0,
+    scout: true, sl: true,
+  });
+}
+function updateSlalom(w) {
+  if (!slalomSpd) slalomSpd = w.spd;
+  slalomSpd += (w.spd - slalomSpd) * 0.02; // dalga değişince saha yumuşakça hızlanır
+  asteroids.forEach(a => { if (a.sl) a.speed = slalomSpd; });
+  enemies.forEach(e => { if (e.sl) e.speed = slalomSpd; });
+  crystals.forEach(c => { if (c.sl) c.vy = slalomSpd; });
+  if (++asteroidSpawnTimer < w.every) return;
+  asteroidSpawnTimer = 0;
+  // Sıradaki boşluk: çoğunlukla komşu şerit, bazen aynı yer, bazen karşı kenar
+  const r = Math.random();
+  if (r < 0.15) { /* aynı şerit */ }
+  else if (slalomGap === 1) slalomGap = Math.random() < 0.5 ? 0 : 2;
+  else slalomGap = Math.random() < w.jump ? 2 - slalomGap : 1;
+  const others = [0, 1, 2].filter(l => l !== slalomGap).sort(() => Math.random() - 0.5);
+  const lanes = Math.random() < w.two ? others : others.slice(0, 1);
+  lanes.forEach((l, i) => {
+    const brk = i > 0 && Math.random() < w.brk;
+    const a = spawnAsteroid(brk ? 'normal' : 'iron', LANE_CENTERS[l]);
+    a.size = brk ? 24 : 36; // 24: kırılınca parçalanmaz (hızlı parça şeritte haksız olur)
+    a.y = -a.size - 10; a.speed = slalomSpd; a.sl = true; a.rotSpeed = brk ? 0.02 : 0.01;
+    if (brk) a.hp = a.maxHp = 2;
+  });
+  const half = w.every * slalomSpd / 2; // iki kapının ortası
+  if (Math.random() < w.scout) spawnSlalomScout(slalomGap, -46);
+  if (Math.random() < 0.55) { // kapı arasında kristal öbeği: bazen yol üstünde, bazen sapmak gerekir
+    const lane = Math.floor(Math.random() * 3);
+    for (let k = 0; k < 3; k++) crystals.push({ x: LANE_CENTERS[lane], y: -half - k * 30, vx: 0, vy: slalomSpd, t: k * 12, sl: true });
+  }
+  if (w.cargo && !runnerDone && spawnRunner()) {
+    const e = enemies[enemies.length - 1];
+    e.lane = slalomGap; e.x = LANE_CENTERS[slalomGap]; e.shiftTo = slalomGap; e.y = -half; e.speed = slalomSpd; e.sl = true;
+    runnerDone = true;
+  }
+}
+
 function spawnAmbusher(rock, lane) {
   const cfg = getLevelConfig();
   const hp = cfg ? cfg.hp() : 1;
@@ -2155,10 +2211,11 @@ function drawZoneBackdrop(zone) {
   ctx.fillRect(0, 0, W, H);
   // Önde akan yıldızlar (hız hissi)
   ctx.save();
+  const fast = slalomFast(); // L6: yıldızlar uzun çizgi olur
   stars.forEach(st => {
-    if (st.spd > 1.4) { // yakın katman: hızlı, çok kısa ve soluk iz
+    if (st.spd > 1.4 || fast) { // yakın katman: hızlı, çok kısa ve soluk iz
       ctx.strokeStyle = `rgba(255,255,255,${0.14 + st.spd * 0.07})`; ctx.lineWidth = st.s * 0.9;
-      ctx.beginPath(); ctx.moveTo(st.x, st.y - st.spd * 1.8); ctx.lineTo(st.x, st.y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(st.x, st.y - st.spd * (fast ? 16 : 1.8)); ctx.lineTo(st.x, st.y); ctx.stroke();
     } else {            // uzak katman: soluk nokta
       ctx.fillStyle = `rgba(255,255,255,${0.15 + st.spd * 0.2})`;
       ctx.beginPath(); ctx.arc(st.x, st.y, st.s * 0.8, 0, Math.PI * 2); ctx.fill();
@@ -3383,7 +3440,7 @@ const LEVEL_BRIEFS = [
   { title: 'BURSTERS',        vis: 'burst',     line: 'Violet ships fire a rapid burst, then rest. Hit them between bursts!', tips: ['A glowing nose means a burst is coming.', 'Orange splitters are back. Catch the halves!'] },
   // Boss bölümü: anlatım yok (her şey sektörde öğretildi), boss görünmez — sürpriz + esprili uğurlama
   { title: 'DANGER AHEAD',    vis: 'eyes',      line: "Something dangerous is waiting for you. Good luck. You'll need it.", tips: [] },
-  { title: 'CRYSTAL MINING',  vis: 'crystal',   line: 'Shoot rocks, collect crystals, fill the bar for Overdrive!', tips: ["You don't have to destroy every rock.", 'Survive 5 waves to clear the level.'] },
+  { title: 'ASTEROID RUN',    vis: 'slalom',    line: "Iron rocks can't be shot. Weave through the gaps at full speed!", tips: ['Other rocks break and drop crystals.', 'Crystals fill the bar for Overdrive.'] },
   { title: 'AMBUSH',          vis: 'ambush',    line: 'Enemies hide behind grey iron rocks.', tips: ["Iron rocks can't be destroyed and block shots.", 'Wait for the enemy to come out.'] },
   { title: 'METEOR SHOWER',   vis: 'meteor',    line: 'A flashing red lane means meteors. Move out!', tips: ["Meteors can't be shot."] },
   { title: 'GUNNERS',         vis: 'gunner',    line: 'Gunners fire bursts down their lane. Hit them while they cool down!', tips: ['Their shield blocks your shots while they fire.', 'Red rocks explode and break any shield.'] },
@@ -3669,6 +3726,13 @@ function drawBriefVisual(kind, cx, cy, zc) {
       [0, 1, 2].forEach(k => briefCrystal(cx - 16 + k * 14, cy + Math.sin(t * 2 + k) * 4, 9));
       briefArrow(cx + 34, cy, cx + 62, cy, 'rgba(255,255,255,0.5)');
       ctx.shadowColor = '#ffc531'; ctx.shadowBlur = 14; briefBolt(cx + 90, cy, 1.4, '#ffc531'); ctx.shadowBlur = 0;
+      break;
+    }
+    case 'slalom': {
+      const k = (Math.sin(t) + 1) / 2;
+      briefRock('iron', cx + L[0], cy - 22, 15); briefRock('iron', cx + L[1], cy - 22, 15);
+      briefCrystal(cx + L[2], cy - 22, 9);
+      if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, cx + k * 70 - 18, cy + 4, 36, 36);
       break;
     }
     case 'ambush': {
@@ -4237,8 +4301,9 @@ function update() {
     Sound.setMusic(mz, intense, state === 'paused' ? 0.45 : state === 'play' && !briefing ? 1 : 0.75, track, inLevel ? (currentLevel - 1) % 5 : 0);
   }
 
+  const starMul = slalomFast() ? 4 : 1; // L6: hız hissi
   stars.forEach(s => {
-    s.y += s.spd;
+    s.y += s.spd * starMul;
     if (s.y > H) { s.y = 0; s.x = Math.random() * W; }
   });
 
@@ -4398,7 +4463,7 @@ function update() {
   // Level tamamlama: 5 dalgayı geçince bölüm biter (boss seviyesi hariç)
   const _zoneLastLevel = currentZone * 5;
   if (slowMoT > 0) slowMoT--;
-  if (currentLevel !== _zoneLastLevel && !boss && currentWave > currentLevel * 5 && enemies.length === 0 && slowMoT <= 0) {
+  if (currentLevel !== _zoneLastLevel && !boss && currentWave > currentLevel * 5 && enemies.length === 0 && slowMoT <= 0 && !asteroids.some(a => a.sl)) {
     levelStates[currentLevel - 1] = 'completed';
     levelStates[currentLevel] = 'unlocked';
     saveLevelStates();
@@ -4638,7 +4703,8 @@ function update() {
   if ((currentZone === 2 || currentZone === 4) && state === 'play' && !player.dead) {
     // Asteroid spawning (zone 2)
     const levelEnd = currentLevel % 5 !== 0 && getWave() > currentLevel * 5;
-    if (currentZone === 2 && !boss && !levelEnd) {
+    if (currentZone === 2 && !boss && !levelEnd && _zcfg && _zcfg.slalom) updateSlalom(_zcfg.slalom);
+    else if (currentZone === 2 && !boss && !levelEnd) {
       asteroidSpawnTimer++;
       const astLvl = Math.min(5, currentLevel - 5); // 1-5: L6-L10
       const astInterval = [64, 60, 58, 56, 60][astLvl - 1];
@@ -4795,7 +4861,7 @@ function update() {
     if (cfg && cfg.burster && ++burstT >= cfg.burster && enemies.filter(e => e.burster).length < 2 && spawnBurster()) burstT = 0;
     if (cfg && cfg.link && ++linkT >= cfg.link && !enemies.some(e => e.guarding) && spawnLinkPair()) linkT = 0;
     const lw = getWave() - (currentLevel - 1) * 5;
-    if (lw === 3 && !runnerDone && (Math.random() < 1 / 360 || getWave() * WAVE_SEC - gameSec() < 2)) runnerDone = spawnRunner();
+    if (lw === 3 && !runnerDone && !(cfg && cfg.slalom) && (Math.random() < 1 / 360 || getWave() * WAVE_SEC - gameSec() < 2)) runnerDone = spawnRunner();
     // formation: true → sadece son dalga; dizi → o dalgalarda
     const formWave = cfg && (Array.isArray(cfg.formation) ? cfg.formation.includes(lw) : cfg.formation && lw >= 5);
     if (!formWave) formOn = false;
@@ -4806,6 +4872,8 @@ function update() {
         // ikili sıra: farklı boşluklu ikinci sıra hemen arkadan → iki kez yer değiştir
         if (cfg.formDouble && Math.random() < cfg.formDouble) spawnFormationRow(120);
       }
+    } else if (cfg && cfg.slalom) {
+      spawnTimer = 0; // L6: gemiler kapılarla birlikte gelir
     } else if (spawnTimer >= interval) {
       spawnTimer = 0;
       spawnEnemy();
@@ -5050,6 +5118,7 @@ function update() {
         if (e.hp <= 0) {
           spawnShipDeath(e);
           if (e.splitter) spawnSplitKids(e);
+          if (e.scout) dropCrystals(e.x, e.y, 2);
           Sound.sfx.shipBoom(e.maxHp);
                 spawnPowerup(e.x, e.y);
         } else {
@@ -5064,6 +5133,15 @@ function update() {
 
     // Reached player — kalkan varsa engelle (kalkan hasarı emer, ama bitmez)
     if (e.runner && e.y > H + 40) return false; // kargo kaçtı: sadece ödül kaçtı
+    if (e.scout) { // L6 nöbetçi: geçerse can gitmez, sadece aynı şeritte çarparsa
+      if (e.y > H + 40) return false;
+      if (!player.dead && Math.abs(e.x - player.x) < 40 && Math.abs(e.y - player.y) < 44) {
+        spawnShipDeath(e);
+        damagePlayer('Hit by a scout ship!');
+        return false;
+      }
+      return true;
+    }
     if (e.y > H - 55 && !e.runner && !e.seg && !e.rammer && !e.sweeper && !e.burster) {
       spawnShipDeath(e);
       damagePlayer('The enemy reached the ship!');
