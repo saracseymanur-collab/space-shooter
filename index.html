@@ -684,7 +684,7 @@ function baseLevelConfig() {
     }
     case 7: { // Pusu: normal düşman yok; gemiler demir kayaların arkasında gelir, yanına fırlar (updateAmbush)
       const lw = Math.min(5, getWave() - (currentLevel - 1) * 5);
-      return { interval: 999, doubleChance: 0, speed: () => 3.3, hp: () => 1, canShoot: true, zigzag: false, ambush: AMBUSH_WAVES[lw - 1] };
+      return { interval: 999, doubleChance: 0, speed: () => 3.3, hp: () => 1, canShoot: false, zigzag: false, ambush: AMBUSH_WAVES[lw - 1] }; // ateş etmezler: mermiden kaçarken gemiyi vuracak alan kalmıyordu (kullanıcı)
     }
     case 8: return { // meteor yağmuru
       interval: 125, doubleChance: 0.1,
@@ -2191,11 +2191,11 @@ function updateSlalom(w) {
 // L7 Pusu. every: kaya sırası aralığı · two: iki kayalı sıra · both: ortadaki kayadan iki yana iki gemi · empty: arkası boş kaya
 // at: geminin çıktığı yükseklik (H oranı) · out: çıkınca iniş hızı · brk: sıralar arasında kırılır kaya (kristal)
 const AMBUSH_WAVES = [
-  { spd: 3.0, every: 112, two: 0.2,  both: 0,    empty: 0,    at: [0.22, 0.32], out: 3.2, brk: 0.5 },
-  { spd: 3.2, every: 98,  two: 0.4,  both: 0.1,  empty: 0,    at: [0.32, 0.44], out: 3.4, brk: 0.35 },
-  { spd: 3.4, every: 94,  two: 0.45, both: 0.15, empty: 0.1,  at: [0.34, 0.46], out: 3.6, brk: 0.3, cargo: true },
-  { spd: 3.2, every: 116, two: 0.3,  both: 0.3,  empty: 0.35, at: [0.38, 0.48], out: 3.6, brk: 0.5 },
-  { spd: 3.6, every: 94,  two: 0.4,  both: 0.3,  empty: 0.05, at: [0.36, 0.46], out: 3.8, brk: 0.15 },
+  { spd: 3.2, every: 96,  two: 0.25, both: 0.05, empty: 0,    at: [0.3, 0.4],   out: 3.6, brk: 0.5 },
+  { spd: 3.5, every: 84,  two: 0.45, both: 0.2,  empty: 0,    at: [0.4, 0.52],  out: 3.9, brk: 0.35 },
+  { spd: 3.7, every: 80,  two: 0.5,  both: 0.25, empty: 0.1,  at: [0.42, 0.54], out: 4.1, brk: 0.3, cargo: true },
+  { spd: 3.4, every: 100, two: 0.3,  both: 0.4,  empty: 0.3,  at: [0.46, 0.56], out: 4.1, brk: 0.5 },
+  { spd: 4.0, every: 74,  two: 0.4,  both: 0.4,  empty: 0.05, at: [0.46, 0.56], out: 4.4, brk: 0.15 },
 ];
 const AMBUSH_PEEK = 34; // çıkmadan önceki uyarı süresi (kare)
 let ambushSpd = 0, ambushGap = 1;
@@ -2208,7 +2208,7 @@ function hideAmbushShip(rock, w, exit) {
   const lane = nearestLane(rock.x);
   spawnAmbusher(rock, lane);
   const e = enemies[enemies.length - 1];
-  e.amb = true; e.exit = exit; e.out = w.out; e.fireRate = 100;
+  e.amb = true; e.exit = exit; e.out = w.out;
   e.y = rock.y; e.breakAt = H * (w.at[0] + Math.random() * (w.at[1] - w.at[0]));
   return e;
 }
@@ -5062,7 +5062,7 @@ function update() {
   const sweepActive = enemies.some(e => e.sweeper && (e.sState === 'warn' || e.sState === 'sweep')) || bossSolo(); // ateş tutma
   enemies = enemies.filter(e => {
     if (e.gone) return false; // kaçan yılan parçaları
-    // L7 pusu: kaya hedef yüksekliğe gelmeden burnu görünür, sonra yan şeride fırlar ve hemen ateş eder
+    // L7 pusu: kaya hedef yüksekliğe gelmeden burnu görünür, sonra yan şeride fırlar
     if (e.escort && e.amb) {
       const r = e.escort;
       if (asteroids.includes(r) && r.y < e.breakAt) {
@@ -5075,7 +5075,7 @@ function update() {
         return true;
       }
       e.escort = null; e.lane = e.exitTo !== undefined ? e.exitTo : ambushExit(e); e.shiftTo = e.lane; e.shifting = 22;
-      e.speed = e.out; e.fireTimer = e.fireRate - 10;
+      e.speed = e.out;
     }
     // Pusu: demir kayanın arkasında saklanır (bu sırada vurulamaz, ateş etmez)
     if (e.escort) {
