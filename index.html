@@ -619,13 +619,14 @@ function getLevelConfig() {
 // spd: akış hızı (px/kare) · every: kapı aralığı (kare) · two: iki kayalı kapı olasılığı · brk: ikinci kayanın kırılır olma olasılığı
 // jump: boşluğun iki şerit atlama olasılığı · scout: boşlukta nöbetçi gemi olasılığı
 // chase: iki kapı arasında yol dışı gemi olasılığı (git, vur, sonraki boşluğa yetiş) · dbl: art arda çift kapı olasılığı
+// big: yan yana iki kapalı şeridi tek büyük kayanın kapatma olasılığı
 // Hedef: son dalga Ateş Koridoru hızı. Tam koridor temposu (30 kare) 50 sn sürünce pro bot 8 can kaybediyordu; koridor sadece ~5 sn
 const SLALOM_WAVES = [
-  { spd: 5.2, every: 56, two: 0.9, brk: 0.15, jump: 0.1,  scout: 0.05, chase: 0.06, dbl: 0 },
-  { spd: 5.8, every: 50, two: 1,   brk: 0.1,  jump: 0.25, scout: 0.06, chase: 0.14, dbl: 0.1 },
-  { spd: 6.2, every: 46, two: 1,   brk: 0.1,  jump: 0.3,  scout: 0.06, chase: 0.16, dbl: 0.1, cargo: true },
-  { spd: 6.6, every: 50, two: 0.7, brk: 0.2,  jump: 0.25, scout: 0.08, chase: 0.22, dbl: 0 },
-  { spd: 7.5, every: 38, two: 1,   brk: 0.05, jump: 0.4,  scout: 0.05, chase: 0.12, dbl: 0.15 },
+  { spd: 5.2, every: 52, two: 0.9, big: 0.25, brk: 0.15, jump: 0.1,  scout: 0.08, chase: 0.1,  dbl: 0 },
+  { spd: 5.8, every: 46, two: 1,   big: 0.3,  brk: 0.1,  jump: 0.25, scout: 0.1,  chase: 0.2,  dbl: 0.1 },
+  { spd: 6.2, every: 42, two: 1,   big: 0.3,  brk: 0.1,  jump: 0.3,  scout: 0.1,  chase: 0.24, dbl: 0.1, cargo: true },
+  { spd: 6.6, every: 46, two: 0.7, big: 0.3,  brk: 0.2,  jump: 0.25, scout: 0.12, chase: 0.3,  dbl: 0 },
+  { spd: 7.5, every: 36, two: 1,   big: 0.3,  brk: 0.05, jump: 0.4,  scout: 0.08, chase: 0.18, dbl: 0.15 },
 ];
 function baseLevelConfig() {
   switch (currentLevel) {
@@ -2102,9 +2103,8 @@ function dropCrystals(x, y, n) {
 // Demir kayanın arkasına saklanan düşman
 // --- L6 Slalom: tüm saha tek hızla akar (kaya, nöbetçi, kargo). Kristal/Overdrive yok: vuracak az şey var, L7'de başlar ---
 let slalomSpd = 0, slalomGap = 1, slalomNext = 1, slalomWait = 0, slalomShort = false, slalomChase = false, slalomOutro = 0, slalomPin = -1;
-// Sıradaki boşluk: çoğunlukla komşu şerit, bazen aynı yer, bazen karşı kenar (adj: çift kapıda hep komşu)
+// Sıradaki boşluk: her kapıda değişir (kullanıcı: daha sık yer değiştirilsin); komşu şerit ya da karşı kenar (adj: çift kapıda hep komşu)
 function pickSlalomGap(from, w, adj) {
-  if (!adj && Math.random() < 0.15) return from;
   if (from === 1) return Math.random() < 0.5 ? 0 : 2;
   return !adj && Math.random() < w.jump ? 2 - from : 1;
 }
@@ -2163,7 +2163,13 @@ function updateSlalom(w) {
   slalomNext = pickSlalomGap(slalomGap, w, slalomShort);
   const others = [0, 1, 2].filter(l => l !== slalomGap).sort(() => Math.random() - 0.5);
   const lanes = slalomPin >= 0 || Math.random() < w.two ? others : others.slice(0, 1);
-  lanes.forEach((l, i) => {
+  // Tek büyük kaya: yan yana iki kapalı şeridin ortasında, ikisini birden kapatır
+  const bigRock = lanes.length === 2 && Math.abs(lanes[0] - lanes[1]) === 1 && !slalomShort && Math.random() < w.big;
+  if (bigRock) {
+    const a = spawnAsteroid('iron', LANE_W * (Math.max(lanes[0], lanes[1])));
+    a.size = 56; a.y = -a.size - 10; a.speed = slalomSpd; a.sl = true; a.hitH = 50; // yatık durur, iki şeridi kaplar
+    a.rotation = (Math.random() - 0.5) * 0.3; a.rotSpeed = 0;
+  } else lanes.forEach((l, i) => {
     const brk = i > 0 && l !== slalomPin && Math.random() < w.brk;
     const a = spawnAsteroid(brk ? 'normal' : 'iron', LANE_CENTERS[l]);
     a.size = brk ? 22 : 26; // 24: kırılınca parçalanmaz (hızlı parça şeritte haksız olur)
@@ -2173,8 +2179,8 @@ function updateSlalom(w) {
   slalomPin = -1;
   if (lanes.includes(0)) addSlalomFiller(14);
   if (lanes.includes(2)) addSlalomFiller(W - 14);
-  if (lanes.includes(0) && lanes.includes(1)) addSlalomFiller(LANE_W);
-  if (lanes.includes(1) && lanes.includes(2)) addSlalomFiller(LANE_W * 2);
+  if (!bigRock && lanes.includes(0) && lanes.includes(1)) addSlalomFiller(LANE_W);
+  if (!bigRock && lanes.includes(1) && lanes.includes(2)) addSlalomFiller(LANE_W * 2);
   const half = w.every * slalomSpd / 2; // iki kapının ortası
   if (Math.random() < w.scout) spawnSlalomScout(slalomGap, -46);
   if (w.cargo && !runnerDone && spawnRunner()) {
@@ -4823,7 +4829,7 @@ function update() {
 
       // Player collision (bir meteor yağmuru en fazla 1 can alır)
       // Çarpma alanı görselle uyumlu (önceden görselden ~10px büyüktü)
-      if (!player.dead && Math.abs(a.x - player.x) < a.size * 0.9 + (a.sl ? 24 : 12) && Math.abs(a.y - player.y) < a.size * 0.9 + 16) { // L6: küçük kaya, gemi gövdesi kadar pay
+      if (!player.dead && Math.abs(a.x - player.x) < a.size * 0.9 + (a.sl ? 24 : 12) && Math.abs(a.y - player.y) < (a.hitH || a.size * 0.9 + 16)) { // L6: küçük kaya, gemi gövdesi kadar pay
         spawnExplosion(a.x, a.y, true);
         if (!(a.meteor && frameCount < meteorImmuneUntil)) {
           damagePlayer(a.meteor ? 'Hit by a meteor!' : 'Hit by an asteroid!');
