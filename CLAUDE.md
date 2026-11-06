@@ -23,6 +23,8 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 - Onaylı hikâye belgesi: **`SOURCES/STORY/STORY.md`** (V1.0, tüm panel metinleri İngilizce; altında eski metinler + neden değiştiği). Hikâyeyle ilgili her işte önce onu oku.
 - Özet: Astra kayıp koloni sanılıyor → sinyal → kurtarma filosu pusuya düşer, tek sen kalırsın → düşman kim belli değil (Act I) → Astra bağlantısı (Act II, L10 sonu: amblem + "...see you among the stars") → gerçek (Act III, L15 sonu 3 panel) → final: Void Leader = ağabey; boss yenilince oyun durur, INCOMING TRANSMISSION, ANSWER / IGNORE → iki son (Reunion / Silence). Düşman hareketi adı artık **Void Rebellion** (tüm Astra değil).
 - Oyunda henüz ESKİ metinler duruyor (`INTRO_PANELS`, `ZONE_TRANSITION_MESSAGES`, `ENDING_PANELS`, `MENU_CARDS` alt başlıkları, `LEVEL_BRIEFS` ROCK TITAN / COMMAND CENTER satırları "Void Colony"/"fleet's escape"). Kullanıcı adım adım güncellemek istiyor: 1) giriş 7 panel 2) bölge geçişleri (3→4 üç panel, ipuçları) 3) menü alt başlıkları + brief satırları 4) final seçim ekranı + iki son (en büyük iş: boss 0 HP'de patlamaz, oyun durur, iki buton).
+- Giriş (2026-11-05 yayında, dc7c5ae): 7 panel + tam ekran görsel (`INTRO_IMGS`, `ASSETS/story/intro-1..7.jpg`, 852×1846: genişliğe sığdırılıp alt kısım görselin koyu rengiyle uzatıldı, kırpma yok; orijinaller `SOURCES/STORY/intro/`). Görsel varsa metin altta (0.60–0.86 H). Panel 7'deki gezegen Dünya'ya benziyor (Kuzey Amerika) — ileride yenilenebilir.
+- **BEKLEYEN (2026-11-06):** kullanıcı girişin EN BAŞINA hikâyeyle ilgili birkaç panel daha ekleyecek (metin + görsel getirecek). Gelince `INTRO_PANELS` başına ekle, görsel dosyalarını yeniden numarala (intro-1… kayar), sw `CACHE` artır + ASSETS listesi, `STORY.md` giriş bölümünü güncelle.
 - Açık kararlar: ana gezegenin adı, kardeş isimleri, zaman aralığı, ipuçlarının sunumu (metin paneli mi), ağabeyin teslim olmasının inandırıcılığı.
 
 ## Oyunun yapısı
@@ -42,7 +44,11 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
   `ASSETS/rocks/` kaya sprite'ları (3 boyut × 3), `ASSETS/powerups/` güçlendirme rozetleri (256px), `ASSETS/shots/` düşman mermisi.
 - `SOURCES/` taslaklar ve eski versiyonlar (ör. `SOURCES/POWERUPS/badge-v1`, `capsule-v1`, `badge-v3`).
 
-## Son durum (2026-11-04, yeni sohbete geçerken)
+## Son durum (2026-11-06, yeni sohbete geçerken)
+- 2026-11-05 yapılanlar (hepsi yayında): boss ruh hali renkleri (pembe seri + burunda ateş topu, kırmızı dalış + kalkan izi, turuncu koridor); Rammer'a boss tarzı uyarı (şeritte akan oklar, kırmızı boyalı boss kalkanı hep açık, dalış kopyaları, can barı yok — hiç vurulamaz); Burster'a pembe ısınma + kıvılcım + ateş topu (şerit boyaması kaldırıldı); yeni hikâye (bkz. Hikâye bölümü) ve 7 panellik görselli giriş.
+- Sıradaki: kullanıcının getireceği ek giriş panelleri → bölge geçişleri (1→2, 2→3 ipucu, 3→4 üç panel) → menü/brief metinleri → final seçim ekranı + iki son. Ardından sektör 2 oynanışı (hikâyede "gizli maden ve üretim üssü").
+
+## Önceki durum (2026-11-04)
 - **Sektör 1 oynanış olarak bitti, kullanıcı memnun** ("çok iyi oldu"). Sıradaki iş: **görsel geliştirmeler**.
 - Görsel iş listesi (öncelik sırası önerildi): 1) Rammer görseli (kullanıcı üretecek — Claude ölçü/stil verdi: diğer düşmanlarla aynı tarz, tepeden, burun aşağı, koçbaşı burun + ön zırh, kırmızı #ff2244, şeffaf ~512px, gölge/parıltı yok) 2) Kalkan görseli (boss metalik halkası beğenilmedi + diğer kalkanlıların kırmızı yayları) 3) Splitter / Burster / Kargo için özel sprite (şu an kodla boyanmış: `getSplitterSprite`, `getSweeperSprite`(Burster), `getRunnerSprite`) 4) Çift atış rozeti (küçükken ‖ gibi) (Boss kenar şeritte ekrandan taşıyor — kullanıcı: sorun değil, kalsın.)
 - Sonraki büyük iş: sektör 2-4'ü sektör 1 gibi level level yeniden ele almak (yeni temel + hız + yeni mekanikler).
