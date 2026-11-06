@@ -56,6 +56,7 @@ function trapped() {
 function laneValue(l) {
   let v = 0;
   for (const e of enemies) {
+    if (e.amb && e.escort) continue;                     // kayanın arkasında saklanan gemi görünmez
     if (nearestLane(e.x) !== l) continue;
     v += 40 + Math.max(0, e.y) * 0.25 + e.hp * 10;     // aşağıdaki düşman daha acil
   }
