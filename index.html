@@ -5668,7 +5668,7 @@ function drawMap() {
     ctx.fillStyle = locked ? 'rgba(200,210,230,0.45)' : '#fff';
     drawSpaced(title, R.x + 54, cy, isBoss ? 18 : 15, 700, UI_FONT, 3, R.w - 78, 'left');
 
-    // Sol simge: tik / kilit / kafatası
+    // Sol simge: tik / kilit / sıradaki görev
     const ix = R.x + 28;
     ctx.strokeStyle = accent; ctx.fillStyle = accent; ctx.lineWidth = 2.2;
     if (completed) {
@@ -5676,9 +5676,6 @@ function drawMap() {
     } else if (locked) {
       ctx.beginPath(); ctx.arc(ix, cy - 4, 5, Math.PI, 0); ctx.stroke();
       ctx.fillRect(ix - 7, cy - 4, 14, 10);
-    } else if (isBoss) {
-      ctx.beginPath(); ctx.arc(ix, cy - 2, 8, Math.PI * 0.9, Math.PI * 2.1); ctx.lineTo(ix + 5, cy + 8); ctx.lineTo(ix - 5, cy + 8); ctx.closePath(); ctx.stroke();
-      ctx.beginPath(); ctx.arc(ix - 3, cy - 2, 1.8, 0, Math.PI * 2); ctx.arc(ix + 3, cy - 2, 1.8, 0, Math.PI * 2); ctx.fill();
     } else {
       // sıradaki görev: nabız gibi atan elmas işareti
       ctx.globalAlpha = 0.6 + 0.4 * pulse;
