@@ -621,11 +621,11 @@ function getLevelConfig() {
 // chase: iki kapı arasında yol dışı gemi olasılığı (git, vur, sonraki boşluğa yetiş) · dbl: art arda çift kapı olasılığı
 // Hedef: son dalga Ateş Koridoru hızı. Tam koridor temposu (30 kare) 50 sn sürünce pro bot 8 can kaybediyordu; koridor sadece ~5 sn
 const SLALOM_WAVES = [
-  { spd: 5.2, every: 56, two: 0.9, brk: 0.15, jump: 0.1,  scout: 0.1,  chase: 0,    dbl: 0 },
-  { spd: 5.8, every: 50, two: 1,   brk: 0.1,  jump: 0.25, scout: 0.15, chase: 0.1,  dbl: 0.1 },
-  { spd: 6.2, every: 46, two: 1,   brk: 0.1,  jump: 0.3,  scout: 0.15, chase: 0.12, dbl: 0.1, cargo: true },
-  { spd: 6.6, every: 50, two: 0.7, brk: 0.2,  jump: 0.25, scout: 0.2,  chase: 0.18, dbl: 0 },
-  { spd: 7.5, every: 38, two: 1,   brk: 0.05, jump: 0.4,  scout: 0.15, chase: 0.1,  dbl: 0.15 },
+  { spd: 5.2, every: 56, two: 0.9, brk: 0.15, jump: 0.1,  scout: 0.05, chase: 0.06, dbl: 0 },
+  { spd: 5.8, every: 50, two: 1,   brk: 0.1,  jump: 0.25, scout: 0.06, chase: 0.14, dbl: 0.1 },
+  { spd: 6.2, every: 46, two: 1,   brk: 0.1,  jump: 0.3,  scout: 0.06, chase: 0.16, dbl: 0.1, cargo: true },
+  { spd: 6.6, every: 50, two: 0.7, brk: 0.2,  jump: 0.25, scout: 0.08, chase: 0.22, dbl: 0 },
+  { spd: 7.5, every: 38, two: 1,   brk: 0.05, jump: 0.4,  scout: 0.05, chase: 0.12, dbl: 0.15 },
 ];
 function baseLevelConfig() {
   switch (currentLevel) {
@@ -1082,7 +1082,7 @@ function startLevel(level) {
   playFrames     = (level - 1) * LEVEL_SEC * 60;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; shards = []; powerups = [];
-  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0;
+  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
   countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
@@ -2101,7 +2101,7 @@ function dropCrystals(x, y, n) {
 }
 // Demir kayanın arkasına saklanan düşman
 // --- L6 Slalom: tüm saha tek hızla akar (kaya, nöbetçi, kargo). Kristal/Overdrive yok: vuracak az şey var, L7'de başlar ---
-let slalomSpd = 0, slalomGap = 1, slalomNext = 1, slalomWait = 0, slalomShort = false, slalomChase = false, slalomOutro = 0;
+let slalomSpd = 0, slalomGap = 1, slalomNext = 1, slalomWait = 0, slalomShort = false, slalomChase = false, slalomOutro = 0, slalomPin = -1;
 // Sıradaki boşluk: çoğunlukla komşu şerit, bazen aynı yer, bazen karşı kenar (adj: çift kapıda hep komşu)
 function pickSlalomGap(from, w, adj) {
   if (!adj && Math.random() < 0.15) return from;
@@ -2148,10 +2148,11 @@ function updateSlalom(w) {
   asteroids.forEach(a => { if (a.sl) a.speed = slalomSpd; });
   enemies.forEach(e => { if (e.sl) e.speed = slalomSpd; });
   asteroidSpawnTimer++;
-  // Yol dışı gemi: sonraki kapının hemen önünde, boşluğun yanındaki şeritte; bu kapıdan oraya bir hamlede gidilir
-  if (asteroidSpawnTimer === Math.floor(slalomWait * 0.7) && slalomChase) {
+  // Yol dışı gemi: boşluğun yanındaki şeritte, hemen arkasında demir kaya var (slalomPin): vur, kaya gelmeden boşluğa kaç.
+  // Bu kapıdan oraya bir hamlede gidilir; kapı aralığı açık olduğu için hem vurmaya hem dönmeye vakit kalır
+  if (asteroidSpawnTimer === Math.floor(slalomWait * 0.8) && slalomChase) {
     const ls = [0, 1, 2].filter(l => Math.abs(l - slalomNext) === 1 && Math.abs(l - slalomGap) <= 1);
-    if (ls.length) spawnSlalomScout(ls[Math.floor(Math.random() * ls.length)], -46);
+    if (ls.length) { slalomPin = ls[Math.floor(Math.random() * ls.length)]; spawnSlalomScout(slalomPin, -46); }
   }
   if (asteroidSpawnTimer < slalomWait) return;
   asteroidSpawnTimer = 0;
@@ -2161,14 +2162,15 @@ function updateSlalom(w) {
   slalomWait = slalomShort ? Math.max(24, Math.round(w.every * 0.7)) : slalomChase ? Math.max(w.every, 56) : w.every;
   slalomNext = pickSlalomGap(slalomGap, w, slalomShort);
   const others = [0, 1, 2].filter(l => l !== slalomGap).sort(() => Math.random() - 0.5);
-  const lanes = Math.random() < w.two ? others : others.slice(0, 1);
+  const lanes = slalomPin >= 0 || Math.random() < w.two ? others : others.slice(0, 1);
   lanes.forEach((l, i) => {
-    const brk = i > 0 && Math.random() < w.brk;
+    const brk = i > 0 && l !== slalomPin && Math.random() < w.brk;
     const a = spawnAsteroid(brk ? 'normal' : 'iron', LANE_CENTERS[l]);
     a.size = brk ? 22 : 26; // 24: kırılınca parçalanmaz (hızlı parça şeritte haksız olur)
     a.y = -a.size - 10; a.speed = slalomSpd; a.sl = true; a.rotSpeed = brk ? 0.02 : 0.01;
     if (brk) a.hp = a.maxHp = 2;
   });
+  slalomPin = -1;
   if (lanes.includes(0)) addSlalomFiller(14);
   if (lanes.includes(2)) addSlalomFiller(W - 14);
   if (lanes.includes(0) && lanes.includes(1)) addSlalomFiller(LANE_W);
