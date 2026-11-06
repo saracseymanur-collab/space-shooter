@@ -56,12 +56,17 @@ function trapped() {
 function laneValue(l) {
   let v = 0;
   for (const e of enemies) {
-    if (e.amb && e.escort) continue;                     // kayanın arkasında saklanan gemi görünmez
     if (nearestLane(e.x) !== l) continue;
     v += 40 + Math.max(0, e.y) * 0.25 + e.hp * 10;     // aşağıdaki düşman daha acil
   }
   if (boss && Math.abs(boss.x - LANE_CENTERS[l]) < 80) v += boss.shielded === false ? 400 : 60; // açık boss = öncelik (insan gibi)
   for (const p of powerups) if (nearestLane(p.x) === l) v += 25;
+  // L7: sıradaki tarama yaklaşırken o anda gölgesi üstünde olacak kayanın şeridine git
+  if (typeof stealthScans !== 'undefined' && stealthScans.length) {
+    const c = stealthScans.find(s => !s.done);
+    if (c && c.t < 90) for (const a of asteroids) { const y = a.y + a.speed * c.t;
+      if (a.amb && nearestLane(a.x) === l && y < player.y - 40 && player.y - y < SHADOW_LEN) v += 1000; }
+  }
   return v;
 }
 function runLevel(level, prof, maxFrames = 9000) { // insanlar gibi tek kararda iki şerit de kayabilir
