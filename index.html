@@ -5664,10 +5664,10 @@ function drawMap() {
 
     const cy = R.y + R.h / 2;
     const brief = LEVEL_BRIEFS[lv];
-    const title = isBoss ? 'BOSS' : `LEVEL ${String(i + 1).padStart(2, '0')}`;
-    const sub = isBoss ? BOSS_NAMES[currentZone] : completed ? (brief ? brief.title : '') : isNext ? 'NEXT MISSION' : (brief ? brief.title : '');
+    const title = isBoss ? 'BOSS' : brief ? brief.title : `LEVEL ${String(i + 1).padStart(2, '0')}`;
+    const sub = isBoss ? BOSS_NAMES[currentZone] : isNext ? 'NEXT MISSION' : '';
     ctx.fillStyle = locked ? 'rgba(200,210,230,0.45)' : '#fff';
-    drawSpaced(title, cx, cy - 9, isBoss ? 18 : 15, 700, UI_FONT, 3);
+    drawSpaced(title, cx, sub ? cy - 9 : cy, isBoss ? 18 : 15, 700, UI_FONT, 3, R.w - 76);
     ctx.fillStyle = locked ? 'rgba(200,210,230,0.3)' : completed ? zc : isBoss ? '#ff9db0' : 'rgba(190,225,255,0.8)';
     drawSpaced(sub, cx, cy + 13, 10, 600, MONO_FONT, 2, R.w - 70);
 
