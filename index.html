@@ -597,7 +597,7 @@ function getDoubleSpawnChance() {
 const LEVEL_TUNE = {
   // 2026-11: bölümler 50 sn'ye inince (WAVE_DENSITY) kolay kalanlar için ek sıklık
   1: { iMul: 1.2, fireMul: 1.4 }, // öğretici ama kolay değil (kullanıcı: sektör 1 kolay)
-  8: { iMul: 0.68 }, 9: { iMul: 0.8 },
+  8: { fireMul: 1.3 }, 9: { iMul: 0.8 },
   11: { iMul: 1.25 }, 12: { gunner: 1300, iMul: 1.4 }, 13: { iMul: 0.85 }, 14: { iMul: 1.5, diver: 0.25 },
   16: { diver: 0.35, formation: true, iMul: 0.42, fireMul: 0.7 }, 17: { gunner: 1700, iMul: 1.05 }, 18: { fireMul: 0.9, iMul: 0.85 }, 19: { diver: 0.3, iMul: 0.75 },
 };
@@ -686,12 +686,10 @@ function baseLevelConfig() {
       const lw = Math.min(5, getWave() - (currentLevel - 1) * 5);
       return { interval: 999, doubleChance: 0, speed: () => 3, hp: () => 1, canShoot: false, zigzag: false, stealth: STEALTH_WAVES[lw - 1] };
     }
-    case 8: return { // meteor yağmuru
-      interval: 125, doubleChance: 0.1,
-      speed: () => 1.7 + Math.random() * 0.4,
-      hp: () => Math.random() < 0.4 ? 2 : 1,
-      canShoot: true, zigzag: false,
-    };
+    case 8: { // Patlatma: madenciler kaya patlatır. Şarjlı kayayı erken vur, geç kalırsan yan şeritlerden kaç (updateBlast)
+      const lw = Math.min(5, getWave() - (currentLevel - 1) * 5);
+      return { interval: 105, doubleChance: 0.2, speed: () => 3.3, hp: () => 1, canShoot: true, zigzag: false, blast: BLAST_WAVES[lw - 1] };
+    }
     case 9: return { // Gunner + patlayıcı kayalar (patlama Gunner kalkanını da kırar)
       interval: 170, doubleChance: 0.12,
       speed: () => 1.7 + Math.random() * 0.4,
@@ -2273,6 +2271,46 @@ function drawAlarmFx() {
   ctx.fillStyle = `rgba(255,34,68,${alarmFx / 40 * 0.3})`; ctx.fillRect(0, 0, W, H);
 }
 
+// L8 Patlatma. every: şarjlı kaya aralığı · at: fitilin yandığı yükseklik (H oranı) · pair: yan yana iki kaya · rock: kristal kayası
+const BLAST_WAVES = [
+  { spd: 2.8, every: 125, at: 0.24, pair: 0.1,  rock: 0.5 },
+  { spd: 3.1, every: 100, at: 0.26, pair: 0.3,  rock: 0.4 },
+  { spd: 3.3, every: 92,  at: 0.28, pair: 0.35, rock: 0.3 },
+  { spd: 2.9, every: 140, at: 0.3,  pair: 0.7,  rock: 0.6 },
+  { spd: 3.6, every: 82,  at: 0.3,  pair: 0.55, rock: 0.2 },
+];
+const BLAST_FUSE = 52; // kırmızı şerit uyarısı (kare)
+function spawnChargedRock(lane, w) {
+  const a = spawnAsteroid('explosive', LANE_CENTERS[lane]);
+  a.size = 30; a.y = -50; a.speed = w.spd; a.rotSpeed = 0.015; a.charged = true; a.fuseAt = H * w.at; a.fuse = 0; a.hp = a.maxHp = 2;
+}
+function updateBlast(w) {
+  if (++asteroidSpawnTimer < w.every) return;
+  asteroidSpawnTimer = 0;
+  const lane = Math.floor(Math.random() * 3);
+  spawnChargedRock(lane, w);
+  if (Math.random() < w.pair) spawnChargedRock(lane === 1 ? (Math.random() < 0.5 ? 0 : 2) : 1, w);
+  if (Math.random() < w.rock) { // kristal kayası: iki şarjlı kaya arasında
+    const r = spawnAsteroid('normal', LANE_CENTERS[Math.floor(Math.random() * 3)]);
+    r.size = 22; r.hp = r.maxHp = 2; r.y = -50 - w.every * w.spd / 2; r.speed = w.spd; r.rotSpeed = 0.02;
+  }
+}
+// Fitil: kaya hedef yüksekliğe gelince yan şeritler kırmızı olur, süre bitince kaya patlar, parçalar o şeritlerden iner.
+// Vurulan kayanın uyarısı silinir. Üç şerit birden kırmızı olacaksa fitil bekler: kaçış şeridi hep kalır.
+function updateFuses() {
+  lasers = lasers.filter(L => !L.src || L.t > L.warn || asteroids.includes(L.src));
+  asteroids.forEach(a => {
+    if (!a.charged || a.blasted) return;
+    if (a.fuse > 0) { if (--a.fuse === 0) { a.blasted = true; a.fused = true; } return; }
+    if (a.y < a.fuseAt || a.y > H * 0.62) return;
+    const l = nearestLane(a.x), side = [l - 1, l + 1].filter(n => n >= 0 && n <= 2);
+    const red = new Set(side); lasers.forEach(L => { if (L.meteor) red.add(L.lane); });
+    if (red.size >= 3 || red.has(l)) return;
+    a.fuse = BLAST_FUSE;
+    side.forEach(n => lasers.push({ lane: n, t: 0, warn: BLAST_FUSE, fire: 30, hit: true, meteor: true, src: a }));
+  });
+}
+
 function spawnAmbusher(rock, lane) {
   const cfg = getLevelConfig();
   const hp = cfg ? cfg.hp() : 1;
@@ -2299,7 +2337,7 @@ function bulletHitsRock(b, a) {
 function destroyRock(a, frags, blasts) {
   if (a.type !== 'explosive') Sound.sfx.rockCrack(a.size);
   spawnExplosion(a.x, a.y, a.size > 22);
-  if (currentZone === 2 && !a.meteor && !a.sl) dropCrystals(a.x, a.y, a.isFragment ? 1 : a.size > 24 ? 3 : 2);
+  if (currentZone === 2 && !a.meteor && !a.sl && !a.fused) dropCrystals(a.x, a.y, a.isFragment ? 1 : a.size > 24 ? 3 : 2);
   if (a.type === 'explosive') {
     blasts.push({ x: a.x, y: a.y });
     Sound.sfx.blast();
@@ -3569,7 +3607,7 @@ const LEVEL_BRIEFS = [
   { title: 'DANGER AHEAD',    vis: 'eyes',      line: "Something dangerous is waiting for you. Good luck. You'll need it.", tips: [] },
   { title: 'ASTEROID RUN',    vis: 'slalom',    line: "Iron rocks can't be shot. Weave through the gaps at full speed!", tips: ['Other rocks can be shot out of the way.', 'Shoot every ship before it gets past you!'] },
   { title: 'STAY DARK',       vis: 'stealth',   line: "Weapons are offline. When the scan comes, hide in an iron rock's shadow!", tips: ['Then move on to the next rock.', 'Caught in the light? A Rammer comes for you.'] },
-  { title: 'METEOR SHOWER',   vis: 'meteor',    line: 'A flashing red lane means meteors. Move out!', tips: ["Meteors can't be shot."] },
+  { title: 'BLAST ZONE',      vis: 'explosive', line: 'Charged rocks blow up and throw shards into the next lanes. Shoot them early!', tips: ['Red lanes mean shards are coming. Move out!', 'An early blast takes out nearby ships.'] },
   { title: 'GUNNERS',         vis: 'gunner',    line: 'Gunners fire bursts down their lane. Hit them while they cool down!', tips: ['Their shield blocks your shots while they fire.', 'Red rocks explode and break any shield.'] },
   { title: 'ROCK TITAN',      vis: 'boss',      line: "The Rock Titan guards the fleet's escape. Bring it down!", tips: ['Shoot its rocks for crystals.'] },
   { title: 'PHANTOMS',        vis: 'phantom',   line: 'Phantoms turn invisible. Hit them while visible.', tips: ['Their flickering outline shows where they are.'] },
@@ -4789,6 +4827,7 @@ function update() {
         spawnAsteroid('normal', LANE_CENTERS[L.lane], -30, 15 + Math.random() * 5);
         const m = asteroids[asteroids.length - 1];
         m.speed = 10; m.rotSpeed = 0.2; m.meteor = true;
+        if (L.src) { m.x = L.src.x; m.y = L.src.y; m.tx = LANE_CENTERS[L.lane]; } // patlamadan yan şeride saçılan parça
         if (L.t - L.warn === 1) Sound.sfx.whoosh();
       }
       return L.t <= L.warn + L.fire;
@@ -4807,12 +4846,12 @@ function update() {
   // --- Zone 2: Asteroid Belt — kristal madenciliği, pusu, meteor yağmuru, patlayıcı kayalar ---
   if (overdriveTimer > 0) overdriveTimer--;
 
-  // Meteor yağmuru (L8-L10): bir şerit uyarı verir, sonra hızlı meteorlar geçer
-  if (currentZone === 2 && !boss && state === 'play' && !player.dead && currentLevel >= 8) {
+  // Meteor yağmuru (L9-L10): bir şerit uyarı verir, sonra hızlı meteorlar geçer
+  if (currentZone === 2 && !boss && state === 'play' && !player.dead && currentLevel >= 9) {
     meteorTimer++;
-    const every = currentLevel === 8 ? 660 : 600;
+    const every = 600;
     if (meteorTimer >= every && !lasers.some(L => L.meteor)) {
-      const warn = currentLevel === 8 ? 100 : 80;
+      const warn = 80;
       const ok = [0, 1, 2].filter(l => !wouldWall(l, warn, warn + 60));
       if (ok.length) {
         meteorTimer = 0;
@@ -4836,8 +4875,10 @@ function update() {
     // Asteroid spawning (zone 2)
     const levelEnd = currentLevel % 5 !== 0 && getWave() > currentLevel * 5;
     if (currentLevel === 7) updateScans();
+    if (currentLevel === 8) updateFuses();
     if (currentZone === 2 && !boss && !levelEnd && _zcfg && _zcfg.slalom) updateSlalom(_zcfg.slalom);
     else if (currentZone === 2 && !boss && !levelEnd && _zcfg && _zcfg.stealth) updateStealth(_zcfg.stealth);
+    else if (currentZone === 2 && !boss && !levelEnd && _zcfg && _zcfg.blast) updateBlast(_zcfg.blast);
     else if (currentZone === 2 && !boss && !levelEnd) {
       asteroidSpawnTimer++;
       const astLvl = Math.min(5, currentLevel - 5); // 1-5: L6-L10
@@ -4890,6 +4931,7 @@ function update() {
     asteroids = asteroids.filter(a => {
       a.y += a.speed;
       a.rotation += a.rotSpeed;
+      if (a.tx != null) a.x += (a.tx - a.x) * 0.25;
       if (a.flash > 0) a.flash--;
       if (a.y > H + 60 || a.x < -60 || a.x > W + 60) return false;
       if (a.blasted) { destroyRock(a, newFragments, blasts); return false; }
@@ -5893,6 +5935,12 @@ function render() {
 
   if (currentLevel === 7 && state !== 'levelcomplete') drawStealth();
   asteroids.forEach(drawAsteroid);
+  asteroids.forEach(a => { // yanan fitil: kayanın çevresinde daralan halka
+    if (!a.fuse) return;
+    const k = a.fuse / BLAST_FUSE;
+    ctx.strokeStyle = 'rgba(255,200,80,' + (0.9 - 0.5 * k) + ')'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(a.x, a.y, a.size + 8 + k * 34, 0, Math.PI * 2); ctx.stroke();
+  });
   drawIonClouds();
   if (slalomOutro > 0) drawMineSilhouette();
   drawCrystals();
