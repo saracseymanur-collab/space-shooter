@@ -686,10 +686,10 @@ function baseLevelConfig() {
       const lw = Math.min(5, getWave() - (currentLevel - 1) * 5);
       return { interval: 999, doubleChance: 0, speed: () => 3, hp: () => 1, canShoot: false, zigzag: false, stealth: STEALTH_WAVES[lw - 1] };
     }
-    case 8: { // Kovalayan Kazıcı: kaya sıralarını delip geç, çarparsan alttaki kazıcı yaklaşır (updateDigger).
-      // Tünel denemesi için digger yerine tunnel: TUNNEL_WAVES[lw - 1] yaz
+    case 8: { // Dev Matkaplar: duvardan uzanıp çekilen matkapların arasından geç (updateDrills).
+      // Diğer denemeler için drills yerine tunnel: TUNNEL_WAVES[lw - 1] ya da digger: DIGGER_WAVES[lw - 1] yaz
       const lw = Math.min(5, getWave() - (currentLevel - 1) * 5);
-      return { interval: 999, doubleChance: 0, speed: () => 5, hp: () => 1, canShoot: false, zigzag: false, digger: DIGGER_WAVES[lw - 1] };
+      return { interval: 999, doubleChance: 0, speed: () => 5, hp: () => 1, canShoot: false, zigzag: false, drills: DRILL_WAVES[lw - 1] };
     }
     case 9: return { // Gunner + patlayıcı kayalar (patlama Gunner kalkanını da kırar)
       interval: 170, doubleChance: 0.12,
@@ -1080,7 +1080,7 @@ function startLevel(level) {
   playFrames     = (level - 1) * LEVEL_SEC * 60;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; shards = []; powerups = [];
-  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0;
+  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
   countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
@@ -2431,6 +2431,76 @@ function drawDigger() {
   ctx.restore();
 }
 
+// L8 Dev Matkaplar. every: matkap aralığı · long: iki şerit uzanan matkap · pair: iki yandan birden · per: uzanıp çekilme süresi (kare)
+// cross: art arda iki uzun matkap, hizaya gelince tam uzanmış: bir kenardan öbür kenara geçmek gerekir
+// ship: matkaplar arasında vurulacak gemi. Matkaplar vurulamaz; en fazla iki şerit kapanır, kaçış hep vardır
+const DRILL_WAVES = [
+  { spd: 4.4, every: 84, long: 0.3, pair: 0.1,  cross: 0,    per: 100, ship: 0.45 },
+  { spd: 5.0, every: 70, long: 0.5, pair: 0.15, cross: 0.15, per: 88,  ship: 0.5 },
+  { spd: 5.4, every: 64, long: 0.5, pair: 0.2,  cross: 0.25, per: 80,  ship: 0.5, cargo: true },
+  { spd: 4.6, every: 84, long: 0.6, pair: 0.2,  cross: 0.45, per: 70,  ship: 0.4 },
+  { spd: 6.0, every: 56, long: 0.5, pair: 0.2,  cross: 0.35, per: 70,  ship: 0.55 },
+];
+let drills = [], drillSpd = 0, drillT = 0, drillSide = 0, drillCargo = false, drillForce = false;
+function drillLen(d, t = 0) { // t kare sonraki uzunluk
+  return (0.5 - 0.5 * Math.cos(Math.PI * 2 * (d.ph + t / d.per))) * d.reach * LANE_W;
+}
+function addDrill(side, reach, w) {
+  drills.push({ y: -30, side, reach, per: w.per, ph: Math.random() });
+}
+function updateDrills(w, ending) {
+  if (!drillSpd) { drillSpd = w.spd; drillT = w.every - 30; }
+  drillSpd += (w.spd - drillSpd) * 0.02;
+  asteroids.forEach(a => { if (a.sl) a.speed = drillSpd; });
+  enemies.forEach(e => { if (e.sl) e.speed = drillSpd; });
+  drills.forEach(d => { d.y += drillSpd; d.ph += 1 / d.per; });
+  drills = drills.filter(d => d.y < H + 40);
+  if (!player.dead && !(player.invuln > 0)) for (const d of drills) {
+    if (Math.abs(d.y - player.y) > 42) continue;
+    const len = drillLen(d) + 16; // sivri uç
+    if (d.side === 0 ? player.x - 16 < len : player.x + 16 > W - len) {
+      spawnExplosion(player.x, player.y - 16, true); damagePlayer('Hit by a drill!'); break;
+    }
+  }
+  if (ending || ++drillT < w.every) return;
+  drillT = 0;
+  drillSide = 1 - drillSide; // yanlar sırayla değişir: karşı tarafa geçmek gerekir
+  if (drillForce || Math.random() < w.cross) { // hizaya gelince tam uzanmış olur; hemen arkasından karşı taraftan bir tane daha
+    addDrill(drillSide, 2.1, w); drills[drills.length - 1].ph = 0.5 - ((player.y + 30) / drillSpd) / w.per;
+    drillForce = !drillForce; if (drillForce) drillT = Math.round(w.every * 0.25);
+  } else if (Math.random() < w.pair) { addDrill(0, 1.1, w); addDrill(1, 1.1, w); }
+  else addDrill(drillSide, Math.random() < w.long ? 2.1 : 1.1, w);
+  const y = -30 - w.every * drillSpd / 2, lane = Math.floor(Math.random() * 3);
+  if (w.cargo && !drillCargo && spawnRunner()) {
+    const e = enemies[enemies.length - 1];
+    e.lane = lane; e.x = LANE_CENTERS[lane]; e.shiftTo = lane; e.y = y; e.speed = drillSpd; e.sl = true;
+    drillCargo = true; runnerDone = true;
+  } else if (Math.random() < w.ship) {
+    spawnSlalomScout(lane, y);
+    enemies[enemies.length - 1].speed = drillSpd;
+  }
+}
+function drawDrills() {
+  ctx.save();
+  drills.forEach(d => {
+    if (d.y < -40) return;
+    const len = drillLen(d), dir = d.side === 0 ? 1 : -1, x0 = d.side === 0 ? 0 : W, tip = x0 + dir * (len + 16), neck = x0 + dir * len;
+    // Duvardaki yuva
+    ctx.fillStyle = '#3a2a22'; ctx.fillRect(d.side === 0 ? 0 : W - 16, d.y - 26, 16, 52);
+    // Gövde
+    ctx.fillStyle = '#6a5a52'; ctx.fillRect(Math.min(x0, neck), d.y - 15, Math.abs(neck - x0), 30);
+    ctx.fillStyle = '#8c7a6e'; ctx.fillRect(Math.min(x0, neck), d.y - 15, Math.abs(neck - x0), 6);
+    // Dönen helezon çizgileri
+    ctx.strokeStyle = '#2c2220'; ctx.lineWidth = 4;
+    const off = (frameCount * 3) % 22;
+    for (let k = off; k < len; k += 22) { const x = x0 + dir * k; ctx.beginPath(); ctx.moveTo(x, d.y - 15); ctx.lineTo(x + dir * 9, d.y + 15); ctx.stroke(); }
+    // Sivri uç
+    ctx.fillStyle = '#ff8a3c';
+    ctx.beginPath(); ctx.moveTo(neck, d.y - 20); ctx.lineTo(tip, d.y); ctx.lineTo(neck, d.y + 20); ctx.closePath(); ctx.fill();
+  });
+  ctx.restore();
+}
+
 function spawnAmbusher(rock, lane) {
   const cfg = getLevelConfig();
   const hp = cfg ? cfg.hp() : 1;
@@ -3727,7 +3797,7 @@ const LEVEL_BRIEFS = [
   { title: 'DANGER AHEAD',    vis: 'eyes',      line: "Something dangerous is waiting for you. Good luck. You'll need it.", tips: [] },
   { title: 'ASTEROID RUN',    vis: 'slalom',    line: "Iron rocks can't be shot. Weave through the gaps at full speed!", tips: ['Other rocks can be shot out of the way.', 'Shoot every ship before it gets past you!'] },
   { title: 'STAY DARK',       vis: 'stealth',   line: "Weapons are offline. When the scan comes, hide in an iron rock's shadow!", tips: ['Then move on to the next rock.', 'Caught in the light? A Rammer comes for you.'] },
-  { title: 'THE DIGGER',      vis: 'digger',    line: 'A giant digger is right behind you. Blast through the rocks and keep moving!', tips: ["Iron rocks can't be shot. Find the weak rock in every row.", 'Every crash lets the digger catch up.'] },
+  { title: 'DRILL LINE',      vis: 'drills',    line: 'Giant drills punch out of the walls. Time your way past them!', tips: ["Drills can't be shot.", 'Shoot every ship before it gets past you!'] },
   { title: 'GUNNERS',         vis: 'gunner',    line: 'Gunners fire bursts down their lane. Hit them while they cool down!', tips: ['Their shield blocks your shots while they fire.', 'Red rocks explode and break any shield.'] },
   { title: 'ROCK TITAN',      vis: 'boss',      line: "The Rock Titan guards the fleet's escape. Bring it down!", tips: ['Shoot its rocks for crystals.'] },
   { title: 'PHANTOMS',        vis: 'phantom',   line: 'Phantoms turn invisible. Hit them while visible.', tips: ['Their flickering outline shows where they are.'] },
@@ -4039,6 +4109,13 @@ function drawBriefVisual(kind, cx, cy, zc) {
       ctx.fillStyle = tg; ctx.beginPath(); ctx.moveTo(cx - 8, my); ctx.lineTo(cx, my - 40); ctx.lineTo(cx + 8, my); ctx.closePath(); ctx.fill();
       briefRock('normal', cx, my, 9);
       if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, cx + 70 - 18, cy + 4, 36, 36);
+      break;
+    }
+    case 'drills': {
+      const e = (Math.sin(t * 2) + 1) / 2, len = 30 + e * 70;
+      ctx.fillStyle = '#6a5a52'; ctx.fillRect(cx - 90, cy - 30, len, 20);
+      ctx.fillStyle = '#ff8a3c'; ctx.beginPath(); ctx.moveTo(cx - 90 + len, cy - 34); ctx.lineTo(cx - 90 + len + 18, cy - 20); ctx.lineTo(cx - 90 + len, cy - 6); ctx.closePath(); ctx.fill();
+      if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, cx + 40, cy + 6, 30, 30);
       break;
     }
     case 'digger': {
@@ -4769,7 +4846,7 @@ function update() {
   if (slowMoT > 0) slowMoT--;
   if (currentLevel !== _zoneLastLevel && !boss && currentWave > currentLevel * 5 && enemies.length === 0 && slowMoT <= 0 && !asteroids.some(a => a.sl) && !stealthScans.length && slalomSpd > 0 && slalomOutro < SLALOM_OUTRO) {
     if (slalomOutro++ === 0) showToast(currentLevel === 7 ? 'THE GATES CLOSE BEHIND YOU' : 'SOMETHING IS OUT THERE', '#ffb347', SLALOM_OUTRO);
-  } else if (currentLevel !== _zoneLastLevel && !boss && currentWave > currentLevel * 5 && enemies.length === 0 && slowMoT <= 0 && !asteroids.some(a => a.sl) && !stealthScans.length && !tunnelSegs.some(g => g.open.length < 3)) {
+  } else if (currentLevel !== _zoneLastLevel && !boss && currentWave > currentLevel * 5 && enemies.length === 0 && slowMoT <= 0 && !asteroids.some(a => a.sl) && !stealthScans.length && !tunnelSegs.some(g => g.open.length < 3) && !drills.length) {
     levelStates[currentLevel - 1] = 'completed';
     levelStates[currentLevel] = 'unlocked';
     saveLevelStates();
@@ -5012,9 +5089,10 @@ function update() {
     if (currentLevel === 7) updateScans();
     if (_zcfg && _zcfg.tunnel && !boss) updateTunnel(_zcfg.tunnel, levelEnd);
     if (_zcfg && _zcfg.digger && !boss) updateDigger(_zcfg.digger, levelEnd);
+    if (_zcfg && _zcfg.drills && !boss) updateDrills(_zcfg.drills, levelEnd);
     if (currentZone === 2 && !boss && !levelEnd && _zcfg && _zcfg.slalom) updateSlalom(_zcfg.slalom);
     else if (currentZone === 2 && !boss && !levelEnd && _zcfg && _zcfg.stealth) updateStealth(_zcfg.stealth);
-    else if (currentZone === 2 && !boss && _zcfg && (_zcfg.tunnel || _zcfg.digger)) { /* L8: kaya üretimi kendi fonksiyonunda */ }
+    else if (currentZone === 2 && !boss && _zcfg && (_zcfg.tunnel || _zcfg.digger || _zcfg.drills)) { /* L8: kaya üretimi kendi fonksiyonunda */ }
     else if (currentZone === 2 && !boss && !levelEnd) {
       asteroidSpawnTimer++;
       const astLvl = Math.min(5, currentLevel - 5); // 1-5: L6-L10
@@ -5173,7 +5251,7 @@ function update() {
     if (cfg && cfg.burster && ++burstT >= cfg.burster && enemies.filter(e => e.burster).length < 2 && spawnBurster()) burstT = 0;
     if (cfg && cfg.link && ++linkT >= cfg.link && !enemies.some(e => e.guarding) && spawnLinkPair()) linkT = 0;
     const lw = getWave() - (currentLevel - 1) * 5;
-    if (lw === 3 && !runnerDone && !(cfg && (cfg.slalom || cfg.stealth || cfg.tunnel || cfg.digger)) && (Math.random() < 1 / 360 || getWave() * WAVE_SEC - gameSec() < 2)) runnerDone = spawnRunner();
+    if (lw === 3 && !runnerDone && !(cfg && (cfg.slalom || cfg.stealth || cfg.tunnel || cfg.digger || cfg.drills)) && (Math.random() < 1 / 360 || getWave() * WAVE_SEC - gameSec() < 2)) runnerDone = spawnRunner();
     // formation: true → sadece son dalga; dizi → o dalgalarda
     const formWave = cfg && (Array.isArray(cfg.formation) ? cfg.formation.includes(lw) : cfg.formation && lw >= 5);
     if (!formWave) formOn = false;
@@ -5184,7 +5262,7 @@ function update() {
         // ikili sıra: farklı boşluklu ikinci sıra hemen arkadan → iki kez yer değiştir
         if (cfg.formDouble && Math.random() < cfg.formDouble) spawnFormationRow(120);
       }
-    } else if (cfg && (cfg.slalom || cfg.stealth || cfg.tunnel || cfg.digger)) {
+    } else if (cfg && (cfg.slalom || cfg.stealth || cfg.tunnel || cfg.digger || cfg.drills)) {
       spawnTimer = 0; // L6: gemiler kapılarla gelir · L7: düşman yok
     } else if (spawnTimer >= interval) {
       spawnTimer = 0;
@@ -6087,6 +6165,7 @@ function render() {
   drawLasers();
   eBullets.forEach(drawEBullet);
   if (digSpd > 0) drawDigger();
+  if (drillSpd > 0) drawDrills();
 
   if ((state === 'play' || state === 'paused' || state === 'gameover') && !player.dead) {
     drawShip(player.x, player.y);
