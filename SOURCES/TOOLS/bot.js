@@ -105,7 +105,7 @@ function runLevel(level, prof, maxFrames = 9000) { // insanlar gibi tek kararda 
         if (s > bestS) { bestS = s; best = l; }
       }
       player.targetLane = best;
-      if (typeof titanCoreOpen !== 'undefined' && titanCoreOpen()) useTitanBomb(); // L10: çekirdek açıkken bomba
+      if (typeof titanCoreOpen !== 'undefined' && titanCoreOpen() && titanAligned()) useTitanBomb(); // L10: hizadayken ve çekirdek açıkken bomba
       if (typeof drifters !== 'undefined' && convoySpd > 0) { // L9: şeritte mermiye ilk değecek şey kapsül / patlayıcıysa ateşi kes
         const low = arr => arr.filter(q => nearestLane(q.x) === best && q.y < player.y && q.y > 60).reduce((m, q) => Math.max(m, q.y), -1e9);
         if ((low(drifters) > low(enemies)) !== fireHold) toggleFire();
