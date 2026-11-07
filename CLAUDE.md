@@ -31,6 +31,7 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 - 4 bölge × 5 bölüm = 20 bölüm: Deep Space (1-5), Asteroid Belt (6-10), Nebula (11-15), Black Hole (16-20). Her bölgenin 5. bölümü boss.
 - Bölge renkleri `SECTOR_COLORS`; HUD rengi bölgeye göre (`HUD_COL`).
 - Bölüm ayarları: `getLevelConfig()` (interval, phantom, fog, ion, gravity, shift2, curveShots, debris…).
+- Kartta geri dönüş (2026-11-07): START başlatır; kartın dışına dokunmak ve sol üstteki MAP (`briefCard`, duraklat düğmesinin üstüne çizilir) haritaya döner.
 - Bölüm başı talimat kartı: `LEVEL_BRIEFS` (başlık + ana cümle + `tips` satırları + `drawBriefVisual` çizimi), START → 3-2-1 geri sayım. `tips` 2026-11-07 öncesi kartta hiç çizilmiyordu, artık tüm bölümlerde görünür.
 - İlk karşılaşma açıklamaları: `FIRST_SEEN` (bir kez gösterilir, `ss_seen` localStorage).
 - Oyun zamanı `playFrames` (sadece aktif oynanışta ilerler); animasyonlar `frameCount`.

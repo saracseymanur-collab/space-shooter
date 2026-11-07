@@ -1046,8 +1046,9 @@ canvas.addEventListener('click', e => {
     return;
   }
   if (state === 'play' && briefing) {
-    // Talimat kartı: sadece START başlatır
+    // Talimat kartı: START başlatır; kartın dışı ve sol üstteki MAP haritaya döner
     if (briefBtn && inBtn(briefBtn, mx, my)) { Sound.sfx.click(); beginLevelPlay(); }
+    else if (briefCard && !inBtn(briefCard, mx, my)) { Sound.sfx.click(); briefing = false; state = 'map'; }
     return;
   }
   if (state === 'play') {
@@ -4261,7 +4262,7 @@ const LEVEL_BRIEFS = [
   { title: 'VOID LEADER',     vis: 'beam',      line: 'A red lane warning means a beam is coming.', tips: ['Move before it fires!'] },
 ];
 let briefing = false;
-let briefBtn = null; // çizimde hesaplanır, dokunma için kullanılır
+let briefBtn = null, briefCard = null; // çizimde hesaplanır, dokunma için kullanılır
 
 // Küçük çizim yardımcıları (talimat kartı görselleri)
 function briefEnemy(tier, x, y, k = 0.7, alpha = 1) {
@@ -4684,6 +4685,14 @@ function drawBriefing() {
   const lineH = 21;
   const ch = 92 + 100 + lines.length * lineH + 22 + 48 + 24;
   const cy = Math.max(HUD_H + 20, H * 0.46 - ch / 2);
+  briefCard = { x: cx, y: cy, w: cw, h: ch };
+
+  // Sol üst: kart açıkken durdurma yerine haritaya dönüş
+  chamferPath(12, 13, 34, 34, 7);
+  ctx.fillStyle = HUD_FILL; ctx.fill();
+  ctx.strokeStyle = zc; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#e6f6ff'; ctx.textBaseline = 'middle';
+  drawSpaced('MAP', 29, 30, 9, 700, UI_FONT, 0.5);
 
   chamferPath(cx, cy, cw, ch, 18);
   const g = ctx.createLinearGradient(0, cy, 0, cy + ch);
