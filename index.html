@@ -4258,7 +4258,7 @@ const LEVEL_BRIEFS = [
   { title: 'STAY DARK',       vis: 'stealth',   line: "Weapons are offline. When the scan comes, hide in an iron rock's shadow!", tips: ['Then move on to the next rock.', 'Caught in the light? A Rammer comes for you.'] },
   { title: 'DRILL LINE',      vis: 'drills',    line: 'Giant drills punch out of the walls. Time your way past them!', tips: ["Drills can't be shot.", 'Shoot every ship before it gets past you!'] },
   { title: 'HOLD FIRE',       vis: 'holdfire',  line: 'Tap anywhere on the screen to hold fire, tap again to shoot.', tips: ['Unknown signals ahead. Hit the ships, but a pod hit costs a life.', 'Red charges blow up the whole screen. Never touch or shoot them!'] },
-  { title: 'ROCK TITAN',      vis: 'boss',      line: 'The great machine of the mines has awoken. Its troops come first.', tips: ['Collect the bombs dropped by destroyed ships.', 'When its core glows, get below it and tap anywhere.', 'A bomb that misses is lost. Your guns barely scratch it.'] },
+  { title: 'IT WOKE UP',      vis: 'quake',     line: 'Deep in the mine, something has awoken. Its troops come first.', tips: ['Collect the bombs dropped by destroyed ships.', 'When its core glows, get below it and tap anywhere.', 'A bomb that misses is lost. Your guns barely scratch it.'] },
   { title: 'PHANTOMS',        vis: 'phantom',   line: 'Phantoms turn invisible. Hit them while visible.', tips: ['Their flickering outline shows where they are.'] },
   { title: 'ION CLOUDS',      vis: 'ion',       line: 'Inside a blue ion cloud your guns jam.', tips: ['Steer around the clouds.'] },
   { title: 'DEEP FOG',        vis: 'fog',       line: 'Thick fog hides the enemies.', tips: ['Look for dark silhouettes.', 'Their shots are always visible.'] },
@@ -4313,7 +4313,7 @@ function drawBriefVisual(kind, cx, cy, zc) {
   const t = frameCount * 0.04, L = [-70, 0, 70];
   ctx.save();
   // şerit çizgileri: her sahnede ortak zemin
-  if (kind !== 'crystal' && kind !== 'boss' && kind !== 'eyes') L.forEach(dx => { ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fillRect(cx + dx - 1, cy - 40, 2, 80); });
+  if (kind !== 'crystal' && kind !== 'boss' && kind !== 'eyes' && kind !== 'quake') L.forEach(dx => { ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fillRect(cx + dx - 1, cy - 40, 2, 80); });
   switch (kind) {
     case 'swipe': {
       // Parmak ekrana değer, yana kayar, kalkar → gemi bir şerit kayar (ok yok: "basılacak buton" algısı olmasın)
@@ -4529,8 +4529,23 @@ function drawBriefVisual(kind, cx, cy, zc) {
       ctx.shadowBlur = 0;
       break;
     }
+    case 'quake': { // sarsılan kaya, çatlaklardan sızan ışık: Titan'ı göstermeden "bir şey uyandı"
+      const f = frameCount % 170, quake = f < 26, pulse = 0.55 + 0.45 * Math.sin(frameCount * 0.07);
+      const sx = quake ? (Math.random() - 0.5) * 6 : 0, sy = quake ? (Math.random() - 0.5) * 4 : 0;
+      ctx.save(); ctx.translate(cx + sx, cy + sy);
+      ctx.fillStyle = '#1b1613'; ctx.strokeStyle = 'rgba(120,96,80,0.5)'; ctx.lineWidth = 1.5; ctx.beginPath();
+      [[-96, 14], [-80, -18], [-52, -34], [-22, -42], [14, -38], [46, -44], [78, -22], [98, 10], [70, 36], [28, 44], [-24, 40], [-68, 38]].forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = quake ? 3 : 2;
+      ctx.strokeStyle = `rgba(255,138,60,${quake ? 1 : pulse})`; ctx.shadowColor = '#ff8a3c'; ctx.shadowBlur = quake ? 18 : 10;
+      [[[0, -4], [-14, -18], [-10, -30], [-22, -42]], [[0, -4], [18, -14], [34, -12], [46, -30]], [[0, -4], [-20, 6], [-44, 2], [-66, 14]], [[0, -4], [12, 12], [34, 16], [60, 30]], [[0, -4], [-6, 18], [-18, 40]]].forEach(c => {
+        ctx.beginPath(); c.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke();
+      });
+      ctx.fillStyle = `rgba(255,200,130,${quake ? 1 : pulse})`; ctx.beginPath(); ctx.arc(0, -4, quake ? 7 : 5, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0; ctx.restore();
+      break;
+    }
     case 'boss': {
-      if (currentZone === 2) { ctx.save(); ctx.translate(cx, cy - 4); drawTitanBody(0.6, 3, false, frameCount * 3); ctx.restore(); break; } // Rock Titan kodla çiziliyor
       const spr = getBossSprite(currentZone);
       if (bossImg.complete && bossImg.naturalWidth) { ctx.shadowColor = '#ff4d66'; ctx.shadowBlur = 16; ctx.drawImage(spr, cx - 70, cy - 46, 140, 93); ctx.shadowBlur = 0; }
       break;
