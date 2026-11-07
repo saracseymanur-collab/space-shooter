@@ -690,9 +690,10 @@ function baseLevelConfig() {
       const lw = Math.min(5, getWave() - (currentLevel - 1) * 5);
       return { interval: 999, doubleChance: 0, speed: () => 5, hp: () => 1, canShoot: false, zigzag: false, drills: DRILL_WAVES[lw - 1] };
     }
-    case 9: { // Yük Gemileri: üstte şerit değiştiren gemiyi kovala, kaçarsa can gider (updateHaulers)
+    case 9: { // Ateşi Kes: dokunuşla ateş aç/kapat; düşmanı vur, kapsülü ve patlayıcıyı vurma (updateConvoy).
+      // Yük gemisi denemesi için convoy yerine haulers: HAULER_WAVES[lw - 1] yaz
       const lw = Math.min(5, getWave() - (currentLevel - 1) * 5);
-      return { interval: 999, doubleChance: 0, speed: () => 3, hp: () => 1, canShoot: false, zigzag: false, haulers: HAULER_WAVES[lw - 1] };
+      return { interval: 999, doubleChance: 0, speed: () => 3, hp: () => 1, canShoot: false, zigzag: false, convoy: CONVOY_WAVES[lw - 1] };
     }
     case 10: return { // patlayıcı kayalar (boss bölümü)
       interval: 100, doubleChance: 0.22,
@@ -835,6 +836,7 @@ document.addEventListener('keydown', e => {
   }
   if (state === 'play' && (e.code === 'Escape' || e.code === 'KeyP')) { state = 'paused'; return; }
   if (state === 'play') {
+    if (e.code === 'Space' && !keyHandled[e.code] && convoyOn()) { keyHandled[e.code] = true; toggleFire(); }
     if (e.code === 'ArrowLeft' && !keyHandled[e.code]) {
       keyHandled[e.code] = true;
       if (player.targetLane > 0) player.targetLane--;
@@ -1050,6 +1052,7 @@ canvas.addEventListener('click', e => {
   if (state === 'play') {
     // Durdurma butonu (sol üst)
     if (mx < 48 && my < HUD_H) { Sound.sfx.click(); state = 'paused'; return; }
+    if (convoyOn()) { toggleFire(); return; } // L9: dokunuş ateşi açar / keser
   }
 
   if (state === 'map') {
@@ -1077,7 +1080,7 @@ function startLevel(level) {
   playFrames     = (level - 1) * LEVEL_SEC * 60;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; shards = []; powerups = [];
-  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false;
+  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
   countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
@@ -2584,6 +2587,100 @@ function drawHaulers() {
   });
 }
 
+// L9 Ateşi Kes. every: sıra aralığı · wall: üç şerit kapsül (ateş kesilmeli) · mine: patlayıcılı sıra · foe2: ikinci düşman
+const CONVOY_WAVES = [
+  { spd: 3.2, every: 84, wall: 0.25, mine: 0,    foe2: 0.2, pod: 0 },
+  { spd: 3.6, every: 74, wall: 0.3,  mine: 0.2,  foe2: 0.3, pod: 0.15 },
+  { spd: 3.9, every: 68, wall: 0.3,  mine: 0.25, foe2: 0.3, pod: 0.2 },
+  { spd: 3.4, every: 84, wall: 0.45, mine: 0.25, foe2: 0.2, pod: 0.2 },
+  { spd: 4.5, every: 60, wall: 0.3,  mine: 0.3,  foe2: 0.4, pod: 0.25 },
+];
+const DRIFT_SAFE_Y = 220; // bu yüksekliğin üstünde mermi kapsüle değmez: görüp ateşi kesecek vakit kalsın
+let drifters = [], fireHold = false, convoySpd = 0, convoyT = 0, survivors = 0;
+const convoyOn = () => { const c = state === 'play' && !boss && getLevelConfig(); return !!(c && c.convoy); };
+function toggleFire() { fireHold = !fireHold; if (fireHold) bullets = []; Sound.sfx.click(); } // ateş kesilince havadaki mermiler de söner: yolda kalan mermi kapsülü vurmasın
+function addDrifter(type, lane, y) { drifters.push({ type, lane, x: LANE_CENTERS[lane], y }); }
+function addConvoyFoe(lane, y) { spawnSlalomScout(lane, y); enemies[enemies.length - 1].speed = convoySpd; }
+function mineBlast() {
+  Sound.sfx.blast(); alarmFx = 40; hurtFx = 26;
+  explosions.push({ x: player.x, y: H / 2, vx: 0, vy: 0, life: 1, decay: 0.04, r: H, color: 'rgba(255,120,40,0.35)', isBombFlash: true });
+  enemies.forEach(e => { if (!e.runner) spawnShipDeath(e); });
+  enemies = enemies.filter(e => e.runner); drifters = [];
+  damagePlayer('A charge went off!');
+}
+function updateConvoy(w, ending) {
+  if (!convoySpd) { convoySpd = w.spd; slalomSpd = 1; convoyT = w.every - 30; showToast('TAP TO HOLD FIRE', '#9fe8ff', 170); } // slalomSpd: bölüm sonu anı için
+  convoySpd += (w.spd - convoySpd) * 0.02;
+  enemies.forEach(e => { if (e.sl) e.speed = convoySpd; });
+  if (alarmFx > 0) alarmFx--;
+  let blast = false;
+  drifters = drifters.filter(d => {
+    d.y += convoySpd;
+    if (d.y > H + 40) { if (d.type === 'pod') survivors++; return false; }
+    if (d.type === 'mine' && !player.dead && Math.abs(d.x - player.x) < 40 && Math.abs(d.y - player.y) < 44) { blast = true; return false; }
+    if (d.y < DRIFT_SAFE_Y) return true;
+    let hit = false;
+    bullets = bullets.filter(b => {
+      if (hit || Math.abs(b.x - d.x) > 26 || Math.abs(b.y - d.y) > 30) return true;
+      hit = true; return false;
+    });
+    if (!hit) return true;
+    if (d.type === 'mine') { blast = true; return false; }
+    spawnExplosion(d.x, d.y, true); showToast('HOLD YOUR FIRE!', '#9fe8ff', 70); damagePlayer('You hit a survivor pod!');
+    return false;
+  });
+  if (blast) mineBlast();
+  if (ending || ++convoyT < w.every) return;
+  convoyT = 0;
+  const y = -40, lanes = [0, 1, 2].sort(() => Math.random() - 0.5), r = Math.random();
+  if (r < w.wall) { // üç şerit kapsül, arkasından bir düşman: kapsüller geçene kadar ateş etme
+    lanes.forEach(l => addDrifter('pod', l, y));
+    addConvoyFoe(lanes[0], y - 170);
+    convoyT = -Math.round(w.every * 0.5); // kapsüllerden sonra ateşi açacak zaman kalsın
+  } else if (r < w.wall + w.mine) { // patlayıcı: vurursan da değersen de patlar, boş şeritteki düşmanı vur
+    addDrifter('mine', lanes[0], y);
+    if (Math.random() < 0.5) addDrifter('mine', lanes[1], y);
+    addConvoyFoe(lanes[2], y);
+  } else { // düşman sırası; arada tek kapsül (öbür şeritte)
+    addConvoyFoe(lanes[0], y);
+    if (Math.random() < w.foe2) addConvoyFoe(lanes[1], y - 70);
+    else if (Math.random() < w.pod) addDrifter('pod', lanes[2], y);
+  }
+}
+function drawDrifters() {
+  ctx.save();
+  drifters.forEach(d => {
+    ctx.save(); ctx.translate(d.x, d.y);
+    if (d.type === 'pod') {
+      const g = ctx.createRadialGradient(0, 0, 6, 0, 0, 40);
+      g.addColorStop(0, 'rgba(150,220,255,0.45)'); g.addColorStop(1, 'rgba(150,220,255,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 40, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#d6ecf7'; ctx.beginPath(); ctx.roundRect(-13, -22, 26, 44, 13); ctx.fill();
+      ctx.fillStyle = '#3f7fa8'; ctx.beginPath(); ctx.roundRect(-8, -14, 16, 14, 7); ctx.fill();
+      ctx.fillStyle = Math.floor(frameCount / 20) % 2 ? '#7dffb0' : '#2f8a5c'; ctx.beginPath(); ctx.arc(0, 11, 3.5, 0, Math.PI * 2); ctx.fill();
+    } else {
+      const p = 0.5 + 0.5 * Math.sin(frameCount * 0.2);
+      const g = ctx.createRadialGradient(0, 0, 8, 0, 0, 46);
+      g.addColorStop(0, 'rgba(255,50,40,' + (0.3 + 0.35 * p) + ')'); g.addColorStop(1, 'rgba(255,50,40,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 46, 0, Math.PI * 2); ctx.fill();
+      ctx.rotate(frameCount * 0.02);
+      ctx.fillStyle = '#2a1c20'; ctx.strokeStyle = '#2a1c20'; ctx.lineWidth = 5;
+      for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; ctx.beginPath(); ctx.moveTo(Math.cos(a) * 16, Math.sin(a) * 16); ctx.lineTo(Math.cos(a) * 28, Math.sin(a) * 28); ctx.stroke(); }
+      ctx.beginPath(); ctx.arc(0, 0, 19, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ff3a2e'; ctx.beginPath(); ctx.arc(0, 0, 7 + 3 * p, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  });
+  if (convoySpd > 0 && state === 'play') { // ateş durumu
+    const label = fireHold ? 'HOLD FIRE' : 'FIRE ON', col = fireHold ? '#9fe8ff' : '#ffb347', bw = 124, bx = W / 2 - bw / 2, by = H - 44;
+    ctx.fillStyle = 'rgba(3,6,16,0.75)'; ctx.fillRect(bx, by, bw, 28);
+    ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.strokeRect(bx, by, bw, 28);
+    ctx.fillStyle = col; ctx.textBaseline = 'middle';
+    drawSpaced(label, W / 2, by + 15, 12, 700, UI_FONT, 2);
+  }
+  ctx.restore();
+}
+
 function spawnAmbusher(rock, lane) {
   const cfg = getLevelConfig();
   const hp = cfg ? cfg.hp() : 1;
@@ -3881,7 +3978,7 @@ const LEVEL_BRIEFS = [
   { title: 'ASTEROID RUN',    vis: 'slalom',    line: "Iron rocks can't be shot. Weave through the gaps at full speed!", tips: ['Other rocks can be shot out of the way.', 'Shoot every ship before it gets past you!'] },
   { title: 'STAY DARK',       vis: 'stealth',   line: "Weapons are offline. When the scan comes, hide in an iron rock's shadow!", tips: ['Then move on to the next rock.', 'Caught in the light? A Rammer comes for you.'] },
   { title: 'DRILL LINE',      vis: 'drills',    line: 'Giant drills punch out of the walls. Time your way past them!', tips: ["Drills can't be shot.", 'Shoot every ship before it gets past you!'] },
-  { title: 'CARGO RUN',       vis: 'hauler',    line: 'Cargo ships are fleeing with the weapons. Chase them down before they escape!', tips: ['They drop rocks behind them.', 'The orange bar shows how long you have.'] },
+  { title: 'HOLD FIRE',       vis: 'holdfire',  line: 'Unknown signals ahead. Tap to hold fire, tap again to shoot. Hit the ships, spare the pods!', tips: ['Hitting a pod costs a life.', 'Red charges blow up the whole screen. Never touch or shoot them!'] },
   { title: 'ROCK TITAN',      vis: 'boss',      line: "The Rock Titan guards the fleet's escape. Bring it down!", tips: ['Shoot its rocks for crystals.'] },
   { title: 'PHANTOMS',        vis: 'phantom',   line: 'Phantoms turn invisible. Hit them while visible.', tips: ['Their flickering outline shows where they are.'] },
   { title: 'ION CLOUDS',      vis: 'ion',       line: 'Inside a blue ion cloud your guns jam.', tips: ['Steer around the clouds.'] },
@@ -4192,6 +4289,16 @@ function drawBriefVisual(kind, cx, cy, zc) {
       ctx.fillStyle = tg; ctx.beginPath(); ctx.moveTo(cx - 8, my); ctx.lineTo(cx, my - 40); ctx.lineTo(cx + 8, my); ctx.closePath(); ctx.fill();
       briefRock('normal', cx, my, 9);
       if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, cx + 70 - 18, cy + 4, 36, 36);
+      break;
+    }
+    case 'holdfire': {
+      const spr = enemyImgs[1];
+      if (spr && spr.complete) ctx.drawImage(spr, cx - 76, cy - 40, 44, 40);
+      ctx.fillStyle = '#d6ecf7'; ctx.beginPath(); ctx.roundRect(cx - 11, cy - 42, 22, 38, 11); ctx.fill();
+      ctx.fillStyle = '#3f7fa8'; ctx.beginPath(); ctx.roundRect(cx - 7, cy - 35, 14, 12, 6); ctx.fill();
+      ctx.fillStyle = '#2a1c20'; ctx.beginPath(); ctx.arc(cx + 58, cy - 22, 16, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ff3a2e'; ctx.beginPath(); ctx.arc(cx + 58, cy - 22, 6, 0, Math.PI * 2); ctx.fill();
+      if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, cx - 15, cy + 10, 30, 30);
       break;
     }
     case 'hauler': {
@@ -4630,8 +4737,8 @@ function drawHUD() {
     barY += bh + 6;
   }
 
-  // Zone 2: kristal / overdrive barı (üstte); L6-L8'de yok
-  if (currentZone === 2 && currentLevel > 8) {
+  // Zone 2: kristal / overdrive barı (üstte); L6-L9'da yok
+  if (currentZone === 2 && currentLevel > 9) {
     const od = overdriveTimer > 0;
     if (crystalPulse > 0) { ctx.save(); ctx.shadowColor = '#7fe6ff'; ctx.shadowBlur = 18 * crystalPulse / 10; ctx.strokeStyle = `rgba(127,230,255,${crystalPulse / 10})`; ctx.lineWidth = 2; ctx.strokeRect(16, barY, W - 32, 18); ctx.restore(); }
     drawTimerBar(16, barY, W - 32, od ? overdriveTimer / OVERDRIVE_TIME : crystalMeter / CRYSTAL_MAX,
@@ -4901,7 +5008,7 @@ function update() {
 
   // Auto fire
   player.fireTimer++;
-  if (currentLevel === 7) player.fireTimer = 0; // L7: silahlar kapalı (sızma)
+  if (currentLevel === 7 || (currentLevel === 9 && fireHold)) player.fireTimer = 0; // L7: silahlar kapalı · L9: ateş kesildi
   if (player.fireTimer >= (overdriveTimer > 0 ? 5 : player.fireRate) && weaponsJammed()) {
     player.fireTimer = 0;
     if (frameCount % 3 === 0) spawnCollectEffect(player.x + (Math.random() - 0.5) * 30, player.y - 30, '#9fe8ff'); // kıvılcım
@@ -4934,10 +5041,11 @@ function update() {
   // Level tamamlama: 5 dalgayı geçince bölüm biter (boss seviyesi hariç)
   const _zoneLastLevel = currentZone * 5;
   if (slowMoT > 0) slowMoT--;
-  if (currentLevel !== _zoneLastLevel && !boss && currentWave > currentLevel * 5 && enemies.length === 0 && slowMoT <= 0 && !asteroids.some(a => a.sl) && !stealthScans.length && !haulers.length && slalomSpd > 0 && slalomOutro < SLALOM_OUTRO) {
+  if (currentLevel !== _zoneLastLevel && !boss && currentWave > currentLevel * 5 && enemies.length === 0 && slowMoT <= 0 && !asteroids.some(a => a.sl) && !stealthScans.length && !haulers.length && !drifters.length && slalomSpd > 0 && slalomOutro < SLALOM_OUTRO) {
+    if (slalomOutro === 0 && survivors > 0) addFloat(W / 2, H * 0.42, survivors + ' SURVIVORS', '#9fe8ff', true);
     if (slalomOutro++ === 0) showToast(currentLevel === 9 ? 'SOMETHING WOKE UP' : currentLevel === 7 ? 'THE GATES CLOSE BEHIND YOU' : 'SOMETHING IS OUT THERE', currentLevel === 9 ? '#ff4d66' : '#ffb347', SLALOM_OUTRO);
     if (currentLevel === 9) hurtFx = Math.max(hurtFx, 10); // yer sarsılır: Rock Titan uyanıyor
-  } else if (currentLevel !== _zoneLastLevel && !boss && currentWave > currentLevel * 5 && enemies.length === 0 && slowMoT <= 0 && !asteroids.some(a => a.sl) && !stealthScans.length && !tunnelSegs.some(g => g.open.length < 3) && !drills.length && !haulers.length) {
+  } else if (currentLevel !== _zoneLastLevel && !boss && currentWave > currentLevel * 5 && enemies.length === 0 && slowMoT <= 0 && !asteroids.some(a => a.sl) && !stealthScans.length && !tunnelSegs.some(g => g.open.length < 3) && !drills.length && !haulers.length && !drifters.length) {
     levelStates[currentLevel - 1] = 'completed';
     levelStates[currentLevel] = 'unlocked';
     saveLevelStates();
@@ -5182,9 +5290,10 @@ function update() {
     if (_zcfg && _zcfg.digger && !boss) updateDigger(_zcfg.digger, levelEnd);
     if (_zcfg && _zcfg.drills && !boss) updateDrills(_zcfg.drills, levelEnd);
     if (_zcfg && _zcfg.haulers && !boss) updateHaulers(_zcfg.haulers, levelEnd);
+    if (_zcfg && _zcfg.convoy && !boss) updateConvoy(_zcfg.convoy, levelEnd);
     if (currentZone === 2 && !boss && !levelEnd && _zcfg && _zcfg.slalom) updateSlalom(_zcfg.slalom);
     else if (currentZone === 2 && !boss && !levelEnd && _zcfg && _zcfg.stealth) updateStealth(_zcfg.stealth);
-    else if (currentZone === 2 && !boss && _zcfg && (_zcfg.tunnel || _zcfg.digger || _zcfg.drills || _zcfg.haulers)) { /* L8: kaya üretimi kendi fonksiyonunda */ }
+    else if (currentZone === 2 && !boss && _zcfg && (_zcfg.tunnel || _zcfg.digger || _zcfg.drills || _zcfg.haulers || _zcfg.convoy)) { /* L8: kaya üretimi kendi fonksiyonunda */ }
     else if (currentZone === 2 && !boss && !levelEnd) {
       asteroidSpawnTimer++;
       const astLvl = Math.min(5, currentLevel - 5); // 1-5: L6-L10
@@ -5354,7 +5463,7 @@ function update() {
         // ikili sıra: farklı boşluklu ikinci sıra hemen arkadan → iki kez yer değiştir
         if (cfg.formDouble && Math.random() < cfg.formDouble) spawnFormationRow(120);
       }
-    } else if (cfg && (cfg.slalom || cfg.stealth || cfg.tunnel || cfg.digger || cfg.drills || cfg.haulers)) {
+    } else if (cfg && (cfg.slalom || cfg.stealth || cfg.tunnel || cfg.digger || cfg.drills || cfg.haulers || cfg.convoy)) {
       spawnTimer = 0; // L6: gemiler kapılarla gelir · L7: düşman yok
     } else if (spawnTimer >= interval) {
       spawnTimer = 0;
@@ -6259,6 +6368,8 @@ function render() {
   if (digSpd > 0) drawDigger();
   if (drillSpd > 0) drawDrills();
   drawHaulers();
+  drawDrifters();
+  drawAlarmFx();
 
   if ((state === 'play' || state === 'paused' || state === 'gameover') && !player.dead) {
     drawShip(player.x, player.y);

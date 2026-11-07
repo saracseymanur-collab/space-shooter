@@ -29,6 +29,10 @@ function laneDanger(l, horizon, blind) { // isabet edecek mermi/kaya/lazer: kesi
     let len = 0; for (const k of [t - 8, t, t + 8]) len = Math.max(len, drillLen(q, k));
     if (q.side === 0 ? lx - 16 < len + 16 : lx + 16 > W - len - 16) d += 1e5 / (1 + Math.max(0, t));
   }
+  if (typeof drifters !== 'undefined') for (const q of drifters) { // L9: patlayıcı şeridi
+    if (q.type !== 'mine' || q.lane !== l || q.y > player.y + 40) continue;
+    const t = (player.y - q.y) / (convoySpd || 3); if (t <= horizon * 2) d += 1e5 / (1 + Math.max(0, t));
+  }
   if (blind) return d;
   for (const b of eBullets) { const vy = b.vy || 4; if (vy <= 0) continue; const t = (player.y - b.y) / vy; if (t < -8 || t > horizon) continue;
     const xAt = b.x + (b.vx || 0) * Math.max(0, t); if (Math.abs(xAt - lx) < (b.big ? 44 : 34)) d += 1e5 / (1 + Math.max(0, t)); }
@@ -99,6 +103,10 @@ function runLevel(level, prof, maxFrames = 9000) { // insanlar gibi tek kararda 
         if (s > bestS) { bestS = s; best = l; }
       }
       player.targetLane = best;
+      if (typeof drifters !== 'undefined' && convoySpd > 0) { // L9: şeritte mermiye ilk değecek şey kapsül / patlayıcıysa ateşi kes
+        const low = arr => arr.filter(q => nearestLane(q.x) === best && q.y < player.y && q.y > 60).reduce((m, q) => Math.max(m, q.y), -1e9);
+        if ((low(drifters) > low(enemies)) !== fireHold) toggleFire();
+      }
     }
     update(); f++;
   }
