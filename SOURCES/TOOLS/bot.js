@@ -28,6 +28,7 @@ function laneDanger(l, horizon, blind) { // isabet edecek mermi/kaya/lazer: kesi
   for (const b of eBullets) { const vy = b.vy || 4; if (vy <= 0) continue; const t = (player.y - b.y) / vy; if (t < -8 || t > horizon) continue;
     const xAt = b.x + (b.vx || 0) * Math.max(0, t); if (Math.abs(xAt - lx) < (b.big ? 44 : 34)) d += 1e5 / (1 + Math.max(0, t)); }
   for (const a of asteroids) { const t = (player.y - a.y) / (a.speed || 2); if (t < -14 || t > horizon) continue;
+    if (a.dig && a.type === 'normal') continue; // L8: kırılır kaya vurulur, kaçılmaz
     const xAt = a.x + (a.vx || 0) * Math.max(0, t); // kaya parçaları çapraz kayar
     if (Math.abs(xAt - lx) < a.size * 0.9 + 26) d += 1e5 / (1 + Math.max(0, t)); }
   for (const e of enemies) if (e.rammer && (e.rState === 'aim' || e.rState === 'dash') && e.ramLane === l && e.y < player.y + 30)
@@ -64,6 +65,10 @@ function laneValue(l) {
   }
   if (boss && Math.abs(boss.x - LANE_CENTERS[l]) < 80) v += boss.shielded === false ? 400 : 60; // açık boss = öncelik (insan gibi)
   for (const p of powerups) if (nearestLane(p.x) === l) v += 25;
+  { // L8: en yakın sıradaki kırılır kayanın şeridine git
+    let near = null; for (const a of asteroids) if (a.dig && a.y < player.y - 30 && (!near || a.y > near.y)) near = a;
+    if (near) for (const a of asteroids) if (a.dig && a.type === 'normal' && Math.abs(a.y - near.y) < 20 && nearestLane(a.x) === l) v += 1000;
+  }
   // L7: sıradaki tarama yaklaşırken o anda gölgesi üstünde olacak kayanın şeridine git
   if (typeof stealthScans !== 'undefined' && stealthScans.length) {
     const c = stealthScans.find(s => !s.done);

@@ -686,9 +686,10 @@ function baseLevelConfig() {
       const lw = Math.min(5, getWave() - (currentLevel - 1) * 5);
       return { interval: 999, doubleChance: 0, speed: () => 3, hp: () => 1, canShoot: false, zigzag: false, stealth: STEALTH_WAVES[lw - 1] };
     }
-    case 8: { // Maden Tüneli: tek şeritlik kıvrılan yol, duvara değmek can götürür (updateTunnel)
+    case 8: { // Kovalayan Kazıcı: kaya sıralarını delip geç, çarparsan alttaki kazıcı yaklaşır (updateDigger).
+      // Tünel denemesi için digger yerine tunnel: TUNNEL_WAVES[lw - 1] yaz
       const lw = Math.min(5, getWave() - (currentLevel - 1) * 5);
-      return { interval: 999, doubleChance: 0, speed: () => 5, hp: () => 1, canShoot: false, zigzag: false, tunnel: TUNNEL_WAVES[lw - 1] };
+      return { interval: 999, doubleChance: 0, speed: () => 5, hp: () => 1, canShoot: false, zigzag: false, digger: DIGGER_WAVES[lw - 1] };
     }
     case 9: return { // Gunner + patlayıcı kayalar (patlama Gunner kalkanını da kırar)
       interval: 170, doubleChance: 0.12,
@@ -1079,7 +1080,7 @@ function startLevel(level) {
   playFrames     = (level - 1) * LEVEL_SEC * 60;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; shards = []; powerups = [];
-  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false;
+  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
   countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
@@ -2362,6 +2363,71 @@ function drawTunnel() {
     if (a > 0) ctx.fillRect(a - 2, g.y, 3, g.h);
     if (b < W) ctx.fillRect(b - 1, g.y, 3, g.h);
   });
+  ctx.restore();
+}
+
+// L8 Kovalayan Kazıcı. every: kaya sırası aralığı · hp: kırılır kayanın canı · two: iki kırılır kaya · drift: kazıcının yaklaşma hızı · back: temiz sırada geri düşme
+const DIGGER_WAVES = [
+  { spd: 4.6, every: 72, hp: 2, two: 0.5,  drift: 0.05, back: 10 },
+  { spd: 5.2, every: 62, hp: 2, two: 0.3,  drift: 0.07, back: 9 },
+  { spd: 5.6, every: 58, hp: 2, two: 0.2,  drift: 0.08, back: 8, cargo: true },
+  { spd: 4.8, every: 70, hp: 3, two: 0.3,  drift: 0.06, back: 10 },
+  { spd: 6.2, every: 52, hp: 2, two: 0.15, drift: 0.1,  back: 7 },
+];
+const DIG_START = H - 34, DIG_CATCH = 724, DIG_CRASH = 32; // kazıcının üst kenarı: başlangıç, oyuncuya ulaştığı yer, çarpınca yaklaşma
+let digY = 0, digSpd = 0, digT = 0, digLane = 1, digCargo = false, digHeat = 0;
+function updateDigger(w, ending) {
+  if (!digSpd) { digSpd = w.spd; digY = DIG_START; digT = w.every - 40; showToast('THE DIGGER IS BEHIND YOU', '#ff8a3c', 130); }
+  digSpd += (w.spd - digSpd) * 0.02;
+  asteroids.forEach(a => { if (a.sl) a.speed = digSpd; });
+  enemies.forEach(e => { if (e.sl) e.speed = digSpd; });
+  if (digHeat > 0) digHeat--;
+  if (ending) { digY = Math.min(H + 60, digY + 2.5); return; } // kazıcı geride kaldı
+  digY -= w.drift;
+  if (digY <= DIG_CATCH && !player.dead) {
+    damagePlayer('Caught by the digger!');
+    spawnExplosion(player.x, player.y + 20, true);
+    digY = DIG_START;
+  }
+  if (++digT < w.every) return;
+  digT = 0; digY = Math.min(DIG_START, digY + w.back);
+  // Sıra: üç şerit de dolu, en az bir şeritte kırılır kaya var (önceki zayıf şeritten farklı)
+  const opts = [0, 1, 2].filter(l => l !== digLane);
+  digLane = opts[Math.floor(Math.random() * opts.length)];
+  const weak = [digLane];
+  if (Math.random() < w.two) weak.push(opts.find(l => l !== digLane));
+  for (let l = 0; l < 3; l++) {
+    const brk = weak.includes(l);
+    const a = spawnAsteroid(brk ? 'normal' : 'iron', LANE_CENTERS[l]);
+    a.size = brk ? 24 : 40; a.y = -50; a.speed = digSpd; a.sl = true; a.dig = true; a.rotSpeed = brk ? 0.02 : 0.008;
+    if (brk) a.hp = a.maxHp = w.hp;
+  }
+  if (w.cargo && !digCargo && spawnRunner()) {
+    const e = enemies[enemies.length - 1], y = -50 - w.every * digSpd / 2;
+    e.lane = digLane; e.x = LANE_CENTERS[digLane]; e.shiftTo = digLane; e.y = y; e.speed = digSpd; e.sl = true;
+    digCargo = true; runnerDone = true;
+  }
+}
+function digCrash() { // kayaya çarpma can götürmez, kazıcıyı yaklaştırır
+  digY -= DIG_CRASH; digHeat = 24; hurtFx = Math.max(hurtFx, 6); Sound.sfx.hit();
+  addFloat(player.x, player.y - 60, 'SLOWED!', '#ff8a3c', false);
+}
+// Ekranın altında dönen dişli kazıcı; yaklaştıkça kızarır
+function drawDigger() {
+  if (digY >= H + 40) return;
+  const near = Math.max(0, Math.min(1, (DIG_START - digY) / (DIG_START - DIG_CATCH)));
+  ctx.save();
+  const g = ctx.createLinearGradient(0, digY - 90, 0, digY + 10);
+  g.addColorStop(0, 'rgba(255,90,40,0)'); g.addColorStop(1, 'rgba(255,90,40,' + (0.12 + 0.4 * near + digHeat / 60) + ')');
+  ctx.fillStyle = g; ctx.fillRect(0, digY - 90, W, 100);
+  const tw = 39, off = (frameCount * (2.5 + 5 * near)) % tw;
+  ctx.fillStyle = near > 0.6 ? '#ff5a30' : '#c9772f';
+  ctx.beginPath(); ctx.moveTo(-tw, digY + 14);
+  for (let x = -tw + off; x < W + tw; x += tw) { ctx.lineTo(x + tw / 2, digY - 16); ctx.lineTo(x + tw, digY + 14); }
+  ctx.lineTo(W + tw, digY + 30); ctx.lineTo(-tw, digY + 30); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#1c1416'; ctx.fillRect(0, digY + 12, W, H - digY);
+  ctx.fillStyle = '#35282a';
+  for (let x = -60 + off * 2 % 60; x < W; x += 60) ctx.fillRect(x, digY + 22, 34, 8);
   ctx.restore();
 }
 
@@ -3661,7 +3727,7 @@ const LEVEL_BRIEFS = [
   { title: 'DANGER AHEAD',    vis: 'eyes',      line: "Something dangerous is waiting for you. Good luck. You'll need it.", tips: [] },
   { title: 'ASTEROID RUN',    vis: 'slalom',    line: "Iron rocks can't be shot. Weave through the gaps at full speed!", tips: ['Other rocks can be shot out of the way.', 'Shoot every ship before it gets past you!'] },
   { title: 'STAY DARK',       vis: 'stealth',   line: "Weapons are offline. When the scan comes, hide in an iron rock's shadow!", tips: ['Then move on to the next rock.', 'Caught in the light? A Rammer comes for you.'] },
-  { title: 'MINE TUNNEL',     vis: 'tunnel',    line: 'Stay inside the tunnel. The walls are solid!', tips: ['Shoot the ships and rocks in your way.', 'When it splits, see which way stays open.'] },
+  { title: 'THE DIGGER',      vis: 'digger',    line: 'A giant digger is right behind you. Blast through the rocks and keep moving!', tips: ["Iron rocks can't be shot. Find the weak rock in every row.", 'Every crash lets the digger catch up.'] },
   { title: 'GUNNERS',         vis: 'gunner',    line: 'Gunners fire bursts down their lane. Hit them while they cool down!', tips: ['Their shield blocks your shots while they fire.', 'Red rocks explode and break any shield.'] },
   { title: 'ROCK TITAN',      vis: 'boss',      line: "The Rock Titan guards the fleet's escape. Bring it down!", tips: ['Shoot its rocks for crystals.'] },
   { title: 'PHANTOMS',        vis: 'phantom',   line: 'Phantoms turn invisible. Hit them while visible.', tips: ['Their flickering outline shows where they are.'] },
@@ -3973,6 +4039,14 @@ function drawBriefVisual(kind, cx, cy, zc) {
       ctx.fillStyle = tg; ctx.beginPath(); ctx.moveTo(cx - 8, my); ctx.lineTo(cx, my - 40); ctx.lineTo(cx + 8, my); ctx.closePath(); ctx.fill();
       briefRock('normal', cx, my, 9);
       if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, cx + 70 - 18, cy + 4, 36, 36);
+      break;
+    }
+    case 'digger': {
+      briefRock('iron', cx - 56, cy - 26, 18); briefRock('normal', cx, cy - 26, 13); briefRock('iron', cx + 56, cy - 26, 18);
+      if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, cx - 15, cy + 2, 30, 30);
+      ctx.fillStyle = '#c9772f'; ctx.beginPath(); ctx.moveTo(cx - 80, cy + 46);
+      for (let x = cx - 80 + (t * 30) % 20 - 20; x < cx + 80; x += 20) { ctx.lineTo(x + 10, cy + 34); ctx.lineTo(x + 20, cy + 46); }
+      ctx.closePath(); ctx.fill();
       break;
     }
     case 'tunnel': {
@@ -4937,9 +5011,10 @@ function update() {
     const levelEnd = currentLevel % 5 !== 0 && getWave() > currentLevel * 5;
     if (currentLevel === 7) updateScans();
     if (_zcfg && _zcfg.tunnel && !boss) updateTunnel(_zcfg.tunnel, levelEnd);
+    if (_zcfg && _zcfg.digger && !boss) updateDigger(_zcfg.digger, levelEnd);
     if (currentZone === 2 && !boss && !levelEnd && _zcfg && _zcfg.slalom) updateSlalom(_zcfg.slalom);
     else if (currentZone === 2 && !boss && !levelEnd && _zcfg && _zcfg.stealth) updateStealth(_zcfg.stealth);
-    else if (currentZone === 2 && !boss && _zcfg && _zcfg.tunnel) { /* L8: kaya üretimi updateTunnel'da */ }
+    else if (currentZone === 2 && !boss && _zcfg && (_zcfg.tunnel || _zcfg.digger)) { /* L8: kaya üretimi kendi fonksiyonunda */ }
     else if (currentZone === 2 && !boss && !levelEnd) {
       asteroidSpawnTimer++;
       const astLvl = Math.min(5, currentLevel - 5); // 1-5: L6-L10
@@ -5022,6 +5097,7 @@ function update() {
       // Çarpma alanı görselle uyumlu (önceden görselden ~10px büyüktü)
       if (!player.dead && Math.abs(a.x - player.x) < a.size * 0.9 + (a.sl || a.amb ? 24 : 12) && Math.abs(a.y - player.y) < (a.hitH || a.size * 0.9 + 16)) { // L6: küçük kaya, gemi gövdesi kadar pay
         spawnExplosion(a.x, a.y, true);
+        if (a.dig) { digCrash(); return false; }
         if (!(a.meteor && frameCount < meteorImmuneUntil)) {
           damagePlayer(a.meteor ? 'Hit by a meteor!' : 'Hit by an asteroid!');
           if (a.meteor) meteorImmuneUntil = frameCount + 45;
@@ -5097,7 +5173,7 @@ function update() {
     if (cfg && cfg.burster && ++burstT >= cfg.burster && enemies.filter(e => e.burster).length < 2 && spawnBurster()) burstT = 0;
     if (cfg && cfg.link && ++linkT >= cfg.link && !enemies.some(e => e.guarding) && spawnLinkPair()) linkT = 0;
     const lw = getWave() - (currentLevel - 1) * 5;
-    if (lw === 3 && !runnerDone && !(cfg && (cfg.slalom || cfg.stealth || cfg.tunnel)) && (Math.random() < 1 / 360 || getWave() * WAVE_SEC - gameSec() < 2)) runnerDone = spawnRunner();
+    if (lw === 3 && !runnerDone && !(cfg && (cfg.slalom || cfg.stealth || cfg.tunnel || cfg.digger)) && (Math.random() < 1 / 360 || getWave() * WAVE_SEC - gameSec() < 2)) runnerDone = spawnRunner();
     // formation: true → sadece son dalga; dizi → o dalgalarda
     const formWave = cfg && (Array.isArray(cfg.formation) ? cfg.formation.includes(lw) : cfg.formation && lw >= 5);
     if (!formWave) formOn = false;
@@ -5108,7 +5184,7 @@ function update() {
         // ikili sıra: farklı boşluklu ikinci sıra hemen arkadan → iki kez yer değiştir
         if (cfg.formDouble && Math.random() < cfg.formDouble) spawnFormationRow(120);
       }
-    } else if (cfg && (cfg.slalom || cfg.stealth || cfg.tunnel)) {
+    } else if (cfg && (cfg.slalom || cfg.stealth || cfg.tunnel || cfg.digger)) {
       spawnTimer = 0; // L6: gemiler kapılarla gelir · L7: düşman yok
     } else if (spawnTimer >= interval) {
       spawnTimer = 0;
@@ -6010,6 +6086,7 @@ function render() {
   powerups.forEach(drawPowerup); // güçlendirmeler her zaman net: sisin üstünde
   drawLasers();
   eBullets.forEach(drawEBullet);
+  if (digSpd > 0) drawDigger();
 
   if ((state === 'play' || state === 'paused' || state === 'gameover') && !player.dead) {
     drawShip(player.x, player.y);
