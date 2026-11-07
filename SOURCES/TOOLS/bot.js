@@ -21,6 +21,9 @@ function laneDanger(l, horizon, blind) { // isabet edecek mermi/kaya/lazer: kesi
     if (boss.rState === 'dive' || (boss.rState === 'dmark' && boss.rT < (boss.rT0 || 20) * 0.45)) d += 1e6; // dolumun son kısmı = eski kilit
     else if (boss.rState === 'dmark' && horizon >= 20) d += 2e5;
   }
+  if (typeof tunnelSegs !== 'undefined' && tunnelSpd > 0) { // L8: bu şerit ufukta duvar mı
+    for (let k = 0; k <= horizon; k += 4) { const g = tunnelAt(player.y - tunnelSpd * k); if (g && !g.open.includes(l)) { d += 1e5 / (1 + k); break; } }
+  }
   if (blind) return d;
   for (const b of eBullets) { const vy = b.vy || 4; if (vy <= 0) continue; const t = (player.y - b.y) / vy; if (t < -8 || t > horizon) continue;
     const xAt = b.x + (b.vx || 0) * Math.max(0, t); if (Math.abs(xAt - lx) < (b.big ? 44 : 34)) d += 1e5 / (1 + Math.max(0, t)); }
