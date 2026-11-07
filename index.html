@@ -2588,14 +2588,14 @@ function drawHaulers() {
 }
 
 // L9 Ateşi Kes. every: sıra aralığı · wall: üç şerit kapsül (ateş kesilmeli) · mine: patlayıcılı sıra · foe2: ikinci düşman
-const CONVOY_WAVES = [
-  { spd: 3.2, every: 84, wall: 0.25, mine: 0,    foe2: 0.2, pod: 0 },
-  { spd: 3.6, every: 74, wall: 0.3,  mine: 0.2,  foe2: 0.3, pod: 0.15 },
-  { spd: 3.9, every: 68, wall: 0.3,  mine: 0.25, foe2: 0.3, pod: 0.2 },
-  { spd: 3.4, every: 84, wall: 0.45, mine: 0.25, foe2: 0.2, pod: 0.2 },
-  { spd: 4.5, every: 60, wall: 0.3,  mine: 0.3,  foe2: 0.4, pod: 0.25 },
+const CONVOY_WAVES = [ // 2026-11-07: kullanıcı "çok zor" dedi, yavaşlatıldı ve seyreltildi
+  { spd: 2.8, every: 104, wall: 0.2,  mine: 0,    foe2: 0.1,  pod: 0 },
+  { spd: 3.0, every: 96,  wall: 0.25, mine: 0.12, foe2: 0.15, pod: 0.1 },
+  { spd: 3.2, every: 90,  wall: 0.25, mine: 0.15, foe2: 0.15, pod: 0.1 },
+  { spd: 3.0, every: 104, wall: 0.35, mine: 0.15, foe2: 0.1,  pod: 0.1 },
+  { spd: 3.6, every: 82,  wall: 0.25, mine: 0.2,  foe2: 0.2,  pod: 0.15 },
 ];
-const DRIFT_SAFE_Y = 220; // bu yüksekliğin üstünde mermi kapsüle değmez: görüp ateşi kesecek vakit kalsın
+const DRIFT_SAFE_Y = 300; // bu yüksekliğin üstünde mermi kapsüle değmez: görüp ateşi kesecek vakit kalsın
 let drifters = [], fireHold = false, convoySpd = 0, convoyT = 0, survivors = 0;
 const convoyOn = () => { const c = state === 'play' && !boss && getLevelConfig(); return !!(c && c.convoy); };
 function toggleFire() { fireHold = !fireHold; if (fireHold) bullets = []; Sound.sfx.click(); } // ateş kesilince havadaki mermiler de söner: yolda kalan mermi kapsülü vurmasın
@@ -2617,7 +2617,7 @@ function updateConvoy(w, ending) {
   drifters = drifters.filter(d => {
     d.y += convoySpd;
     if (d.y > H + 40) { if (d.type === 'pod') survivors++; return false; }
-    if (d.type === 'mine' && !player.dead && Math.abs(d.x - player.x) < 40 && Math.abs(d.y - player.y) < 44) { blast = true; return false; }
+    if (d.type === 'mine' && !player.dead && Math.abs(d.x - player.x) < 34 && Math.abs(d.y - player.y) < 38) { blast = true; return false; }
     if (d.y < DRIFT_SAFE_Y) return true;
     let hit = false;
     bullets = bullets.filter(b => {
@@ -2635,11 +2635,10 @@ function updateConvoy(w, ending) {
   const y = -40, lanes = [0, 1, 2].sort(() => Math.random() - 0.5), r = Math.random();
   if (r < w.wall) { // üç şerit kapsül, arkasından bir düşman: kapsüller geçene kadar ateş etme
     lanes.forEach(l => addDrifter('pod', l, y));
-    addConvoyFoe(lanes[0], y - 170);
-    convoyT = -Math.round(w.every * 0.5); // kapsüllerden sonra ateşi açacak zaman kalsın
+    addConvoyFoe(lanes[0], y - 240);
+    convoyT = -Math.round(w.every * 0.7); // kapsüllerden sonra ateşi açacak zaman kalsın
   } else if (r < w.wall + w.mine) { // patlayıcı: vurursan da değersen de patlar, boş şeritteki düşmanı vur
     addDrifter('mine', lanes[0], y);
-    if (Math.random() < 0.5) addDrifter('mine', lanes[1], y);
     addConvoyFoe(lanes[2], y);
   } else { // düşman sırası; arada tek kapsül (öbür şeritte)
     addConvoyFoe(lanes[0], y);
