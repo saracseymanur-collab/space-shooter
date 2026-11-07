@@ -64,6 +64,11 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 - Sektör 2 arka planı `asteroid-belt-v3.jpg`: kullanıcının görseli (`SOURCES/BACKGROUNDS/asteroid-belt-v1.jpg`) ×1.3 aydınlatıldı. Kullanıcının verdiği görseli başka görselle değiştirme (menü kartından türetmek reddedildi).
 - Mağaza planı: App Store + Google Play, Capacitor; depo gizleme mağaza hazırlığına kadar bekliyor.
 
+## Sonra dönülecekler (2026-11-07 notu)
+- L7: zorluk + görsellik. L8 Dev Matkaplar: zorluk + görsel, geliştirilecek; tünel/kazıcı kodu o zamana kadar duruyor. L9 HOLD FIRE: zorluk. Sektör 2 arka planı ×1.3 aydınlatıldı, gerekirse görsel yeniden üretilir.
+- Kart metinleri: L10 "fleet's escape" ve L15 "Void Colony" eski hikâyeden, hikâye metinleri güncellenirken düzeltilecek. Sektör 3-4 kart ipuçları eski oynanışa göre; bölümler yenilenirken kartlar da yenilenecek.
+- Kod temizliği: seçilmeyen denemeler (tünel, kazıcı, CARGO RUN) karar kesinleşince silinir.
+
 ## NOT: Taş çeşitliliği (kullanıcı, 2026-11-06)
 - L6'da taşlar "çok aynı" görünüyor; şekiller çeşitlendirilecek. Demir kayada şimdilik 3 sprite var (`ASSETS/rocks/rock-large-*`, gri boyanıyor). Kullanıcıdan yeni taş görselleri istenecek (uzun, köşeli, çatlak vb.; şeffaf PNG); yeni dosya gelince `sw.js` CACHE + ASSETS güncellenecek.
 
