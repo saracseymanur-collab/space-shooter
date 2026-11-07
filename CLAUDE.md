@@ -9,7 +9,7 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 - Yeni asset eklenince `sw.js` içindeki `CACHE` sürümünü artır ve dosyayı `ASSETS` listesine ekle. **Var olan bir görseli değiştirirken dosya adını da değiştir** (ör. `-v2`): telefon eski dosyayı HTTP önbelleğinden alıp yeni önbelleğe yazabiliyor (2026-11-04 boss kalkanında oldu; sw kurulumu artık `cache: 'reload'` kullanıyor).
 - Her değişiklikten sonra: script'i ayıklayıp `node --check` ile sözdizimi kontrolü, tarayıcıda görsel kontrol.
 - Önizleme: tarayıcı sunucusu ~/Desktop'u okuyamıyor (macOS izni) → oyunu scratchpad'e `rsync` edip `python3 -m http.server` ile oradan sun. Tarayıcı paneli gizliyken rAF yavaşlar; testlerde `update()`'i elle çağır. **Önizleme tarayıcısı eski sayfayı önbellekten açabiliyor → her seferinde `index.html?v=<yeni>` ile aç.** Bot dosyasını (`SOURCES/TOOLS/bot.js`) önizleme klasörüne kopyalamayı unutma.
-- Doğrudan boss testi: `?boss=true` (5 dalga atlanır, ilerleme kaydedilmez).
+- Doğrudan boss testi: `?boss=true` (L5; 5 dalga atlanır, ilerleme kaydedilmez), `?boss=10` (Rock Titan, 9 bombayla başlar).
 - Commit mesajı sonuna: `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`
 
 ## Kullanıcı tercihleri (önemli)
@@ -75,6 +75,7 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 - Mağaza planı: App Store + Google Play, Capacitor; depo gizleme mağaza hazırlığına kadar bekliyor.
 
 ## Sıralı iş listesi (2026-11-07, kullanıcı "sırayla yapalım" dedi)
+L10 dalgaları kullanıcıya artık iyi geliyor (2026-11-08): 1. iş kapandı, dalgalara dokunma. Yeni sorun: boss kısmında "çok sıkışma" oluyor, bakılacak.
 Sektör 2: 1) L10 dalga zorluğu 2) kalbi başka bölümlere yay 3) L7 zorluk + görsel 4) L8 zorluk + görsel, tünel / kazıcı kodunu sil 5) L9 zorluk, CARGO RUN kararı.
 Hikâye: 6) ek giriş panelleri (kullanıcı getirecek) 7) bölge geçişleri 8) menü alt başlıkları + kart metinleri 9) final seçim ekranı + iki son.
 Sektör 3-4: 10) sektör 3 level level 11) sektör 4 level level (kartlar ve "TO THE LAST SIGNAL" dahil).

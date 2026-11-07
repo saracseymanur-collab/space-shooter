@@ -497,7 +497,8 @@ let lasers = [];     // Void Leader şerit lazerleri
 // --- Level sistemi ---
 let currentLevel = 1;
 const TEST_MODE = new URLSearchParams(window.location.search).get('test') === 'true';
-const BOSS_MODE = new URLSearchParams(window.location.search).get('boss') === 'true';
+const BOSS_PARAM = new URLSearchParams(window.location.search).get('boss');
+const BOSS_MODE = BOSS_PARAM === 'true' || BOSS_PARAM === '10'; // ?boss=true: L5 · ?boss=10: Rock Titan, 9 bombayla
 const LEVEL_COUNT = 20; // 4 bölge × 5 bölüm
 function loadLevelStates() {
   if (TEST_MODE) return Array.from({length: LEVEL_COUNT}, () => 'unlocked');
@@ -6694,8 +6695,11 @@ function loop(timestamp) {
 })();
 if (BOSS_MODE) {
   levelStates = levelStates.map(() => 'unlocked');
-  startLevel(5);
+  const lv = BOSS_PARAM === '10' ? 10 : 5;
+  currentZone = lv === 10 ? 2 : 1;
+  startLevel(lv);
   spawnBoss(25);
+  if (lv === 10) titanBombs = TITAN_BOMB_NEED;
 }
 
 requestAnimationFrame(loop);
