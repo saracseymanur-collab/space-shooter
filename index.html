@@ -4530,6 +4530,7 @@ function drawBriefVisual(kind, cx, cy, zc) {
       break;
     }
     case 'boss': {
+      if (currentZone === 2) { ctx.save(); ctx.translate(cx, cy - 4); drawTitanBody(0.6, 3, false, frameCount * 3); ctx.restore(); break; } // Rock Titan kodla çiziliyor
       const spr = getBossSprite(currentZone);
       if (bossImg.complete && bossImg.naturalWidth) { ctx.shadowColor = '#ff4d66'; ctx.shadowBlur = 16; ctx.drawImage(spr, cx - 70, cy - 46, 140, 93); ctx.shadowBlur = 0; }
       break;
