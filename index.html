@@ -1084,7 +1084,7 @@ function startLevel(level) {
   playFrames     = (level - 1) * LEVEL_SEC * 60;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; shards = []; powerups = [];
-  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0;
+  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
   countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
@@ -2509,16 +2509,19 @@ function drawDigger() {
 // cross: art arda iki uzun matkap, hizaya gelince tam uzanmış: bir kenardan öbür kenara geçmek gerekir
 // ship: matkaplar arasında vurulacak gemi. Matkaplar vurulamaz; en fazla iki şerit kapanır, kaçış hep vardır
 const DRILL_WAVES = [
-  { spd: 4.4, every: 84, long: 0.3, pair: 0.1,  cross: 0,    per: 100, ship: 0.45 },
-  { spd: 5.0, every: 70, long: 0.5, pair: 0.15, cross: 0.15, per: 88,  ship: 0.5 },
-  { spd: 5.4, every: 64, long: 0.5, pair: 0.2,  cross: 0.25, per: 80,  ship: 0.5, cargo: true },
-  { spd: 4.6, every: 84, long: 0.6, pair: 0.2,  cross: 0.45, per: 70,  ship: 0.4 },
-  { spd: 6.0, every: 56, long: 0.5, pair: 0.2,  cross: 0.35, per: 70,  ship: 0.55 },
+  { spd: 4.6, every: 80, long: 0.35, pair: 0.1,  cross: 0.1,  per: 84, ship: 0.45 },
+  { spd: 5.2, every: 66, long: 0.5,  pair: 0.15, cross: 0.25, per: 74, ship: 0.5 },
+  { spd: 5.6, every: 60, long: 0.55, pair: 0.2,  cross: 0.35, per: 66, ship: 0.5, cargo: true },
+  { spd: 4.8, every: 78, long: 0.6,  pair: 0.2,  cross: 0.55, per: 60, ship: 0.4 },
+  { spd: 6.2, every: 52, long: 0.55, pair: 0.2,  cross: 0.45, per: 58, ship: 0.55 },
 ];
-let drills = [], drillSpd = 0, drillT = 0, drillSide = 0, drillCargo = false, drillForce = false;
+let drills = [], drillSpd = 0, drillT = 0, drillSide = 0, drillCargo = false, drillForce = false, drillSparks = [], mineWallY = 0;
+const DRILL_OUT = 0.7; // döngünün %70'inde uzanıp çekilir, kalanında duvarda bekler (uyarı bu sırada)
 function drillLen(d, t = 0) { // t kare sonraki uzunluk
-  return (0.5 - 0.5 * Math.cos(Math.PI * 2 * (d.ph + t / d.per))) * d.reach * LANE_W;
+  const f = ((d.ph + t / d.per) % 1 + 1) % 1;
+  return f < DRILL_OUT ? (0.5 - 0.5 * Math.cos(Math.PI * 2 * f / DRILL_OUT)) * d.reach * LANE_W : 0;
 }
+function drillWarn(d) { const f = d.ph % 1; return f < DRILL_OUT ? 0 : (f - DRILL_OUT) / (1 - DRILL_OUT); }
 function addDrill(side, reach, w) {
   drills.push({ y: -30, side, reach, per: w.per, ph: Math.random() });
 }
@@ -2527,7 +2530,16 @@ function updateDrills(w, ending) {
   drillSpd += (w.spd - drillSpd) * 0.02;
   asteroids.forEach(a => { if (a.sl) a.speed = drillSpd; });
   enemies.forEach(e => { if (e.sl) e.speed = drillSpd; });
-  drills.forEach(d => { d.y += drillSpd; d.ph += 1 / d.per; });
+  drills.forEach(d => {
+    d.y += drillSpd; d.ph += 1 / d.per;
+    const f = d.ph % 1; // uzanırken uçtan kıvılcım ve toz
+    if (f > 0.02 && f < DRILL_OUT / 2 && d.y > 0 && d.y < H && Math.random() < 0.5) {
+      const dir = d.side === 0 ? 1 : -1, tip = (d.side === 0 ? 0 : W) + dir * (drillLen(d) + 16);
+      drillSparks.push({ x: tip, y: d.y + (Math.random() - 0.5) * 16, vx: dir * (1 + Math.random() * 3), vy: (Math.random() - 0.5) * 3 + drillSpd, life: 1 });
+    }
+  });
+  mineWallY = (mineWallY + drillSpd) % 400;
+  drillSparks = drillSparks.filter(p => { p.x += p.vx; p.y += p.vy; p.life -= 0.06; return p.life > 0; });
   drills = drills.filter(d => d.y < H + 40);
   if (!player.dead && !(player.invuln > 0)) for (const d of drills) {
     if (Math.abs(d.y - player.y) > 42) continue;
@@ -2540,7 +2552,7 @@ function updateDrills(w, ending) {
   drillT = 0;
   drillSide = 1 - drillSide; // yanlar sırayla değişir: karşı tarafa geçmek gerekir
   if (drillForce || Math.random() < w.cross) { // hizaya gelince tam uzanmış olur; hemen arkasından karşı taraftan bir tane daha
-    addDrill(drillSide, 2.1, w); drills[drills.length - 1].ph = 0.5 - ((player.y + 30) / drillSpd) / w.per;
+    addDrill(drillSide, 2.1, w); drills[drills.length - 1].ph = DRILL_OUT / 2 - ((player.y + 30) / drillSpd) / w.per + 2;
     drillForce = !drillForce; if (drillForce) drillT = Math.round(w.every * 0.25);
   } else if (Math.random() < w.pair) { addDrill(0, 1.1, w); addDrill(1, 1.1, w); }
   else addDrill(drillSide, Math.random() < w.long ? 2.1 : 1.1, w);
@@ -2554,24 +2566,84 @@ function updateDrills(w, ending) {
     enemies[enemies.length - 1].speed = drillSpd;
   }
 }
+// Maden duvarları: bir kez çizilen kaya şeridi, oyun hızıyla aşağı akar
+const MINE_WALL = 22;
+let mineWallSprite = null;
+function getMineWallSprite() {
+  if (mineWallSprite) return mineWallSprite;
+  const c = document.createElement('canvas'); c.width = MINE_WALL + 14; c.height = 400;
+  const g = c.getContext('2d');
+  g.fillStyle = '#17110e'; g.beginPath(); g.moveTo(0, 0);
+  for (let y = 0; y <= 400; y += 20) g.lineTo(MINE_WALL - 4 + 8 * Math.abs(Math.sin(y * 0.37) * Math.cos(y * 0.11)) + (y % 40 ? 3 : 0), y);
+  g.lineTo(0, 400); g.closePath(); g.fill();
+  for (let k = 0; k < 26; k++) { // taş dokusu
+    const y = (k * 61) % 400, x = 3 + (k * 7) % (MINE_WALL - 6), r = 3 + (k * 5) % 6;
+    g.fillStyle = k % 3 ? 'rgba(70,55,45,0.55)' : 'rgba(110,88,70,0.45)';
+    g.beginPath(); g.ellipse(x, y, r, r * 0.7, k, 0, Math.PI * 2); g.fill();
+  }
+  g.strokeStyle = 'rgba(255,150,80,0.12)'; g.lineWidth = 1; // kenarda zayıf sıcak ışık
+  g.beginPath(); for (let y = 0; y <= 400; y += 20) g.lineTo(MINE_WALL - 4 + 8 * Math.abs(Math.sin(y * 0.37) * Math.cos(y * 0.11)) + (y % 40 ? 3 : 0), y); g.stroke();
+  return mineWallSprite = c;
+}
+function drawMineBack() { // kayalar ve gemilerden önce: maden içi karanlığı + duvarlar + matkap uyarısı
+  ctx.save();
+  ctx.fillStyle = 'rgba(12,7,4,0.45)'; ctx.fillRect(0, 0, W, H);
+  const spr = getMineWallSprite();
+  for (let y = -400 + mineWallY; y < H; y += 400) {
+    ctx.drawImage(spr, 0, y);
+    ctx.save(); ctx.translate(W, y); ctx.scale(-1, 1); ctx.drawImage(spr, 0, 0); ctx.restore();
+  }
+  drills.forEach(d => { // uyarı: çıkmadan önce duvar çatlar, içten parlar
+    const warn = drillWarn(d);
+    if (warn <= 0 || d.y < -30) return;
+    const x0 = d.side === 0 ? MINE_WALL : W - MINE_WALL, dir = d.side === 0 ? 1 : -1;
+    const glow = ctx.createRadialGradient(x0, d.y, 2, x0, d.y, 18 + 34 * warn);
+    glow.addColorStop(0, `rgba(255,170,80,${0.9 * warn})`); glow.addColorStop(1, 'rgba(255,120,40,0)');
+    ctx.fillStyle = glow; ctx.fillRect(x0 - 60, d.y - 60, 120, 120);
+    ctx.strokeStyle = `rgba(255,200,120,${0.4 + 0.6 * warn})`; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+    const L = 6 + 22 * warn;
+    [[-0.9, 0.3], [-0.2, 1], [0.5, 0.7], [1, 0.4]].forEach(([a, m]) => {
+      ctx.beginPath(); ctx.moveTo(x0, d.y);
+      ctx.lineTo(x0 + dir * Math.cos(a) * L * m * 0.6, d.y + Math.sin(a) * L * m);
+      ctx.lineTo(x0 + dir * Math.cos(a * 1.3) * L * m, d.y + Math.sin(a * 1.3) * L * m * 1.3); ctx.stroke();
+    });
+  });
+  ctx.restore();
+}
 function drawDrills() {
   ctx.save();
   drills.forEach(d => {
     if (d.y < -40) return;
-    const len = drillLen(d), dir = d.side === 0 ? 1 : -1, x0 = d.side === 0 ? 0 : W, tip = x0 + dir * (len + 16), neck = x0 + dir * len;
-    // Duvardaki yuva
-    ctx.fillStyle = '#3a2a22'; ctx.fillRect(d.side === 0 ? 0 : W - 16, d.y - 26, 16, 52);
-    // Gövde
-    ctx.fillStyle = '#6a5a52'; ctx.fillRect(Math.min(x0, neck), d.y - 15, Math.abs(neck - x0), 30);
-    ctx.fillStyle = '#8c7a6e'; ctx.fillRect(Math.min(x0, neck), d.y - 15, Math.abs(neck - x0), 6);
-    // Dönen helezon çizgileri
-    ctx.strokeStyle = '#2c2220'; ctx.lineWidth = 4;
-    const off = (frameCount * 3) % 22;
-    for (let k = off; k < len; k += 22) { const x = x0 + dir * k; ctx.beginPath(); ctx.moveTo(x, d.y - 15); ctx.lineTo(x + dir * 9, d.y + 15); ctx.stroke(); }
-    // Sivri uç
-    ctx.fillStyle = '#ff8a3c';
-    ctx.beginPath(); ctx.moveTo(neck, d.y - 20); ctx.lineTo(tip, d.y); ctx.lineTo(neck, d.y + 20); ctx.closePath(); ctx.fill();
+    const len = drillLen(d), dir = d.side === 0 ? 1 : -1, x0 = d.side === 0 ? 0 : W, neck = x0 + dir * len, tip = neck + dir * 20; // uç çarpma alanıyla (len + 16) yaklaşık aynı
+    const R = 14;
+    if (len > 2) {
+      // yuvarlak gövde: yukarıdan aşağı ışık
+      const bg = ctx.createLinearGradient(0, d.y - R, 0, d.y + R);
+      bg.addColorStop(0, '#a89484'); bg.addColorStop(0.35, '#6e5d52'); bg.addColorStop(1, '#2a201b');
+      ctx.fillStyle = bg; ctx.fillRect(Math.min(x0, neck), d.y - R, Math.abs(neck - x0), 2 * R);
+      // dönen helezon
+      ctx.save(); ctx.beginPath(); ctx.rect(Math.min(x0, neck), d.y - R, Math.abs(neck - x0), 2 * R); ctx.clip();
+      ctx.strokeStyle = 'rgba(20,14,10,0.75)'; ctx.lineWidth = 3;
+      const off = (frameCount * 4) % 18;
+      for (let k = off - 18; k < len + 18; k += 18) { const x = x0 + dir * k; ctx.beginPath(); ctx.moveTo(x, d.y - R); ctx.quadraticCurveTo(x + dir * 4, d.y, x + dir * 10, d.y + R); ctx.stroke(); }
+      ctx.strokeStyle = 'rgba(255,230,200,0.25)'; ctx.lineWidth = 1.5;
+      for (let k = off - 18; k < len + 18; k += 18) { const x = x0 + dir * (k + 3); ctx.beginPath(); ctx.moveTo(x, d.y - R); ctx.lineTo(x + dir * 3, d.y - R * 0.3); ctx.stroke(); }
+      ctx.restore();
+      // sivri uç: konik, sıcak metal
+      const tg = ctx.createLinearGradient(0, d.y - R - 4, 0, d.y + R + 4);
+      tg.addColorStop(0, '#ffc08a'); tg.addColorStop(0.45, '#ff8a3c'); tg.addColorStop(1, '#8a3812');
+      ctx.fillStyle = tg; ctx.beginPath(); ctx.moveTo(neck, d.y - R - 4); ctx.lineTo(tip, d.y); ctx.lineTo(neck, d.y + R + 4); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(90,30,8,0.7)'; ctx.lineWidth = 2;
+      for (let k = 0; k < 3; k++) { const u = ((frameCount * 0.08 + k / 3) % 1); const x = neck + dir * 20 * u, hh = (R + 4) * (1 - u);
+        ctx.beginPath(); ctx.moveTo(x, d.y - hh); ctx.lineTo(x + dir * 5 * (1 - u), d.y + hh); ctx.stroke(); }
+    }
+    // duvardaki metal yaka (matkabın çıktığı yuva)
+    const cx = d.side === 0 ? 0 : W - MINE_WALL - 6;
+    ctx.fillStyle = '#2e2724'; ctx.fillRect(cx, d.y - R - 7, MINE_WALL + 6, 2 * R + 14);
+    ctx.fillStyle = '#5b504a'; ctx.fillRect(cx, d.y - R - 7, MINE_WALL + 6, 4);
+    ctx.fillStyle = '#c8b8a8'; [-R - 2, R + 2].forEach(oy => { ctx.beginPath(); ctx.arc(cx + (MINE_WALL + 6) / 2, d.y + oy, 2, 0, Math.PI * 2); ctx.fill(); });
   });
+  drillSparks.forEach(p => { ctx.fillStyle = `rgba(255,${180 + Math.round(60 * p.life)},90,${p.life})`; ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); });
   ctx.restore();
 }
 
@@ -6628,6 +6700,7 @@ function render() {
 
   if (currentLevel === 7 && state !== 'levelcomplete') drawStealth();
   if (currentLevel === 8) drawTunnel();
+  if (currentLevel === 8 && drillSpd > 0) drawMineBack();
   asteroids.forEach(drawAsteroid);
   drawIonClouds();
   if (slalomOutro > 0 && currentLevel !== 9) drawMineSilhouette();
