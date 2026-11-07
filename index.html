@@ -2510,10 +2510,10 @@ function drawDigger() {
 // ship: matkaplar arasında vurulacak gemi. Matkaplar vurulamaz; en fazla iki şerit kapanır, kaçış hep vardır
 const DRILL_WAVES = [
   { spd: 4.6, every: 80, long: 0.35, pair: 0.2,  cross: 0.1,  per: 84, ship: 0.45 },
-  { spd: 5.2, every: 66, long: 0.5,  pair: 0.25, cross: 0.12, per: 74, ship: 0.5 },
-  { spd: 5.6, every: 60, long: 0.55, pair: 0.3,  cross: 0.15, per: 66, ship: 0.5, cargo: true },
-  { spd: 4.8, every: 78, long: 0.6,  pair: 0.3,  cross: 0.2,  per: 60, ship: 0.4 },
-  { spd: 6.2, every: 52, long: 0.55, pair: 0.3,  cross: 0.18, per: 58, ship: 0.55 },
+  { spd: 5.2, every: 66, long: 0.5,  pair: 0.25, cross: 0.18, per: 74, ship: 0.5 },
+  { spd: 5.6, every: 60, long: 0.55, pair: 0.3,  cross: 0.25, per: 66, ship: 0.5, cargo: true },
+  { spd: 4.8, every: 78, long: 0.6,  pair: 0.3,  cross: 0.38, per: 60, ship: 0.4 },
+  { spd: 6.2, every: 52, long: 0.55, pair: 0.3,  cross: 0.32, per: 58, ship: 0.55 },
 ];
 let drills = [], drillSpd = 0, drillT = 0, drillSide = 0, drillSame = 0, drillCargo = false, drillForce = false, drillSparks = [], mineWallY = 0;
 const DRILL_OUT = 0.7; // döngünün %70'inde uzanıp çekilir, kalanında duvarda bekler (uyarı bu sırada)
