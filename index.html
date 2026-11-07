@@ -1084,7 +1084,7 @@ function startLevel(level) {
   playFrames     = (level - 1) * LEVEL_SEC * 60;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; shards = []; powerups = [];
-  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0;
+  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
   countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
@@ -2509,13 +2509,13 @@ function drawDigger() {
 // cross: art arda iki uzun matkap, hizaya gelince tam uzanmış: bir kenardan öbür kenara geçmek gerekir
 // ship: matkaplar arasında vurulacak gemi. Matkaplar vurulamaz; en fazla iki şerit kapanır, kaçış hep vardır
 const DRILL_WAVES = [
-  { spd: 4.6, every: 80, long: 0.35, pair: 0.1,  cross: 0.1,  per: 84, ship: 0.45 },
-  { spd: 5.2, every: 66, long: 0.5,  pair: 0.15, cross: 0.25, per: 74, ship: 0.5 },
-  { spd: 5.6, every: 60, long: 0.55, pair: 0.2,  cross: 0.35, per: 66, ship: 0.5, cargo: true },
-  { spd: 4.8, every: 78, long: 0.6,  pair: 0.2,  cross: 0.55, per: 60, ship: 0.4 },
-  { spd: 6.2, every: 52, long: 0.55, pair: 0.2,  cross: 0.45, per: 58, ship: 0.55 },
+  { spd: 4.6, every: 80, long: 0.35, pair: 0.2,  cross: 0.1,  per: 84, ship: 0.45 },
+  { spd: 5.2, every: 66, long: 0.5,  pair: 0.25, cross: 0.12, per: 74, ship: 0.5 },
+  { spd: 5.6, every: 60, long: 0.55, pair: 0.3,  cross: 0.15, per: 66, ship: 0.5, cargo: true },
+  { spd: 4.8, every: 78, long: 0.6,  pair: 0.3,  cross: 0.2,  per: 60, ship: 0.4 },
+  { spd: 6.2, every: 52, long: 0.55, pair: 0.3,  cross: 0.18, per: 58, ship: 0.55 },
 ];
-let drills = [], drillSpd = 0, drillT = 0, drillSide = 0, drillCargo = false, drillForce = false, drillSparks = [], mineWallY = 0;
+let drills = [], drillSpd = 0, drillT = 0, drillSide = 0, drillSame = 0, drillCargo = false, drillForce = false, drillSparks = [], mineWallY = 0;
 const DRILL_OUT = 0.7; // döngünün %70'inde uzanıp çekilir, kalanında duvarda bekler (uyarı bu sırada)
 function drillLen(d, t = 0) { // t kare sonraki uzunluk
   const f = ((d.ph + t / d.per) % 1 + 1) % 1;
@@ -2550,7 +2550,10 @@ function updateDrills(w, ending) {
   }
   if (ending || ++drillT < w.every) return;
   drillT = 0;
-  drillSide = 1 - drillSide; // yanlar sırayla değişir: karşı tarafa geçmek gerekir
+  // Yan seçimi tekrara düşmesin: yarı yarıya aynı yandan (en fazla üç kez üst üste), çaprazın ikinci matkabı hep karşıdan
+  if (drillForce) drillSide = 1 - drillSide;
+  else if (drillSame < 2 && Math.random() < 0.5) drillSame++;
+  else { drillSide = 1 - drillSide; drillSame = 0; }
   if (drillForce || Math.random() < w.cross) { // hizaya gelince tam uzanmış olur; hemen arkasından karşı taraftan bir tane daha
     addDrill(drillSide, 2.1, w); drills[drills.length - 1].ph = DRILL_OUT / 2 - ((player.y + 30) / drillSpd) / w.per + 2;
     drillForce = !drillForce; if (drillForce) drillT = Math.round(w.every * 0.25);
