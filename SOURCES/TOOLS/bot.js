@@ -75,6 +75,7 @@ function laneValue(l) {
   }
   if (boss && Math.abs(boss.x - LANE_CENTERS[l]) < 80) v += boss.shielded === false ? 400 : 60; // açık boss = öncelik (insan gibi)
   for (const p of powerups) if (nearestLane(p.x) === l) v += 25;
+  if (typeof bombDrops !== 'undefined') for (const q of bombDrops) if (nearestLane(q.x) === l) v += 300; // L10: bomba topla
   if (typeof haulers !== 'undefined') for (const h of haulers) if (!h.leaving && h.lane === l) v += 800; // L9: yük gemisinin şeridine git
   { // L8: en yakın sıradaki kırılır kayanın şeridine git
     let near = null; for (const a of asteroids) if (a.dig && a.y < player.y - 30 && (!near || a.y > near.y)) near = a;
@@ -104,6 +105,7 @@ function runLevel(level, prof, maxFrames = 9000) { // insanlar gibi tek kararda 
         if (s > bestS) { bestS = s; best = l; }
       }
       player.targetLane = best;
+      if (typeof titanCoreOpen !== 'undefined' && titanCoreOpen()) useTitanBomb(); // L10: çekirdek açıkken bomba
       if (typeof drifters !== 'undefined' && convoySpd > 0) { // L9: şeritte mermiye ilk değecek şey kapsül / patlayıcıysa ateşi kes
         const low = arr => arr.filter(q => nearestLane(q.x) === best && q.y < player.y && q.y > 60).reduce((m, q) => Math.max(m, q.y), -1e9);
         if ((low(drifters) > low(enemies)) !== fireHold) toggleFire();
