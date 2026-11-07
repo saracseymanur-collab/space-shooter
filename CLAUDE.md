@@ -74,6 +74,7 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 ## Sonra dönülecekler (2026-11-07 notu)
 - L7: zorluk + görsellik. L8 Dev Matkaplar: zorluk + görsel, geliştirilecek; tünel/kazıcı kodu o zamana kadar duruyor. L9 HOLD FIRE: zorluk. Sektör 2 arka planı ×1.3 aydınlatıldı, gerekirse görsel yeniden üretilir.
 - Kart metinleri: L10 "fleet's escape" ve L15 "Void Colony" eski hikâyeden, hikâye metinleri güncellenirken düzeltilecek. Sektör 3-4 kart ipuçları eski oynanışa göre; bölümler yenilenirken kartlar da yenilenecek.
+- Can düşmesi (kullanıcı, 2026-11-07): kalp sadece L5'te kalmasın, birkaç bölüme daha konacak. Hangi bölümler ve nasıl düşeceği konuşulacak; L10'da bomba dengesini etkileyebilir.
 - Kod temizliği: seçilmeyen denemeler (tünel, kazıcı, CARGO RUN) karar kesinleşince silinir.
 
 ## NOT: Taş çeşitliliği (kullanıcı, 2026-11-06)
