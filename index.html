@@ -2609,7 +2609,7 @@ function mineBlast() {
   damagePlayer('A charge went off!');
 }
 function updateConvoy(w, ending) {
-  if (!convoySpd) { convoySpd = w.spd; slalomSpd = 1; convoyT = w.every - 30; showToast('TAP TO HOLD FIRE', '#9fe8ff', 170); } // slalomSpd: bölüm sonu anı için
+  if (!convoySpd) { convoySpd = w.spd; slalomSpd = 1; convoyT = w.every - 30; showToast('TAP YOUR SHIP TO HOLD FIRE', '#9fe8ff', 170); } // slalomSpd: bölüm sonu anı için
   convoySpd += (w.spd - convoySpd) * 0.02;
   enemies.forEach(e => { if (e.sl) e.speed = convoySpd; });
   if (alarmFx > 0) alarmFx--;
@@ -2670,12 +2670,9 @@ function drawDrifters() {
     }
     ctx.restore();
   });
-  if (convoySpd > 0 && state === 'play') { // ateş durumu
-    const label = fireHold ? 'HOLD FIRE' : 'FIRE ON', col = fireHold ? '#9fe8ff' : '#ffb347', bw = 104, bx = Math.max(8, Math.min(W - bw - 8, player.x - bw / 2)), by = player.y + 48; // geminin hemen altında, onunla gider
-    ctx.fillStyle = 'rgba(3,6,16,0.75)'; ctx.fillRect(bx, by, bw, 24);
-    ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.strokeRect(bx, by, bw, 24);
-    ctx.fillStyle = col; ctx.textBaseline = 'middle';
-    drawSpaced(label, bx + bw / 2, by + 13, 10, 700, UI_FONT, 1.5);
+  if (convoySpd > 0 && state === 'play') { // ateş durumu: düğme değil, üstte düz bilgi yazısı
+    ctx.fillStyle = fireHold ? '#9fe8ff' : 'rgba(255,179,71,0.8)'; ctx.textBaseline = 'middle';
+    drawSpaced(fireHold ? 'HOLD FIRE' : 'FIRE ON', W / 2, HUD_H + 16, 11, 700, UI_FONT, 2);
   }
   ctx.restore();
 }
@@ -3977,7 +3974,7 @@ const LEVEL_BRIEFS = [
   { title: 'ASTEROID RUN',    vis: 'slalom',    line: "Iron rocks can't be shot. Weave through the gaps at full speed!", tips: ['Other rocks can be shot out of the way.', 'Shoot every ship before it gets past you!'] },
   { title: 'STAY DARK',       vis: 'stealth',   line: "Weapons are offline. When the scan comes, hide in an iron rock's shadow!", tips: ['Then move on to the next rock.', 'Caught in the light? A Rammer comes for you.'] },
   { title: 'DRILL LINE',      vis: 'drills',    line: 'Giant drills punch out of the walls. Time your way past them!', tips: ["Drills can't be shot.", 'Shoot every ship before it gets past you!'] },
-  { title: 'HOLD FIRE',       vis: 'holdfire',  line: 'Unknown signals ahead. Tap to hold fire, tap again to shoot. Hit the ships, spare the pods!', tips: ['Hitting a pod costs a life.', 'Red charges blow up the whole screen. Never touch or shoot them!'] },
+  { title: 'HOLD FIRE',       vis: 'holdfire',  line: 'Unknown signals ahead. Tap your ship to hold fire, tap again to shoot. Hit the ships, spare the pods!', tips: ['Hitting a pod costs a life.', 'Red charges blow up the whole screen. Never touch or shoot them!'] },
   { title: 'ROCK TITAN',      vis: 'boss',      line: "The Rock Titan guards the fleet's escape. Bring it down!", tips: ['Shoot its rocks for crystals.'] },
   { title: 'PHANTOMS',        vis: 'phantom',   line: 'Phantoms turn invisible. Hit them while visible.', tips: ['Their flickering outline shows where they are.'] },
   { title: 'ION CLOUDS',      vis: 'ion',       line: 'Inside a blue ion cloud your guns jam.', tips: ['Steer around the clouds.'] },
