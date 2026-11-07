@@ -2671,11 +2671,11 @@ function drawDrifters() {
     ctx.restore();
   });
   if (convoySpd > 0 && state === 'play') { // ateş durumu
-    const label = fireHold ? 'HOLD FIRE' : 'FIRE ON', col = fireHold ? '#9fe8ff' : '#ffb347', bw = 124, bx = W / 2 - bw / 2, by = H - 44;
-    ctx.fillStyle = 'rgba(3,6,16,0.75)'; ctx.fillRect(bx, by, bw, 28);
-    ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.strokeRect(bx, by, bw, 28);
+    const label = fireHold ? 'HOLD FIRE' : 'FIRE ON', col = fireHold ? '#9fe8ff' : '#ffb347', bw = 104, bx = Math.max(8, Math.min(W - bw - 8, player.x - bw / 2)), by = player.y + 48; // geminin hemen altında, onunla gider
+    ctx.fillStyle = 'rgba(3,6,16,0.75)'; ctx.fillRect(bx, by, bw, 24);
+    ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.strokeRect(bx, by, bw, 24);
     ctx.fillStyle = col; ctx.textBaseline = 'middle';
-    drawSpaced(label, W / 2, by + 15, 12, 700, UI_FONT, 2);
+    drawSpaced(label, bx + bw / 2, by + 13, 10, 700, UI_FONT, 1.5);
   }
   ctx.restore();
 }
