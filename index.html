@@ -2792,7 +2792,7 @@ function updateTitan() {
         else { b.lane = playerLaneNow(); b.tState = 'mark'; b.tT = 34; }
       } else { b.tState = 'rows'; b.tT = 10; b.rowN = 0; }
       break;
-    case 'aim': home(); if (--b.tT <= 0) { b.tState = 'open'; b.tT = ph === 1 ? 74 : 56; } break;
+    case 'aim': home(); if (--b.tT <= 0) { b.tState = 'open'; b.tT = ph === 1 ? 130 : 110; } break;
     case 'open': // çekirdek açıkken de kaya atar: dur vur, sonra kaç
       home();
       if (ph === 1 && b.tT === 40 && !lasers.length) titanThrow([playerLaneNow()]);
@@ -2805,7 +2805,7 @@ function updateTitan() {
       break;
     case 'strike': // matkap şeridi yarar
       if (!player.dead && Math.abs(player.x - LANE_CENTERS[b.lane]) < 60 && !(player.invuln > 0)) damagePlayer('Drilled by the Rock Titan!');
-      if (--b.tT <= 0) { b.tState = 'stuck'; b.tT = 62; }
+      if (--b.tT <= 0) { b.tState = 'stuck'; b.tT = 105; }
       break;
     case 'stuck': if (--b.tT <= 0) b.tState = 'rise'; break; // saplandı: çekirdek açık
     case 'rise':
@@ -2828,7 +2828,7 @@ function updateTitan() {
     }
     case 'settle': // demir kayalar mermiyi keser: önce yol temizlensin, sonra çekirdek açılsın
       home();
-      if (!asteroids.some(a => a.amb && a.y < player.y)) { b.tState = 'open'; b.tT = 72; }
+      if (!asteroids.some(a => a.amb && a.y < player.y)) { b.tState = 'open'; b.tT = 130; }
       break;
   }
 }
@@ -2854,7 +2854,7 @@ function useTitanBomb() {
   if (!boss && titanBombs > 0 && !player.dead) { addFloat(player.x, player.y - 70, 'SAVE IT FOR LATER', '#ffb347', false); return; }
   if (!boss || boss.zone !== 2 || boss.dying || bossWarn > 0 || player.dead || titanBombs <= 0) return;
   titanBombs--; Sound.sfx.click();
-  bombShots.push({ x: player.x, y: player.y - 30 });
+  bombShots.push({ x: player.x, y: player.y - 30, open: titanCoreOpen() }); // açıkken atılan bomba, varınca kapansa da işler
 }
 function updateTitanBombs() {
   bombDrops = bombDrops.filter(d => {
@@ -2870,10 +2870,10 @@ function updateTitanBombs() {
   });
   bombShots = bombShots.filter(q => {
     if (!boss || boss.dying) return false;
-    q.y -= 15;
+    q.y -= 24;
     if (q.y < HUD_H) { addFloat(q.x, HUD_H + 70, 'MISSED', '#ffb347', false); return false; }
     if (q.y > boss.y + 40 || Math.abs(q.x - boss.x) >= TITAN_BOMB_HIT_X) return true;
-    if (boss.shielded) { // çekirdek kapalı: bomba zırhta söner
+    if (boss.shielded && !q.open) { // kapalıyken atıldı: bomba zırhta söner
       spawnExplosion(q.x, q.y, false); addFloat(q.x, q.y + 40, 'CORE CLOSED', '#ffb347', false);
       return false;
     }

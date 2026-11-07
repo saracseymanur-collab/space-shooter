@@ -72,6 +72,7 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 - L10 kartı (2026-11-07): boss görseli kartta gösterilmez (L5'teki gözler gibi sürpriz). Başlık IT WOKE UP, çizim `quake`: sarsılan kaya, çatlaklardan turuncu ışık. Haritada ad ROCK TITAN kalıyor (`BOSS_NAMES`). L15 kartı hâlâ L5 boss'unun renklisi; sektör 3'te düzeltilecek.
 - L10 bomba tanıtımı (2026-11-07): ilk bomba görününce oyun durur, `FIRST_SEEN.titanBomb` kartı çıkar (BOMBS). **Kullanıcı bombaya yeni görsel verecek**: şimdilik eski bomba rozeti (`powerupImgs.bomb`) kullanılıyor; yerde, üstteki sayaçta ve uçarken güncellenecek. Eski bomba rozetinden ayrı dosya adı ver, `sw.js` CACHE + ASSETS güncelle.
 - L10 çekirdek tanıtımı (2026-11-07): çekirdek ilk açıldığında oyun durur, `FIRST_SEEN.titanCore` kartı çıkar (CORE OPEN). Boss gelmeden bombalıyken dokununca SAVE IT FOR LATER yazar, bomba harcanmaz.
+- L10 çekirdek süresi (2026-11-08): kullanıcı açık çekirdeği yakalamayı zor buldu. Açık süreler uzadı (F1 130, F2 110 + saplanma 105, F3 130 kare), bomba hızı 24, açıkken atılan bomba varınca kapansa da işler (`q.open`). Bot (12 koşu): casual 4.6, expert 2.2, pro 1.9, fast 1.9; toplam ~50 sn (öncekinde pro 5.1, ~84 sn). Bir açılışta 3 bomba atılabildiği için boss kısa sürebilir; gerekirse bir açılışta atılan bomba sınırlanır.
 - Mağaza planı: App Store + Google Play, Capacitor; depo gizleme mağaza hazırlığına kadar bekliyor.
 
 ## Sıralı iş listesi (2026-11-07, kullanıcı "sırayla yapalım" dedi)
