@@ -71,6 +71,12 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 - L5 kalp (2026-11-07): başkasına denettirilince boss zor bulundu; zorluk aynı kaldı, Void Vanguard faz geçişlerinde birer kalp düşürür (`dropBossHeart`, `heartDrops`, `updateBossHearts`, `drawBossHearts`; en fazla 2). Üstünden geçmezsen kaçar, can 3'ü geçmez (FULL yazar). Sadece L5; diğer boss'lara yayılmadı. Şimdilik HUD kalbi çizimi, kullanıcı görsel verebilir.
 - Mağaza planı: App Store + Google Play, Capacitor; depo gizleme mağaza hazırlığına kadar bekliyor.
 
+## Sıralı iş listesi (2026-11-07, kullanıcı "sırayla yapalım" dedi)
+Sektör 2: 1) L10 dalga zorluğu 2) kalbi başka bölümlere yay 3) L7 zorluk + görsel 4) L8 zorluk + görsel, tünel / kazıcı kodunu sil 5) L9 zorluk, CARGO RUN kararı.
+Hikâye: 6) ek giriş panelleri (kullanıcı getirecek) 7) bölge geçişleri 8) menü alt başlıkları + kart metinleri 9) final seçim ekranı + iki son.
+Sektör 3-4: 10) sektör 3 level level 11) sektör 4 level level (kartlar ve "TO THE LAST SIGNAL" dahil).
+Son: 12) kullanılmayan kod temizliği 13) mağaza hazırlığı. Görseller kullanıcı getirdikçe araya girer.
+
 ## Sonra dönülecekler (2026-11-07 notu)
 - L7: zorluk + görsellik. L8 Dev Matkaplar: zorluk + görsel, geliştirilecek; tünel/kazıcı kodu o zamana kadar duruyor. L9 HOLD FIRE: zorluk. Sektör 2 arka planı ×1.3 aydınlatıldı, gerekirse görsel yeniden üretilir.
 - Kart metinleri: L10 "fleet's escape" ve L15 "Void Colony" eski hikâyeden, hikâye metinleri güncellenirken düzeltilecek. Sektör 3-4 kart ipuçları eski oynanışa göre; bölümler yenilenirken kartlar da yenilenecek.
