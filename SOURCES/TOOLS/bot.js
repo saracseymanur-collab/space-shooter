@@ -75,6 +75,7 @@ function laneValue(l) {
   }
   if (boss && Math.abs(boss.x - LANE_CENTERS[l]) < 80) v += boss.shielded === false ? 400 : 60; // açık boss = öncelik (insan gibi)
   for (const p of powerups) if (nearestLane(p.x) === l) v += 25;
+  if (typeof heartDrops !== 'undefined') for (const q of heartDrops) if (nearestLane(q.x) === l) v += 300; // L5: kalp topla
   if (typeof bombDrops !== 'undefined') for (const q of bombDrops) if (nearestLane(q.x) === l) v += 300; // L10: bomba topla
   if (typeof haulers !== 'undefined') for (const h of haulers) if (!h.leaving && h.lane === l) v += 800; // L9: yük gemisinin şeridine git
   { // L8: en yakın sıradaki kırılır kayanın şeridine git

@@ -1082,7 +1082,7 @@ function startLevel(level) {
   playFrames     = (level - 1) * LEVEL_SEC * 60;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; shards = []; powerups = [];
-  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0;
+  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; heartDrops = [];
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
   countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
@@ -1561,6 +1561,28 @@ function updateBossMinions() {
     e.x = boss.x; e.y = boss.y + 30; e.launch = true; e.speed *= 0.72; // boss'un gövdesinden çıkar, kendi şeridine fırlar (daha aşağıdan başladığı için yavaş)
   }
 }
+// L5: faz geçişinde boss bir kalp düşürür; üstünden geçmezsen kaçar, can 3'ü geçmez.
+let heartDrops = [];
+function dropBossHeart() { if (currentLevel === 5) heartDrops.push({ x: LANE_CENTERS[boss.lane], y: boss.y + 50 }); }
+function updateBossHearts() {
+  heartDrops = heartDrops.filter(d => {
+    d.y += 3;
+    if (d.y > H + 30) return false;
+    if (player.dead || Math.abs(d.x - player.x) >= 44 || Math.abs(d.y - player.y) >= 46) return true;
+    Sound.sfx.powerup();
+    const full = lives >= 3;
+    if (!full) lives++;
+    addFloat(d.x, d.y - 30, full ? 'FULL' : '+1 LIFE', '#ff5a7a', false);
+    return false;
+  });
+}
+function drawBossHearts() {
+  heartDrops.forEach(d => {
+    ctx.fillStyle = 'rgba(255,90,122,' + (0.22 + 0.1 * Math.sin(frameCount * 0.15)) + ')';
+    ctx.beginPath(); ctx.arc(d.x, d.y, 26, 0, Math.PI * 2); ctx.fill();
+    drawHeart(d.x, d.y, 15, true);
+  });
+}
 function updateRecoil() {
   // Faz 1: Geri Tepen (şarj → 5'li seri → varış halkası → sıçra → açık)
   // Faz 2: Geri Tepen daha hızlı (6-7'li seri) — Rammer/Splitter/yardımcı gemi yok (kullanıcı kararları)
@@ -1568,7 +1590,7 @@ function updateRecoil() {
   //        yere çarpar (patlama + sarsıntı) → yavaşça yükselir (AÇIK). İki dalış, bir seri döngü, tekrar. Her an tek saldırı.
   const b = boss, ph = b.phase, home = H * 0.14;
   if (b.lane == null) { b.lane = 1; b.x = LANE_CENTERS[1]; b.rState = 'idle'; b.rT = 40; b.lastPhase = 1; b.dives = 0; }
-  if (ph !== b.lastPhase && !b.enraged) { b.rState = 'breath'; b.rT = 70; b.dives = 0; b.corrDone = false; eBullets = []; b.flash = 24; b.lastPhase = ph; }
+  if (ph !== b.lastPhase && !b.enraged) { b.rState = 'breath'; b.rT = 70; b.dives = 0; b.corrDone = false; eBullets = []; b.flash = 24; b.lastPhase = ph; dropBossHeart(); }
   if (b.shieldHit > 0) b.shieldHit--;
   if (b.rState !== 'dive' && b.rState !== 'slam') b.x += (LANE_CENTERS[b.lane] - b.x) * (b.rState === 'jump' ? 0.32 : 0.2);
   if (bossWarn > 0) { b.shielded = true; return; } // giriş uyarısı
@@ -5475,6 +5497,7 @@ function update() {
     }
   }
 
+  if (heartDrops.length && state === 'play' && !player.dead) updateBossHearts();
   if ((currentZone === 2 || currentZone === 4) && state === 'play' && !player.dead) {
     // Asteroid spawning (zone 2)
     const levelEnd = currentLevel % 5 !== 0 && getWave() > currentLevel * 5;
@@ -6564,6 +6587,7 @@ function render() {
   drawHaulers();
   drawDrifters();
   drawTitanBombs();
+  drawBossHearts();
   drawAlarmFx();
 
   if ((state === 'play' || state === 'paused' || state === 'gameover') && !player.dead) {
