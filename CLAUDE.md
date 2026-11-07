@@ -71,6 +71,7 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 - L5 kalp (2026-11-07): başkasına denettirilince boss zor bulundu; zorluk aynı kaldı, Void Vanguard faz geçişlerinde birer kalp düşürür (`dropBossHeart`, `heartDrops`, `updateBossHearts`, `drawBossHearts`; en fazla 2). Üstünden geçmezsen kaçar, can 3'ü geçmez (FULL yazar). Sadece L5; diğer boss'lara yayılmadı. Şimdilik HUD kalbi çizimi, kullanıcı görsel verebilir.
 - L10 kartı (2026-11-07): boss görseli kartta gösterilmez (L5'teki gözler gibi sürpriz). Başlık IT WOKE UP, çizim `quake`: sarsılan kaya, çatlaklardan turuncu ışık. Haritada ad ROCK TITAN kalıyor (`BOSS_NAMES`). L15 kartı hâlâ L5 boss'unun renklisi; sektör 3'te düzeltilecek.
 - L10 bomba tanıtımı (2026-11-07): ilk bomba görününce oyun durur, `FIRST_SEEN.titanBomb` kartı çıkar (BOMBS). **Kullanıcı bombaya yeni görsel verecek**: şimdilik eski bomba rozeti (`powerupImgs.bomb`) kullanılıyor; yerde, üstteki sayaçta ve uçarken güncellenecek. Eski bomba rozetinden ayrı dosya adı ver, `sw.js` CACHE + ASSETS güncelle.
+- L10 çekirdek tanıtımı (2026-11-07): çekirdek ilk açıldığında oyun durur, `FIRST_SEEN.titanCore` kartı çıkar (CORE OPEN). Boss gelmeden bombalıyken dokununca SAVE IT FOR LATER yazar, bomba harcanmaz.
 - Mağaza planı: App Store + Google Play, Capacitor; depo gizleme mağaza hazırlığına kadar bekliyor.
 
 ## Sıralı iş listesi (2026-11-07, kullanıcı "sırayla yapalım" dedi)

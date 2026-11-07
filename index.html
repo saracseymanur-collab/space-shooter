@@ -2847,9 +2847,10 @@ function dropTitanBomb(e) {
   const chance = boss ? 0.4 : e.mini ? 0.8 : 0.3;
   if (Math.random() < chance) { bombsDropped++; bombDrops.push({ x: LANE_CENTERS[nearestLane(e.x)], y: e.y }); }
 }
-function titanCoreOpen() { return !!(boss && boss.zone === 2 && !boss.shielded && !boss.dying); }
+function titanCoreOpen() { return !!(boss && boss.zone === 2 && boss.tState && bossWarn <= 0 && !boss.shielded && !boss.dying); }
 function titanAligned() { return !!boss && Math.abs(player.x - boss.x) < TITAN_BOMB_HIT_X; }
 function useTitanBomb() {
+  if (!boss && titanBombs > 0 && !player.dead) { addFloat(player.x, player.y - 70, 'SAVE IT FOR LATER', '#ffb347', false); return; }
   if (!boss || boss.zone !== 2 || boss.dying || bossWarn > 0 || player.dead || titanBombs <= 0) return;
   titanBombs--; Sound.sfx.click();
   bombShots.push({ x: player.x, y: player.y - 30 });
@@ -4771,6 +4772,7 @@ const FIRST_SEEN = {
   ion:       { title: 'ION CLOUD',      text: 'Your guns jam inside it. Steer around it.' },
   beam:      { title: 'BEAM WARNING',   text: 'A beam will fire down this lane. Move out!' },
   titanBomb: { title: 'BOMBS',          text: 'Fly over bombs to collect them. You will need them for what is coming.' },
+  titanCore: { title: 'CORE OPEN',      text: 'Get below it and tap anywhere to throw a bomb.' },
 };
 let seenIntro = {};
 try { seenIntro = JSON.parse(localStorage.getItem('ss_seen') || '{}') || {}; } catch(e) { seenIntro = {}; }
@@ -4784,6 +4786,7 @@ function checkFirstSeen() {
   for (const p of powerups) if (FIRST_SEEN[p.type] && vis(p.y)) want(p.type, p.x, p.y);
   for (const c of crystals) if (vis(c.y)) want('crystal', c.x, c.y);
   for (const d of bombDrops) if (vis(d.y)) want('titanBomb', d.x, d.y);
+  if (titanCoreOpen()) want('titanCore', boss.x, boss.y);
   if (overdriveTimer > OVERDRIVE_TIME - 3) want('overdrive', player.x, player.y);
   for (const a of asteroids) {
     if (a.type === 'iron' && vis(a.y)) want('iron', a.x, a.y);
