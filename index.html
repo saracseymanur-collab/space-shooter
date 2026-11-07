@@ -2588,19 +2588,26 @@ function drawHaulers() {
 }
 
 // L9 Ateşi Kes. every: sıra aralığı · wall: üç şerit kapsül (ateş kesilmeli) · mine: patlayıcılı sıra · foe2: ikinci düşman
-const CONVOY_WAVES = [ // 2026-11-07: kullanıcı "çok zor" dedi, yavaşlatıldı ve seyreltildi
-  { spd: 2.8, every: 104, wall: 0.2,  mine: 0,    foe2: 0.1,  pod: 0 },
-  { spd: 3.0, every: 96,  wall: 0.25, mine: 0.12, foe2: 0.15, pod: 0.1 },
-  { spd: 3.2, every: 90,  wall: 0.25, mine: 0.15, foe2: 0.15, pod: 0.1 },
-  { spd: 3.0, every: 104, wall: 0.35, mine: 0.15, foe2: 0.1,  pod: 0.1 },
-  { spd: 3.6, every: 82,  wall: 0.25, mine: 0.2,  foe2: 0.2,  pod: 0.15 },
+const CONVOY_WAVES = [ // ilk sürüm "çok zor", yumuşak sürüm kolay geldi: ikisinin arası. hp2 / hp3: dayanıklı gemi oranı (ateşi daha uzun açık tutmak gerekir)
+  { spd: 3.0, every: 94, wall: 0.25, mine: 0.08, foe2: 0.15, pod: 0.05, hp2: 0.15, hp3: 0 },
+  { spd: 3.3, every: 84, wall: 0.28, mine: 0.15, foe2: 0.2,  pod: 0.12, hp2: 0.25, hp3: 0.05 },
+  { spd: 3.5, every: 78, wall: 0.28, mine: 0.2,  foe2: 0.22, pod: 0.15, hp2: 0.3,  hp3: 0.1 },
+  { spd: 3.2, every: 92, wall: 0.4,  mine: 0.2,  foe2: 0.15, pod: 0.15, hp2: 0.3,  hp3: 0.15 },
+  { spd: 4.0, every: 70, wall: 0.28, mine: 0.25, foe2: 0.3,  pod: 0.2,  hp2: 0.35, hp3: 0.15 },
 ];
-const DRIFT_SAFE_Y = 300; // bu yüksekliğin üstünde mermi kapsüle değmez: görüp ateşi kesecek vakit kalsın
+const DRIFT_SAFE_Y = 260; // bu yüksekliğin üstünde mermi kapsüle değmez: görüp ateşi kesecek vakit kalsın
 let drifters = [], fireHold = false, convoySpd = 0, convoyT = 0, survivors = 0;
 const convoyOn = () => { const c = state === 'play' && !boss && getLevelConfig(); return !!(c && c.convoy); };
-function toggleFire() { fireHold = !fireHold; if (fireHold) bullets = []; Sound.sfx.click(); } // ateş kesilince havadaki mermiler de söner: yolda kalan mermi kapsülü vurmasın
+function toggleFire() { // kesince havadaki mermiler kapsülden geçer ama düşmanı yine vurur; açınca ilk mermi hemen çıkar
+  fireHold = !fireHold; Sound.sfx.click();
+  if (fireHold) bullets.forEach(b => { b.safe = true; }); else player.fireTimer = player.fireRate;
+}
 function addDrifter(type, lane, y) { drifters.push({ type, lane, x: LANE_CENTERS[lane], y }); }
-function addConvoyFoe(lane, y) { spawnSlalomScout(lane, y); enemies[enemies.length - 1].speed = convoySpd; }
+function addConvoyFoe(lane, y, w) {
+  spawnSlalomScout(lane, y);
+  const e = enemies[enemies.length - 1], r = Math.random();
+  e.speed = convoySpd; e.hp = e.maxHp = r < w.hp3 ? 3 : r < w.hp3 + w.hp2 ? 2 : 1;
+}
 function mineBlast() {
   Sound.sfx.blast(); alarmFx = 40; hurtFx = 26;
   explosions.push({ x: player.x, y: H / 2, vx: 0, vy: 0, life: 1, decay: 0.04, r: H, color: 'rgba(255,120,40,0.35)', isBombFlash: true });
@@ -2609,7 +2616,7 @@ function mineBlast() {
   damagePlayer('A charge went off!');
 }
 function updateConvoy(w, ending) {
-  if (!convoySpd) { convoySpd = w.spd; slalomSpd = 1; convoyT = w.every - 30; showToast('TAP YOUR SHIP TO HOLD FIRE', '#9fe8ff', 170); } // slalomSpd: bölüm sonu anı için
+  if (!convoySpd) { convoySpd = w.spd; slalomSpd = 1; convoyT = w.every - 30; showToast('TAP ANYWHERE TO HOLD FIRE', '#9fe8ff', 170); } // slalomSpd: bölüm sonu anı için
   convoySpd += (w.spd - convoySpd) * 0.02;
   enemies.forEach(e => { if (e.sl) e.speed = convoySpd; });
   if (alarmFx > 0) alarmFx--;
@@ -2621,7 +2628,7 @@ function updateConvoy(w, ending) {
     if (d.y < DRIFT_SAFE_Y) return true;
     let hit = false;
     bullets = bullets.filter(b => {
-      if (hit || Math.abs(b.x - d.x) > 26 || Math.abs(b.y - d.y) > 30) return true;
+      if (hit || b.safe || Math.abs(b.x - d.x) > 26 || Math.abs(b.y - d.y) > 30) return true;
       hit = true; return false;
     });
     if (!hit) return true;
@@ -2635,14 +2642,14 @@ function updateConvoy(w, ending) {
   const y = -40, lanes = [0, 1, 2].sort(() => Math.random() - 0.5), r = Math.random();
   if (r < w.wall) { // üç şerit kapsül, arkasından bir düşman: kapsüller geçene kadar ateş etme
     lanes.forEach(l => addDrifter('pod', l, y));
-    addConvoyFoe(lanes[0], y - 240);
-    convoyT = -Math.round(w.every * 0.7); // kapsüllerden sonra ateşi açacak zaman kalsın
+    addConvoyFoe(lanes[0], y - 200, w);
+    convoyT = -Math.round(w.every * 0.6); // kapsüllerden sonra ateşi açacak zaman kalsın
   } else if (r < w.wall + w.mine) { // patlayıcı: vurursan da değersen de patlar, boş şeritteki düşmanı vur
     addDrifter('mine', lanes[0], y);
-    addConvoyFoe(lanes[2], y);
+    addConvoyFoe(lanes[2], y, w);
   } else { // düşman sırası; arada tek kapsül (öbür şeritte)
-    addConvoyFoe(lanes[0], y);
-    if (Math.random() < w.foe2) addConvoyFoe(lanes[1], y - 70);
+    addConvoyFoe(lanes[0], y, w);
+    if (Math.random() < w.foe2) addConvoyFoe(lanes[1], y - 70, w);
     else if (Math.random() < w.pod) addDrifter('pod', lanes[2], y);
   }
 }
@@ -3974,7 +3981,7 @@ const LEVEL_BRIEFS = [
   { title: 'ASTEROID RUN',    vis: 'slalom',    line: "Iron rocks can't be shot. Weave through the gaps at full speed!", tips: ['Other rocks can be shot out of the way.', 'Shoot every ship before it gets past you!'] },
   { title: 'STAY DARK',       vis: 'stealth',   line: "Weapons are offline. When the scan comes, hide in an iron rock's shadow!", tips: ['Then move on to the next rock.', 'Caught in the light? A Rammer comes for you.'] },
   { title: 'DRILL LINE',      vis: 'drills',    line: 'Giant drills punch out of the walls. Time your way past them!', tips: ["Drills can't be shot.", 'Shoot every ship before it gets past you!'] },
-  { title: 'HOLD FIRE',       vis: 'holdfire',  line: 'Unknown signals ahead. Tap your ship to hold fire, tap again to shoot. Hit the ships, spare the pods!', tips: ['Hitting a pod costs a life.', 'Red charges blow up the whole screen. Never touch or shoot them!'] },
+  { title: 'HOLD FIRE',       vis: 'holdfire',  line: 'Tap anywhere on the screen to hold fire, tap again to shoot.', tips: ['Hit the ships, but a pod hit costs a life.', 'Red charges blow up the whole screen. Never touch or shoot them!'] },
   { title: 'ROCK TITAN',      vis: 'boss',      line: "The Rock Titan guards the fleet's escape. Bring it down!", tips: ['Shoot its rocks for crystals.'] },
   { title: 'PHANTOMS',        vis: 'phantom',   line: 'Phantoms turn invisible. Hit them while visible.', tips: ['Their flickering outline shows where they are.'] },
   { title: 'ION CLOUDS',      vis: 'ion',       line: 'Inside a blue ion cloud your guns jam.', tips: ['Steer around the clouds.'] },
