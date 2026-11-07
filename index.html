@@ -2654,6 +2654,12 @@ const CONVOY_WAVES = [ // ilk sürüm "çok zor", yumuşak sürüm kolay geldi: 
 const DRIFT_SAFE_Y = 260; // bu yüksekliğin üstünde mermi kapsüle değmez: görüp ateşi kesecek vakit kalsın
 let drifters = [], fireHold = false, convoySpd = 0, convoyT = 0, survivors = 0;
 const convoyOn = () => { const c = state === 'play' && !boss && getLevelConfig(); return !!(c && c.convoy); };
+// L9: parlak mermi kapsülü vurur, soluk mermi vurmaz (düşmanı yine vurur). Mermi uzaklaştıkça solar.
+const bulletFaded = b => b.safe || b.y < DRIFT_SAFE_Y;
+function bulletAlpha(b) {
+  if (bulletFaded(b)) return 0.18;
+  return 0.5 + 0.5 * Math.min(1, (b.y - DRIFT_SAFE_Y) / (player.y - 60 - DRIFT_SAFE_Y));
+}
 function toggleFire() { // kesince havadaki mermiler kapsülden geçer ama düşmanı yine vurur; açınca ilk mermi hemen çıkar
   fireHold = !fireHold; Sound.sfx.click();
   if (fireHold) bullets.forEach(b => { b.safe = true; }); else player.fireTimer = player.fireRate;
@@ -2684,7 +2690,7 @@ function updateConvoy(w, ending) {
     if (d.y < DRIFT_SAFE_Y) return true;
     let hit = false;
     bullets = bullets.filter(b => {
-      if (hit || b.safe || Math.abs(b.x - d.x) > 26 || Math.abs(b.y - d.y) > 30) return true;
+      if (hit || bulletFaded(b) || Math.abs(b.x - d.x) > 26 || Math.abs(b.y - d.y) > 30) return true;
       hit = true; return false;
     });
     if (!hit) return true;
@@ -6580,7 +6586,11 @@ function render() {
   drawIonClouds();
   if (slalomOutro > 0 && currentLevel !== 9) drawMineSilhouette();
   drawCrystals();
-  bullets.forEach(drawBullet);
+  bullets.forEach(b => {
+    if (currentLevel === 9 && !boss) ctx.globalAlpha = bulletAlpha(b);
+    drawBullet(b);
+    ctx.globalAlpha = 1;
+  });
   drawSnakeBodies();
   drawLinks();
   enemies.forEach(drawEnemy);
