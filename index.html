@@ -2651,14 +2651,15 @@ const CONVOY_WAVES = [ // ilk sürüm "çok zor", yumuşak sürüm kolay geldi: 
   { spd: 3.2, every: 92, wall: 0.4,  mine: 0.2,  foe2: 0.15, pod: 0.15, hp2: 0.3,  hp3: 0.15 },
   { spd: 4.0, every: 70, wall: 0.28, mine: 0.25, foe2: 0.3,  pod: 0.2,  hp2: 0.35, hp3: 0.15 },
 ];
+const CONVOY_CLEAR = 340;
 const DRIFT_SAFE_Y = 260; // bu yüksekliğin üstünde mermi kapsüle değmez: görüp ateşi kesecek vakit kalsın
 let drifters = [], fireHold = false, convoySpd = 0, convoyT = 0, survivors = 0;
 const convoyOn = () => { const c = state === 'play' && !boss && getLevelConfig(); return !!(c && c.convoy); };
 // L9: parlak mermi kapsülü vurur, soluk mermi vurmaz (düşmanı yine vurur). Mermi uzaklaştıkça solar.
 const bulletFaded = b => b.safe || b.y < DRIFT_SAFE_Y;
 function bulletAlpha(b) {
-  if (bulletFaded(b)) return 0.18;
-  return 0.5 + 0.5 * Math.min(1, (b.y - DRIFT_SAFE_Y) / (player.y - 60 - DRIFT_SAFE_Y));
+  const t = Math.max(0, Math.min(1, (b.y - DRIFT_SAFE_Y) / (player.y - 60 - DRIFT_SAFE_Y)));
+  return bulletFaded(b) ? 0.05 + 0.2 * t : 0.4 + 0.6 * t; // soluk mermi uzakta neredeyse görünmez
 }
 function toggleFire() { // kesince havadaki mermiler kapsülden geçer ama düşmanı yine vurur; açınca ilk mermi hemen çıkar
   fireHold = !fireHold; Sound.sfx.click();
@@ -2669,6 +2670,8 @@ function addConvoyFoe(lane, y, w) {
   spawnSlalomScout(lane, y);
   const e = enemies[enemies.length - 1], r = Math.random();
   e.speed = convoySpd; e.hp = e.maxHp = r < w.hp3 ? 3 : r < w.hp3 + w.hp2 ? 2 : 1;
+  // Şeritte hemen önünde kapsül / patlayıcı varsa ateşe vakit az kalır: dayanıklı gemi gelmez
+  if (drifters.some(d => d.lane === lane && d.y > y && d.y - y < CONVOY_CLEAR)) e.hp = e.maxHp = 1;
 }
 function mineBlast() {
   Sound.sfx.blast(); alarmFx = 40; hurtFx = 26;
@@ -2687,11 +2690,11 @@ function updateConvoy(w, ending) {
     d.y += convoySpd;
     if (d.y > H + 40) { if (d.type === 'pod') survivors++; return false; }
     if (d.type === 'mine' && !player.dead && Math.abs(d.x - player.x) < 34 && Math.abs(d.y - player.y) < 38) { blast = true; return false; }
-    if (d.y < DRIFT_SAFE_Y) return true;
     let hit = false;
     bullets = bullets.filter(b => {
-      if (hit || bulletFaded(b) || Math.abs(b.x - d.x) > 26 || Math.abs(b.y - d.y) > 30) return true;
-      hit = true; return false;
+      if (hit || Math.abs(b.x - d.x) > 26 || Math.abs(b.y - d.y) > 30) return true;
+      if (!bulletFaded(b) && d.y >= DRIFT_SAFE_Y) hit = true;
+      return false; // soluk mermi kapsülde söner: içinden geçip arkadaki gemiyi vuramaz
     });
     if (!hit) return true;
     if (d.type === 'mine') { blast = true; return false; }
