@@ -4770,6 +4770,7 @@ const FIRST_SEEN = {
   phantom:   { title: 'PHANTOM',        text: 'Turns invisible. Shots pass through it while hidden.' },
   ion:       { title: 'ION CLOUD',      text: 'Your guns jam inside it. Steer around it.' },
   beam:      { title: 'BEAM WARNING',   text: 'A beam will fire down this lane. Move out!' },
+  titanBomb: { title: 'BOMBS',          text: 'Fly over bombs to collect them. You will need them for what is coming.' },
 };
 let seenIntro = {};
 try { seenIntro = JSON.parse(localStorage.getItem('ss_seen') || '{}') || {}; } catch(e) { seenIntro = {}; }
@@ -4782,6 +4783,7 @@ function checkFirstSeen() {
   const want = (key, x, y) => { if (!seenIntro[key] && !introCard) { introCard = { key, x, y, t: 0 }; Sound.sfx.click(); } };
   for (const p of powerups) if (FIRST_SEEN[p.type] && vis(p.y)) want(p.type, p.x, p.y);
   for (const c of crystals) if (vis(c.y)) want('crystal', c.x, c.y);
+  for (const d of bombDrops) if (vis(d.y)) want('titanBomb', d.x, d.y);
   if (overdriveTimer > OVERDRIVE_TIME - 3) want('overdrive', player.x, player.y);
   for (const a of asteroids) {
     if (a.type === 'iron' && vis(a.y)) want('iron', a.x, a.y);
