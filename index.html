@@ -2272,34 +2272,71 @@ function updateScans() {
   stealthScans = stealthScans.filter(c => player.y - c.t * SCAN_SPD < H + 170);
 }
 // Karanlık + tarama ışığı + kaya gölgeleri (kayalardan önce çizilir)
-function drawStealth() {
-  ctx.save();
-  ctx.fillStyle = 'rgba(2,3,12,0.42)'; ctx.fillRect(0, 0, W, H);
-  const c = stealthScans[0], sweepAt = player.y / SCAN_SPD;
-  if (c && c.t < sweepAt + SCAN_WARN) {
-    const y = player.y - c.t * SCAN_SPD; // ışığın ön kenarı
-    if (c.t > sweepAt) { // uyarı: üstte yanıp sönen ışık şeridi
-      const k = 1 - (c.t - sweepAt) / SCAN_WARN, pulse = 0.5 + 0.5 * Math.sin(frameCount * 0.35);
-      const g = ctx.createLinearGradient(0, HUD_H, 0, HUD_H + 70);
-      g.addColorStop(0, `rgba(255,236,170,${(0.2 + 0.4 * pulse) * k})`); g.addColorStop(1, 'rgba(255,236,170,0)');
-      ctx.fillStyle = g; ctx.fillRect(0, HUD_H, W, 70);
-    } else {
-      const g = ctx.createLinearGradient(0, y - 170, 0, y);
-      g.addColorStop(0, 'rgba(255,236,170,0)'); g.addColorStop(1, 'rgba(255,236,170,0.5)');
-      ctx.fillStyle = g; ctx.fillRect(0, y - 170, W, 170);
-      ctx.fillStyle = 'rgba(255,245,205,0.95)'; ctx.fillRect(0, y - 2, W, 4);
-    }
-    // Gölgeler: uyarı başlayınca görünür, güvenli yer burası
-    asteroids.forEach(a => {
-      if (!a.amb || a.y < -30 || a.y > player.y + 60) return;
-      const y0 = a.y + 4, y1 = a.y + SHADOW_LEN, hw = 38;
-      const g = ctx.createLinearGradient(0, y0, 0, y1);
-      g.addColorStop(0, 'rgba(0,0,6,0.92)'); g.addColorStop(0.85, 'rgba(0,0,6,0.7)'); g.addColorStop(1, 'rgba(0,0,6,0.2)');
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.moveTo(a.x - hw + 8, y0); ctx.lineTo(a.x + hw - 8, y0); ctx.lineTo(a.x + hw, y1); ctx.lineTo(a.x - hw, y1); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = 'rgba(150,190,255,0.3)'; ctx.lineWidth = 1.5; ctx.stroke();
-    });
+// L7 görünüm: koyu maden, tepede tarayıcı ray, yumuşak kenarlı gerçek gölge (çizgisiz, uzaklaştıkça dağılır)
+let shadowSprite = null;
+function getShadowSprite() { // bir kez çizilir: üstte dar ve koyu, aşağı indikçe genişler, kenarı yumuşar, ucu söner
+  if (shadowSprite) return shadowSprite;
+  const SW = 150, TAIL = 50, c = document.createElement('canvas'); c.width = SW; c.height = SHADOW_LEN + TAIL;
+  const g = c.getContext('2d');
+  for (let y = 0; y < SHADOW_LEN + TAIL; y++) { // güvenli bölge sonuna kadar koyu, sonrası (TAIL) yavaşça söner
+    const t = Math.min(1, y / SHADOW_LEN), core = 30 + 10 * t, soft = 6 + 30 * t + Math.max(0, y - SHADOW_LEN) * 0.4;
+    const a = (0.94 - 0.3 * t) * (y > SHADOW_LEN ? 1 - (y - SHADOW_LEN) / TAIL : 1) * Math.min(1, y / 6);
+    const lg = g.createLinearGradient(SW / 2 - core - soft, 0, SW / 2 + core + soft, 0), e = soft / (2 * (core + soft));
+    lg.addColorStop(0, 'rgba(0,0,4,0)'); lg.addColorStop(e, `rgba(0,0,4,${a})`);
+    lg.addColorStop(1 - e, `rgba(0,0,4,${a})`); lg.addColorStop(1, 'rgba(0,0,4,0)');
+    g.fillStyle = lg; g.fillRect(0, y, SW, 1);
   }
+  return shadowSprite = c;
+}
+function stealthScanState() { // k: ışığın gücü (0 yok · uyarıda artar · 1 tarama), y: ışığın ön kenarı
+  const c = stealthScans[0], sweepAt = player.y / SCAN_SPD;
+  if (!c || c.t >= sweepAt + SCAN_WARN) return null;
+  if (c.t > sweepAt) return { warn: true, k: 1 - (c.t - sweepAt) / SCAN_WARN, y: null };
+  return { warn: false, k: 1, y: player.y - c.t * SCAN_SPD };
+}
+function drawStealth() { // arka plan üstü, kayalar ve gemiden önce
+  ctx.save();
+  // karanlık: sadece geminin çevresi hafif aydınlık
+  const v = ctx.createRadialGradient(player.x, player.y, 40, player.x, player.y, 330);
+  v.addColorStop(0, 'rgba(2,3,10,0.35)'); v.addColorStop(1, 'rgba(2,3,10,0.82)');
+  ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+  const S = stealthScanState();
+  if (S && !S.warn) { // tarama ışığı: arkasında kalan alan aydınlanır
+    ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createLinearGradient(0, HUD_H, 0, S.y);
+    g.addColorStop(0, 'rgba(255,226,150,0.04)'); g.addColorStop(0.75, 'rgba(255,226,150,0.12)'); g.addColorStop(1, 'rgba(255,236,180,0.38)');
+    ctx.fillStyle = g; ctx.fillRect(0, HUD_H, W, Math.max(0, S.y - HUD_H));
+    const e = ctx.createLinearGradient(0, S.y - 6, 0, S.y + 26);
+    e.addColorStop(0, 'rgba(255,245,215,0.7)'); e.addColorStop(1, 'rgba(255,245,215,0)');
+    ctx.fillStyle = e; ctx.fillRect(0, S.y - 6, W, 32);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  // tepede tarayıcı ray: lambalar boştayken sönük kırmızı, uyarıda yanıp söner, taramada beyaz
+  const ry = HUD_H + 4;
+  ctx.fillStyle = '#0d0b0a'; ctx.fillRect(0, ry, W, 12);
+  ctx.fillStyle = '#2a2420'; ctx.fillRect(0, ry + 10, W, 2);
+  const pulse = 0.5 + 0.5 * Math.sin(frameCount * 0.35);
+  for (let i = 0; i < 7; i++) {
+    const x = W * (i + 0.5) / 7;
+    const lit = !S ? 0 : S.warn ? S.k * pulse : 1;
+    ctx.fillStyle = lit > 0.05 ? `rgba(255,240,${Math.round(170 + 60 * lit)},${0.35 + 0.65 * lit})` : 'rgba(150,30,30,0.6)';
+    ctx.fillRect(x - 9, ry + 3, 18, 5);
+    if (lit > 0.05) {
+      const h = ctx.createRadialGradient(x, ry + 8, 2, x, ry + 8, 40 * lit + 10);
+      h.addColorStop(0, `rgba(255,236,170,${0.5 * lit})`); h.addColorStop(1, 'rgba(255,236,170,0)');
+      ctx.fillStyle = h; ctx.fillRect(x - 50, ry - 40, 100, 100);
+    }
+  }
+  ctx.restore();
+}
+function drawStealthShadows() { // gemi ve kayalardan sonra: gölgeye giren gemi kararır
+  const S = stealthScanState(); if (!S) return;
+  const spr = getShadowSprite(), fade = S.warn ? Math.min(1, S.k * 1.6) : 1;
+  ctx.save(); ctx.globalAlpha = fade;
+  asteroids.forEach(a => {
+    if (!a.amb || a.y < -30 || a.y > player.y + 60) return;
+    ctx.drawImage(spr, a.x - spr.width / 2, a.y + 6);
+  });
   ctx.restore();
 }
 function drawAlarmFx() {
@@ -6618,6 +6655,7 @@ function render() {
   if ((state === 'play' || state === 'paused' || state === 'gameover') && !player.dead) {
     drawShip(player.x, player.y);
   }
+  if (currentLevel === 7 && state !== 'levelcomplete') drawStealthShadows(); // gölgeye giren gemi kararır
   drawAlarmFx();
   drawHunterAim(); // geminin üstünde: nişangâh gemiyi çevreler
 
