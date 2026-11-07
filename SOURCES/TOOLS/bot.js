@@ -70,6 +70,7 @@ function laneValue(l) {
   }
   if (boss && Math.abs(boss.x - LANE_CENTERS[l]) < 80) v += boss.shielded === false ? 400 : 60; // açık boss = öncelik (insan gibi)
   for (const p of powerups) if (nearestLane(p.x) === l) v += 25;
+  if (typeof haulers !== 'undefined') for (const h of haulers) if (!h.leaving && h.lane === l) v += 800; // L9: yük gemisinin şeridine git
   { // L8: en yakın sıradaki kırılır kayanın şeridine git
     let near = null; for (const a of asteroids) if (a.dig && a.y < player.y - 30 && (!near || a.y > near.y)) near = a;
     if (near) for (const a of asteroids) if (a.dig && a.type === 'normal' && Math.abs(a.y - near.y) < 20 && nearestLane(a.x) === l) v += 1000;
