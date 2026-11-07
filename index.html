@@ -2338,6 +2338,8 @@ function drawStealthShadows() { // gemi ve kayalardan sonra: gölgeye giren gemi
     ctx.drawImage(spr, a.x - spr.width / 2, a.y + 6);
   });
   ctx.restore();
+  // gölge kayanın altında kalsın: sığınak kayaları gölgenin üstüne yeniden çizilir (gemi yine gölgede kararır)
+  asteroids.forEach(a => { if (a.amb && a.y > -30 && a.y < player.y + 60) drawAsteroid(a); });
 }
 function drawAlarmFx() {
   if (alarmFx <= 0) return;
