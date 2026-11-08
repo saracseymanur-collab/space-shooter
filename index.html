@@ -3523,8 +3523,6 @@ function drawStream() {
   g.addColorStop(0, 'rgba(30,255,120,0)'); g.addColorStop(0.2, 'rgba(30,255,120,0.16)'); g.addColorStop(0.5, `rgba(60,255,150,${inStream ? 0.3 : 0.22})`);
   g.addColorStop(0.8, 'rgba(30,255,120,0.16)'); g.addColorStop(1, 'rgba(30,255,120,0)');
   ctx.fillStyle = g; ctx.fillRect(x - w / 2, top, w, H - top);
-  ctx.strokeStyle = 'rgba(90,255,160,0.6)'; ctx.lineWidth = 1.5;
-  [-w / 2 + 6, w / 2 - 6].forEach(d => { ctx.beginPath(); ctx.moveTo(x + d, top); ctx.lineTo(x + d, H); ctx.stroke(); });
   ctx.font = `700 11px ${MONO_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   streamBits.forEach(b => { ctx.fillStyle = `rgba(150,255,200,${0.35 + 0.4 * Math.sin(b.y * 0.05) ** 2})`; ctx.fillText(b.c, x + b.x, b.y); });
   if (inStream) { // toplarken gemide yeşil parıltı

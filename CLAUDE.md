@@ -94,6 +94,7 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 - L14 zorluk (2026-11-08, kullanıcı: "fena değil, bir tık zorlaştır, düşman sayısı?"): `DATA_WAVES` interval ~%18 kısaldı (66-54 → 60-45), dbl / hp2 / bias biraz arttı. Bot (20 koşu): casual 4.5, expert 2.6, pro 1.6 (önce 0.4), fast 0.3; süre 58-67 sn.
 - L14 NOT (2026-11-08): `ARCHIVE_MSG` mesaj metnine kullanıcı "sonra bakalım" dedi; şimdilik Claude taslağı duruyor, hikâye metinleri güncellenirken (iş 7-9) ele alınacak.
 - L14 = L1 düşman profili (2026-11-08, kullanıcı: "L1'e yakın zorluk olsun"): önceki sürümde gemiler L1'den çok (~120) ama yavaş (2.6-3.0) ve zayıftı (3 canlı yok). Şimdi L1 gibi: hız 3.0-3.3, can karışımı `hp2` 0.4 + `hp3` 0.1-0.2, ~100 gemi / ~60 sn (L1 ~90 / 52 sn). Bot (24 koşu): L14 casual 6.3, expert 5.1, pro 1.5, fast 0.7; aynı ölçümde L1 casual 0.9, expert 1.1, pro 0, fast 0. Fark akıştan: bot akışta kalmak için tehlikeye giriyor. Kullanıcı hissine bak.
+- L14 görsel (2026-11-08): akışın kenar çizgileri kaldırıldı (kullanıcı), akan 0/1 ve yumuşak gradyan kaldı; gidilecek şeridin kesikli önizlemesi duruyor. NOT: kullanıcı L14 görselliğine sonra tekrar bakmak istiyor.
 - Mağaza planı: App Store + Google Play, Capacitor; depo gizleme mağaza hazırlığına kadar bekliyor.
 
 ## Sıralı iş listesi (2026-11-07, kullanıcı "sırayla yapalım" dedi)
