@@ -1112,6 +1112,7 @@ function spawnEnemy(yOffset = 0) {
   // stack: aynı şeritte üst üste düşman (öndekiyle en az bu kadar px aralık); yoksa şeritte tek düşman
   const stackCfg = getLevelConfig(), stack = stackCfg && stackCfg.stack;
   const occupied = new Set(enemies.filter(e => !stack || e.y < stack).map(e => e.lane));
+  if (currentLevel === 11) nebMines.forEach(m => { if (m.y < NEB_MINE_GAP) occupied.add(m.lane); }); // L11: mayının hemen arkasından gemi gelmesin (kaçıp geri dönmeye vakit kalsın)
   enemies.forEach(e => { if (e.burster) occupied.add(e.lane); }); // mor Burster'ın şeridine başka gemi girmesin (kullanıcı kararı)
   asteroids.forEach(a => {
     if (a.y < H * 0.42) {
@@ -3221,10 +3222,11 @@ const RADAR_WAVES = [ // 2026-11-08: gemiler azaltıldı (kullanıcı: mayınlar
   { every: 150, fade: 50, spd: 3.2, interval: 86,  dbl: 0.1,  hp2: 0.3,  mine: 75 },
 ];
 let nebMines = [], nebMineT = 0;
+const NEB_MINE_GAP = 300; // aynı şeritte mayınla arkasındaki gemi arası en az bu kadar px
 function spawnNebMine(R) {
   // aynı yükseklikte en fazla iki şerit: kaçış hep var
   const near = nebMines.filter(m => m.y < 90);
-  const lanes = [0, 1, 2].filter(l => !near.some(m => m.lane === l) && !enemies.some(e => e.lane === l && e.y < 110)); // gemiyle üst üste binmesin
+  const lanes = [0, 1, 2].filter(l => !near.some(m => m.lane === l) && !enemies.some(e => e.lane === l && e.y < 200)); // gemiyle üst üste binmesin, gemiyi vurmaya yer kalsın
   if (near.length >= 2 || !lanes.length) return;
   const lane = lanes[Math.floor(Math.random() * lanes.length)];
   nebMines.push({ lane, x: LANE_CENTERS[lane], y: -30, spd: R.spd, seen: 0, known: false, spin: Math.random() * 6 });
