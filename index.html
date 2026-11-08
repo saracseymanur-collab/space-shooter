@@ -3213,12 +3213,12 @@ function drawFog(density) {
 // düşman mermileri hep görünür. every: dalga aralığı · fade: görünür kalma süresi (kare)
 // mine: gizli mayın aralığı (kare). Mayın vurulamaz, mermi içinden geçer; değersen can gider.
 // Gemiler de mayınlar da gizli: şerit tarayarak ateş etmek mayına çarptırır, radarda görüleni hatırlamak gerekir.
-const RADAR_WAVES = [
-  { every: 120, fade: 70, spd: 2.6, interval: 80, dbl: 0.1,  hp2: 0.25, mine: 115 },
-  { every: 130, fade: 62, spd: 2.8, interval: 74, dbl: 0.15, hp2: 0.3,  mine: 95 },
-  { every: 140, fade: 56, spd: 3.0, interval: 72, dbl: 0.15, hp2: 0.35, mine: 85 },
-  { every: 120, fade: 60, spd: 2.7, interval: 80, dbl: 0.1,  hp2: 0.3,  mine: 100 },
-  { every: 150, fade: 50, spd: 3.2, interval: 66, dbl: 0.2,  hp2: 0.4,  mine: 75 },
+const RADAR_WAVES = [ // 2026-11-08: gemiler azaltıldı (kullanıcı: mayınlar iyi, gemi çok)
+  { every: 120, fade: 70, spd: 2.6, interval: 102, dbl: 0.05, hp2: 0.2,  mine: 115 },
+  { every: 130, fade: 62, spd: 2.8, interval: 94,  dbl: 0.08, hp2: 0.25, mine: 95 },
+  { every: 140, fade: 56, spd: 3.0, interval: 92,  dbl: 0.08, hp2: 0.3,  mine: 85 },
+  { every: 120, fade: 60, spd: 2.7, interval: 102, dbl: 0.05, hp2: 0.25, mine: 100 },
+  { every: 150, fade: 50, spd: 3.2, interval: 86,  dbl: 0.1,  hp2: 0.3,  mine: 75 },
 ];
 let nebMines = [], nebMineT = 0;
 function spawnNebMine(R) {
