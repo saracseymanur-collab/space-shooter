@@ -198,6 +198,7 @@ const Sound = (() => {
     blast()     { noise({ dur: 0.8, vol: 0.38, freq: 1200, end: 60 }); tone({ type: 'sine', f: 90, f2: 30, dur: 0.6, vol: 0.32 });
                   noise({ dur: 0.9, vol: 0.06, freq: 6000, type: 'highpass', q: 0.5, delay: 0.1, end: 2500 }); },
     swipe()     { tone({ type: 'sine', f: 420, f2: 700, dur: 0.06, vol: 0.03 }); },
+    ping()      { tone({ type: 'sine', f: 1500, f2: 1100, dur: 0.22, vol: 0.025 }); },
     crystal()   { tone({ type: 'triangle', f: 1500, f2: 2100, dur: 0.07, vol: 0.05 }); },
     click()     { tone({ type: 'square', f: 660, f2: 990, dur: 0.05, vol: 0.05 }); },
     laserWarn() { tone({ type: 'square', f: 880, dur: 0.07, vol: 0.06 }); tone({ type: 'square', f: 880, dur: 0.07, vol: 0.06, delay: 0.14 }); },
@@ -598,7 +599,7 @@ function getDoubleSpawnChance() {
 const LEVEL_TUNE = {
   // 2026-11: bölümler 50 sn'ye inince (WAVE_DENSITY) kolay kalanlar için ek sıklık
   1: { iMul: 1.2, fireMul: 1.4 }, // öğretici ama kolay değil (kullanıcı: sektör 1 kolay)
-  11: { iMul: 1.25 }, 12: { gunner: 1300, iMul: 1.4 }, 13: { iMul: 0.85 }, 14: { iMul: 1.5, diver: 0.25 },
+  11: { iMul: 1 }, 12: { gunner: 1300, iMul: 1.4 }, 13: { iMul: 0.85 }, 14: { iMul: 1.5, diver: 0.25 },
   16: { diver: 0.35, formation: true, iMul: 0.42, fireMul: 0.7 }, 17: { gunner: 1700, iMul: 1.05 }, 18: { fireMul: 0.9, iMul: 0.85 }, 19: { diver: 0.3, iMul: 0.75 },
 };
 // Bölümler 70 → 50 sn kısalınca zorluk düşmesin diye: düşman sıklığı ve özel düşman aralıkları sıklaşır
@@ -704,12 +705,15 @@ function baseLevelConfig() {
     };
     // ── Zone 3: Nebula — sis bulutları + görünmez olabilen hayalet düşmanlar ──
     // fog: sis yoğunluğu (0-1) · cloak: hayaletin görünür/görünmez süreleri (kare) · ion: iyon bulutu aralığı
-    case 11: return { // hayaletleri öğren: daha çok ve daha uzun görünmez
-      interval: 66, doubleChance: 0.2,
-      speed: () => 1.7 + Math.random() * 0.4,
-      hp: () => Math.random() < 0.45 ? 2 : 1,
-      canShoot: true, zigzag: false, phantom: 0.5, cloak: { vis: 60, inv: 80 }, fog: 0.3,
-    };
+    case 11: { // RADAR PING: düşmanlar bulutsuda görünmez, radar dalgası kısa süre gösterir
+      const lw = Math.min(5, Math.max(1, getWave() - (currentLevel - 1) * 5)), R = RADAR_WAVES[lw - 1];
+      return {
+        interval: R.interval, doubleChance: R.dbl,
+        speed: () => R.spd + Math.random() * 0.4,
+        hp: () => Math.random() < R.hp2 ? 2 : 1,
+        canShoot: true, zigzag: false, fog: 0.3, radar: R,
+      };
+    }
     case 12: return { // iyon bulutları
       interval: 66, doubleChance: 0.22,
       speed: () => 1.7 + Math.random() * 0.4,
@@ -1084,7 +1088,7 @@ function startLevel(level) {
   playFrames     = (level - 1) * LEVEL_SEC * 60;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; shards = []; powerups = [];
-  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0;
+  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
   countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
@@ -3204,6 +3208,52 @@ function drawFog(density) {
   ctx.restore();
 }
 
+// L11 RADAR PING (2026-11-08): bulutsu sensörleri kör eder. Gemiden belli aralıkla radar dalgası yayılır,
+// dalganın değdiği düşman kısa süre görünür, sonra yine kaybolur. Mermiler görünmeyen düşmanı da vurur;
+// düşman mermileri hep görünür. every: dalga aralığı · fade: görünür kalma süresi (kare)
+const RADAR_WAVES = [
+  { every: 120, fade: 70, spd: 2.6, interval: 74, dbl: 0.15, hp2: 0.25 },
+  { every: 135, fade: 60, spd: 2.8, interval: 68, dbl: 0.2,  hp2: 0.35 },
+  { every: 145, fade: 55, spd: 3.0, interval: 64, dbl: 0.22, hp2: 0.4 },
+  { every: 120, fade: 60, spd: 2.7, interval: 72, dbl: 0.15, hp2: 0.35 },
+  { every: 155, fade: 48, spd: 3.2, interval: 60, dbl: 0.25, hp2: 0.45 },
+];
+const RADAR_SPD = 13;
+let radarPings = [], radarT = 0, radarReveal = null;
+const radarOn = () => currentLevel === 11 && !boss;
+function radarAlpha(e) { return e.runner ? 1 : Math.max(e.seen || 0, e.flash > 0 ? 0.75 : 0); }
+function updateRadar(R) {
+  if (++radarT >= R.every) { radarT = 0; radarPings.push({ x: player.x, y: player.y, r: 0 }); Sound.sfx.ping(); }
+  radarPings = radarPings.filter(p => {
+    const r0 = p.r; p.r += RADAR_SPD;
+    enemies.forEach(e => {
+      const d = Math.hypot(e.x - p.x, e.y - p.y);
+      if (d > r0 && d <= p.r) { e.seen = 1; if (!radarReveal && !seenIntro.radar && e.y > HUD_H + 30) radarReveal = { x: e.x, y: e.y }; }
+    });
+    return p.r < H * 1.2;
+  });
+  enemies.forEach(e => { if (e.seen > 0) e.seen = Math.max(0, e.seen - 1 / R.fade); });
+}
+function drawRadar() {
+  ctx.save();
+  radarPings.forEach(p => {
+    const a = Math.max(0, 1 - p.r / (H * 1.1));
+    ctx.strokeStyle = `rgba(150,255,235,${0.85 * a})`; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = `rgba(120,255,230,${0.25 * a})`; ctx.lineWidth = 12;
+    ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0, p.r - 8), 0, Math.PI * 2); ctx.stroke();
+  });
+  enemies.forEach(e => { // radar izi: görünürken düşmanın etrafında küçük köşe işaretleri
+    if (e.runner || !(e.seen > 0.05)) return;
+    ctx.strokeStyle = `rgba(120,255,230,${0.7 * e.seen})`; ctx.lineWidth = 1.5;
+    const s = 30, k = 9;
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([dx, dy]) => {
+      ctx.beginPath(); ctx.moveTo(e.x + dx * s, e.y + dy * (s - k)); ctx.lineTo(e.x + dx * s, e.y + dy * s); ctx.lineTo(e.x + dx * (s - k), e.y + dy * s); ctx.stroke();
+    });
+  });
+  ctx.restore();
+}
+
 // --- İyon bulutları (Level 12, 14): içindeyken silahlar tutukluk yapar ---
 let ionClouds = [], ionTimer = 0;
 function updateIonClouds(cfg) {
@@ -3787,7 +3837,7 @@ function drawEnemy(e) {
 
   ctx.save();
   ctx.translate(e.x, e.y);
-  const baseAlpha = e.phantom ? e.alpha : 1;
+  const baseAlpha = e.phantom ? e.alpha : radarOn() ? radarAlpha(e) : 1;
   ctx.globalAlpha = baseAlpha;
 
   // Hayalet: titreyen açık mor dış hat (görünmezken de takip edilebilir)
@@ -3931,7 +3981,7 @@ function drawEnemy(e) {
       ctx.shadowBlur = 0; ctx.globalAlpha = baseAlpha;
     }
   }
-  if (e.phantom && baseAlpha < 0.45) { ctx.restore(); return; } // görünmezken can barı yok
+  if ((e.phantom || radarOn()) && baseAlpha < 0.45) { ctx.restore(); return; } // görünmezken can barı yok
 
   if (e.rammer) { ctx.restore(); return; } // vurulamaz: can barı yok (yanlış "vurabilirim" mesajı vermesin)
   // HP bar — geminin gerçek alt kenarına dayalı
@@ -4346,7 +4396,7 @@ const LEVEL_BRIEFS = [
   { title: 'DRILL LINE',      vis: 'drills',    line: 'Giant drills punch out of the walls. Time your way past them!', tips: ['Weapons are still offline.', 'The wall cracks and glows right before a drill comes out.'] },
   { title: 'HOLD FIRE',       vis: 'holdfire',  line: 'Tap anywhere on the screen to hold fire, tap again to shoot.', tips: ['Unknown signals ahead. Hit the ships, but a pod hit costs a life.', 'Red charges blow up the whole screen. Never touch or shoot them!'] },
   { title: 'IT WOKE UP',      vis: 'quake',     line: 'Deep in the mine, something has awoken. Its troops come first.', tips: ['Collect the bombs dropped by destroyed ships.', 'When its core glows, get below it and tap anywhere.', 'A bomb that misses is lost. Your guns barely scratch it.'] },
-  { title: 'PHANTOMS',        vis: 'phantom',   line: 'Phantoms turn invisible. Hit them while visible.', tips: ['Their flickering outline shows where they are.'] },
+  { title: 'RADAR PING',      vis: 'radar',     line: 'The nebula blinds your sensors. Enemies stay hidden.', tips: ['Each radar ping shows them for a moment.', 'Remember where they are and get in their lane. Your shots still hit them!'] },
   { title: 'ION CLOUDS',      vis: 'ion',       line: 'Inside a blue ion cloud your guns jam.', tips: ['Steer around the clouds.'] },
   { title: 'DEEP FOG',        vis: 'fog',       line: 'Thick fog hides the enemies.', tips: ['Look for dark silhouettes.', 'Their shots are always visible.'] },
   { title: 'PHANTOM WEAVE',   vis: 'phantom',   line: 'Phantoms now zigzag between lanes.', tips: ['Ion clouds are back. Stay sharp!'] },
@@ -4720,6 +4770,17 @@ function drawBriefVisual(kind, cx, cy, zc) {
       ctx.strokeStyle = `rgba(255,140,60,${1 - p})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(cx, cy, 20 + p * 70, 0, Math.PI * 2); ctx.stroke();
       break;
     }
+    case 'radar': { // gemiden yayılan halka, değdiği gemiler bir an görünür
+      const r = (frameCount * 1.6) % 150, sx = cx, sy = cy + 40;
+      ctx.strokeStyle = `rgba(120,255,230,${0.7 * (1 - r / 150)})`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(sx, sy, r, Math.PI, Math.PI * 2); ctx.stroke();
+      [[-70, -14], [0, -30], [70, -6]].forEach(([dx, dy]) => {
+        const d = Math.hypot(dx, dy - 40), a = r > d ? Math.max(0, 1 - (r - d) / 70) : 0;
+        briefEnemy(1, cx + dx, cy + dy, 0.5, a);
+      });
+      ctx.fillStyle = '#9fe8ff'; ctx.beginPath(); ctx.moveTo(sx, sy - 9); ctx.lineTo(sx - 8, sy + 7); ctx.lineTo(sx + 8, sy + 7); ctx.closePath(); ctx.fill();
+      break;
+    }
     case 'phantom': {
       [0, 1, 2].forEach(k => {
         const img = enemyImgs[2], ol = getPhantomOutline(img, 2), x = cx - 80 + k * 80, a = [1, 0.45, 0.1][k];
@@ -4858,6 +4919,7 @@ const FIRST_SEEN = {
   ion:       { title: 'ION CLOUD',      text: 'Your guns jam inside it. Steer around it.' },
   beam:      { title: 'BEAM WARNING',   text: 'A beam will fire down this lane. Move out!' },
   heart:     { title: 'EXTRA LIFE',     text: 'Fly over it to get back a lost life.' },
+  radar:     { title: 'RADAR PING',     text: 'Enemies hide in the nebula. Each radar ping shows them for a moment. Remember where they are!' },
   titanBomb: { title: 'BOMBS',          text: 'Fly over bombs to collect them. You will need them for what is coming.' },
   titanCore: { title: 'CORE OPEN',      text: 'Get below it and tap anywhere to throw a bomb.' },
 };
@@ -4874,6 +4936,7 @@ function checkFirstSeen() {
   for (const c of crystals) if (vis(c.y)) want('crystal', c.x, c.y);
   for (const d of bombDrops) if (vis(d.y)) want('titanBomb', d.x, d.y);
   if (titanCoreOpen()) want('titanCore', boss.x, boss.y);
+  if (radarReveal) want('radar', radarReveal.x, radarReveal.y);
   if (overdriveTimer > OVERDRIVE_TIME - 3) want('overdrive', player.x, player.y);
   for (const a of asteroids) {
     if (a.type === 'iron' && vis(a.y)) want('iron', a.x, a.y);
@@ -5623,6 +5686,7 @@ function update() {
     }
   }
 
+  if (radarOn() && state === 'play' && !player.dead && _zcfg && _zcfg.radar) updateRadar(_zcfg.radar);
   if ((currentZone === 2 || currentZone === 4) && state === 'play' && !player.dead) {
     // Asteroid spawning (zone 2)
     const levelEnd = currentLevel % 5 !== 0 && getWave() > currentLevel * 5;
@@ -6712,6 +6776,7 @@ function render() {
   if (boss) drawBoss(boss);
   drawRecoilFx('top');
   if (currentZone === 3) { const fc = getLevelConfig(); drawFog(fc && fc.fog ? fc.fog : 0.4); } // sis düşmanları örter, mermileri değil
+  if (radarOn()) drawRadar();
   powerups.forEach(drawPowerup); // güçlendirmeler her zaman net: sisin üstünde
   drawLasers();
   eBullets.forEach(drawEBullet);
