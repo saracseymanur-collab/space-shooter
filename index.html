@@ -3466,12 +3466,12 @@ function drawWarp() { // ışınlanma izi + uyarıda inecekleri yerdeki soluk ko
 }
 // --- L14 DATA STREAM: bir şeridi kaplayan veri akışı; içinde kalınca ARCHIVE dolar. Akış ara ara şerit değiştirir
 // (gideceği şeritte önce soluk çizgi). Bölüm sonunda toplanan kadar çözülmüş mesaj (hikâye ipucu 2).
-const DATA_WAVES = [
-  { shift: 260, pre: 70, dblShift: 0,    spd: 2.6, interval: 66, dbl: 0.1,  hp2: 0.25, bias: 0.45 },
-  { shift: 220, pre: 60, dblShift: 0,    spd: 2.8, interval: 60, dbl: 0.15, hp2: 0.3,  bias: 0.6 },
-  { shift: 180, pre: 56, dblShift: 0.2,  spd: 2.8, interval: 62, dbl: 0.15, hp2: 0.3,  bias: 0.55 },
-  { shift: 200, pre: 44, dblShift: 0.6,  spd: 2.6, interval: 72, dbl: 0.1,  hp2: 0.3,  bias: 0.5 }, // nefes + arka arkaya kayma
-  { shift: 160, pre: 50, dblShift: 0.35, spd: 3.0, interval: 54, dbl: 0.2,  hp2: 0.4,  bias: 0.65 },
+const DATA_WAVES = [ // 2026-11-08: düşman ~%20 arttı (kullanıcı: bir tık zorlaştır)
+  { shift: 260, pre: 70, dblShift: 0,    spd: 2.6, interval: 54, dbl: 0.15, hp2: 0.25, bias: 0.5 },
+  { shift: 220, pre: 60, dblShift: 0,    spd: 2.8, interval: 50, dbl: 0.2,  hp2: 0.3,  bias: 0.6 },
+  { shift: 180, pre: 56, dblShift: 0.2,  spd: 2.8, interval: 50, dbl: 0.2,  hp2: 0.35, bias: 0.6 },
+  { shift: 200, pre: 44, dblShift: 0.6,  spd: 2.6, interval: 60, dbl: 0.15, hp2: 0.3,  bias: 0.55 }, // nefes + arka arkaya kayma
+  { shift: 160, pre: 50, dblShift: 0.35, spd: 3.0, interval: 45, dbl: 0.25, hp2: 0.4,  bias: 0.65 },
 ];
 const ARCHIVE_FULL = 2400; // akışta bu kadar kare = %100; bölüm arşiv dolunca biter (dalgalar arşivle ilerler)
 const ARCHIVE_MSG = [
