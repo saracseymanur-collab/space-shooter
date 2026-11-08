@@ -602,7 +602,7 @@ function getDoubleSpawnChance() {
 const LEVEL_TUNE = {
   // 2026-11: bölümler 50 sn'ye inince (WAVE_DENSITY) kolay kalanlar için ek sıklık
   1: { iMul: 1.2, fireMul: 1.4 }, // öğretici ama kolay değil (kullanıcı: sektör 1 kolay)
-  11: { iMul: 1 }, 12: { iMul: 1 }, 13: { iMul: 0.85 }, 14: { iMul: 1.5, diver: 0.25 },
+  11: { iMul: 1 }, 12: { iMul: 1 }, 13: { iMul: 1 }, 14: { iMul: 1.5, diver: 0.25 },
   16: { diver: 0.35, formation: true, iMul: 0.42, fireMul: 0.7 }, 17: { gunner: 1700, iMul: 1.05 }, 18: { fireMul: 0.9, iMul: 0.85 }, 19: { diver: 0.3, iMul: 0.75 },
 };
 // Bölümler 70 → 50 sn kısalınca zorluk düşmesin diye: düşman sıklığı ve özel düşman aralıkları sıklaşır
@@ -726,12 +726,15 @@ function baseLevelConfig() {
         canShoot: true, zigzag: false, fog: 0.15, fireMul: 1.3, storm: S,
       };
     }
-    case 13: return { // yoğun sis
-      interval: 62, doubleChance: 0.28,
-      speed: () => 1.8 + Math.random() * 0.5,
-      hp: () => { const r = Math.random(); return r < 0.15 ? 3 : r < 0.55 ? 2 : 1; },
-      canShoot: true, zigzag: false, phantom: 0.45, fog: 0.7,
-    };
+    case 13: { // GHOST FLEET: gemiler titrer, hepsi birden ileri ışınlanır
+      const lw = Math.min(5, Math.max(1, getWave() - (currentLevel - 1) * 5)), G = WARP_WAVES[lw - 1];
+      return {
+        interval: G.interval, doubleChance: G.dbl,
+        speed: () => G.spd + Math.random() * 0.3,
+        hp: () => { const r = Math.random(); return r < G.hp3 ? 3 : r < G.hp3 + G.hp2 ? 2 : 1; },
+        canShoot: true, zigzag: false, fog: 0.2, warp: G,
+      };
+    }
     case 14: case 15: return { // zikzak hayaletler + iyon bulutları
       interval: 66, doubleChance: 0.25,
       speed: () => 1.8 + Math.random() * 0.5,
@@ -1094,7 +1097,7 @@ function startLevel(level) {
   playFrames     = (level - 1) * LEVEL_SEC * 60;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; shards = []; powerups = [];
-  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1; stormClouds = []; stormCloudT = 0;
+  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; warpT = 0; warpWarn = 0; warpTrails = []; warpSeen = null; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1; stormClouds = []; stormCloudT = 0;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
   countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
@@ -3388,6 +3391,67 @@ function drawStorm() {
   });
   if (stormFlash > 0) { ctx.fillStyle = `rgba(210,230,255,${0.22 * stormFlash / 10})`; ctx.fillRect(0, 0, W, H); }
 }
+// --- L13 GHOST FLEET: tüm gemiler titrer (uyarı, inecekleri yerde soluk kopya), sonra aynı anda ileri ışınlanır ---
+const WARP_WAVES = [ // hp3: üç canlı oranı
+  { every: 105, warn: 44, dist: 260, spd: 2.6, interval: 52, dbl: 0.25, hp2: 0.4,  hp3: 0.05 },
+  { every: 92,  warn: 40, dist: 290, spd: 2.8, interval: 48, dbl: 0.3,  hp2: 0.45, hp3: 0.1 },
+  { every: 88,  warn: 38, dist: 300, spd: 2.8, interval: 48, dbl: 0.3,  hp2: 0.45, hp3: 0.12 },
+  { every: 120, warn: 28, dist: 320, spd: 2.6, interval: 58, dbl: 0.25, hp2: 0.45, hp3: 0.1 }, // nefes + kısa uyarılı sürpriz
+  { every: 76,  warn: 36, dist: 320, spd: 3.0, interval: 44, dbl: 0.35, hp2: 0.5,  hp3: 0.15 },
+];
+const WARP_LIMIT = 160; // oyuncunun bu kadar üstüne kadar ışınlanır (önüne düşmez)
+let warpT = 0, warpWarn = 0, warpTrails = [], warpSeen = null;
+function updateWarp(G) {
+  warpTrails = warpTrails.filter(t => --t.life > 0);
+  const limit = player.y - WARP_LIMIT;
+  if (!warpWarn) {
+    if (++warpT < G.every) return;
+    const jumpers = enemies.filter(e => !e.runner && e.y > HUD_H - 10 && e.y < limit - 30);
+    if (!jumpers.length) { warpT = G.every - 20; return; }
+    warpT = 0; warpWarn = G.warn; Sound.sfx.crackle();
+    jumpers.forEach(e => { e.warpTo = Math.min(e.y + G.dist, limit); });
+    if (!seenIntro.warp) warpSeen = { x: jumpers[0].x, y: jumpers[0].y };
+    return;
+  }
+  if (--warpWarn > 0) return;
+  let any = false;
+  enemies.forEach(e => {
+    if (e.warpTo == null) return;
+    warpTrails.push({ x: e.x, y0: e.y, y1: e.warpTo, life: 16 });
+    e.y = e.warpTo; e.warpTo = null; any = true;
+    if (e.fireRate) e.fireTimer = Math.max(e.fireTimer || 0, e.fireRate - 24); // indiği an ateş eder
+  });
+  if (any) Sound.sfx.whoosh();
+}
+const warpGhosts = {};
+function getWarpGhost(tier) { // ineceği yerdeki kopya: camgöbeği siluet
+  const src = getNeonSprite(enemyImgs[tier], tier);
+  if (!src) return null;
+  if (!warpGhosts[tier]) {
+    const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+    const g = c.getContext('2d'); g.drawImage(src, 0, 0);
+    g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(110,230,255,0.9)'; g.fillRect(0, 0, c.width, c.height);
+    warpGhosts[tier] = c;
+  }
+  return warpGhosts[tier];
+}
+function drawWarp() { // ışınlanma izi + uyarıda inecekleri yerdeki soluk kopya (gemilerin altında)
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  warpTrails.forEach(t => {
+    const k = t.life / 16, g = ctx.createLinearGradient(0, t.y0, 0, t.y1);
+    g.addColorStop(0, 'rgba(90,230,255,0)'); g.addColorStop(1, `rgba(150,240,255,${0.55 * k})`);
+    ctx.fillStyle = g; ctx.fillRect(t.x - 16 * k - 4, t.y0, (16 * k + 4) * 2, t.y1 - t.y0);
+    ctx.fillStyle = `rgba(230,250,255,${0.8 * k})`; ctx.fillRect(t.x - 1.5, t.y0, 3, t.y1 - t.y0);
+  });
+  if (warpWarn > 0) enemies.forEach(e => {
+    if (e.warpTo == null) return;
+    const sz = ENEMY_SIZES[e.maxHp] ?? { w: 80, h: 60 }, spr = getWarpGhost(e.maxHp);
+    ctx.strokeStyle = 'rgba(120,230,255,0.35)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 6]);
+    ctx.beginPath(); ctx.moveTo(e.x, e.y + 20); ctx.lineTo(e.x, e.warpTo - 20); ctx.stroke(); ctx.setLineDash([]);
+    if (spr) { ctx.globalAlpha = 0.45 + 0.15 * Math.sin(frameCount * 0.6); ctx.drawImage(spr, e.x - sz.w / 2, e.warpTo - sz.h / 2, sz.w, sz.h); ctx.globalAlpha = 1; }
+  });
+  ctx.restore();
+}
 const RADAR_WAVES = [ // 2026-11-08: gemiler azaltıldı (kullanıcı: mayınlar iyi, gemi çok)
   { every: 120, fade: 70, spd: 2.6, interval: 102, dbl: 0.05, hp2: 0.2,  mine: 115 },
   { every: 130, fade: 62, spd: 2.8, interval: 94,  dbl: 0.08, hp2: 0.25, mine: 95 },
@@ -4068,8 +4132,13 @@ function drawEnemy(e) {
   const img  = enemyImgs[e.maxHp];
 
   ctx.save();
+  if (currentLevel === 13 && !e.runner) { // hayalet filo: hep hafif titrer, ışınlanmadan önce güçlü
+    const j = e.warpTo != null ? 3 : 0.8;
+    ctx.translate((Math.random() - 0.5) * j * 2, (Math.random() - 0.5) * j);
+  }
   ctx.translate(e.x, e.y);
-  const baseAlpha = e.phantom ? e.alpha : radarOn() ? radarAlpha(e) : 1;
+  let baseAlpha = e.phantom ? e.alpha : radarOn() ? radarAlpha(e) : 1;
+  if (e.warpTo != null && frameCount % 4 < 2) baseAlpha *= 0.4;
   ctx.globalAlpha = baseAlpha;
 
   // Hayalet: titreyen açık mor dış hat (görünmezken de takip edilebilir)
@@ -4630,7 +4699,7 @@ const LEVEL_BRIEFS = [
   { title: 'IT WOKE UP',      vis: 'quake',     line: 'Deep in the mine, something has awoken. Its troops come first.', tips: ['Collect the bombs dropped by destroyed ships.', 'When its core glows, get below it and tap anywhere.', 'A bomb that misses is lost. Your guns barely scratch it.'] },
   { title: 'RADAR PING',      vis: 'radar',     line: 'The nebula blinds your sensors. Ships and mines stay hidden.', tips: ['Each radar ping shows them for a moment.', "Mines can't be shot. Remember where they are and steer clear!"] },
   { title: 'ION STORM',       vis: 'storm',     line: 'The storm guards their base. Lightning strikes a whole lane.', tips: ['When the cloud above a lane glows, get out of that lane!', 'Sometimes it strikes lane after lane. Move the other way.'] },
-  { title: 'DEEP FOG',        vis: 'fog',       line: 'Thick fog hides the enemies.', tips: ['Look for dark silhouettes.', 'Their shots are always visible.'] },
+  { title: 'GHOST FLEET',     vis: 'warp',      line: 'Their ships warp forward, all at once.', tips: ['When they flicker, they are about to jump.', 'The faint copy shows where each one lands.'] },
   { title: 'PHANTOM WEAVE',   vis: 'phantom',   line: 'Phantoms now zigzag between lanes.', tips: ['Ion clouds are back. Stay sharp!'] },
   { title: 'COMMAND CENTER',  vis: 'boss',      line: 'Destroy the Void Colony command center!', tips: ['Drones come down the lane its shots leave open.', 'It turns invisible in later phases.'] },
   { title: 'GRAVITY WELL',    vis: 'gravity',   line: 'Gravity pulls enemies into other lanes.', tips: ['Some get pulled twice. Follow them!'] },
@@ -5055,6 +5124,23 @@ function drawBriefVisual(kind, cx, cy, zc) {
       ctx.fillStyle = '#9fe8ff'; ctx.font = `700 10px ${TEXT_FONT}`; ctx.textAlign = 'center'; ctx.fillText('JAMMED', cx, cy + 34);
       break;
     }
+    case 'warp': { // gemi titrer, aşağıda soluk kopyası, sonra ışınlanır
+      const cyc = frameCount % 110, sz = ENEMY_SIZES[1], spr = getNeonSprite(enemyImgs[1], 1);
+      const w = sz.w * 0.55, h = sz.h * 0.55, y0 = cy - 34, y1 = cy + 22;
+      ctx.save();
+      if (cyc < 60) {
+        const gs = getWarpGhost(1); if (gs) { ctx.globalAlpha = 0.4; ctx.drawImage(gs, cx - w / 2, y1 - h / 2, w, h); }
+        ctx.globalAlpha = frameCount % 4 < 2 ? 1 : 0.4;
+        if (spr) ctx.drawImage(spr, cx - w / 2 + (Math.random() - 0.5) * 4, y0 - h / 2, w, h);
+      } else {
+        const k = Math.max(0, 1 - (cyc - 60) / 16);
+        ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(150,240,255,${0.6 * k})`; ctx.fillRect(cx - 2, y0, 4, y1 - y0);
+        ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+        if (spr) ctx.drawImage(spr, cx - w / 2, y1 - h / 2, w, h);
+      }
+      ctx.restore();
+      break;
+    }
     case 'fog': {
       briefEnemy(2, cx - 60, cy - 6, 0.6, 0.35); briefEnemy(1, cx + 50, cy + 6, 0.7, 0.35);
       const fg = ctx.createLinearGradient(0, cy - 40, 0, cy + 40);
@@ -5171,6 +5257,7 @@ const FIRST_SEEN = {
   explosive: { title: 'EXPLOSIVE ROCK', text: 'Shoot it to blow up everything nearby.' },
   meteor:    { title: 'INCOMING ROCKS', text: 'Rocks are coming down this lane. Move out!' },
   phantom:   { title: 'PHANTOM',        text: 'Turns invisible. Shots pass through it while hidden.' },
+  warp:      { title: 'WARP JUMP',      text: 'When the ships flicker, they all jump forward. The faint copy shows where each one lands.' },
   bolt:      { title: 'LIGHTNING',      text: 'The glowing cloud marks the lane it will strike. Get out of that lane!' },
   ion:       { title: 'ION CLOUD',      text: 'Your guns jam inside it. Steer around it.' },
   beam:      { title: 'BEAM WARNING',   text: 'A beam will fire down this lane. Move out!' },
@@ -5195,6 +5282,7 @@ function checkFirstSeen() {
   if (titanCoreOpen()) want('titanCore', boss.x, boss.y);
   if (radarReveal) want('radar', radarReveal.x, radarReveal.y);
   if (mineReveal) want('nebMine', mineReveal.x, mineReveal.y);
+  if (warpSeen) { want('warp', warpSeen.x, warpSeen.y); warpSeen = null; }
   for (const B of bolts) if (B.t > 6 && B.t < B.warn - 20) want('bolt', LANE_CENTERS[B.lane], H * 0.3);
   if (overdriveTimer > OVERDRIVE_TIME - 3) want('overdrive', player.x, player.y);
   for (const a of asteroids) {
@@ -5945,6 +6033,7 @@ function update() {
     }
   }
 
+  if (currentLevel === 13 && !boss && state === 'play' && !player.dead && _zcfg && _zcfg.warp) updateWarp(_zcfg.warp);
   if (currentLevel === 12 && !boss && state === 'play' && !player.dead && _zcfg && _zcfg.storm) updateStorm(_zcfg.storm, getWave() > currentLevel * 5);
   if (radarOn() && state === 'play' && !player.dead && _zcfg && _zcfg.radar) { updateRadar(_zcfg.radar); updateNebMines(_zcfg.radar, getWave() > currentLevel * 5); }
   if ((currentZone === 2 || currentZone === 4) && state === 'play' && !player.dead) {
@@ -6211,7 +6300,7 @@ function update() {
       e.ambushT = 120;     // bu sürede yeni demir kaya gelmez
     }
     if (e.ambushT > 0) e.ambushT--;
-    e.y += e.speed;
+    if (!(warpWarn > 0 && e.warpTo != null)) e.y += e.speed; // L13: ışınlanmadan önce yerinde titrer
     // Dalan düşman: durur (uyarı) → komşu şeride dalar, hızlanır, inince bir kez ateş eder
     if (e.diver && !e.diveState && e.y > e.diveAt) {
       const pl = playerLaneNow();
@@ -7031,6 +7120,7 @@ function render() {
   });
   drawSnakeBodies();
   drawLinks();
+  if (currentLevel === 13) drawWarp();
   enemies.forEach(drawEnemy);
   drawRecoilFx('under');
   if (boss) drawBoss(boss);
