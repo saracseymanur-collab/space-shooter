@@ -3473,7 +3473,7 @@ const DATA_WAVES = [
   { shift: 200, pre: 44, dblShift: 0.6,  spd: 2.6, interval: 72, dbl: 0.1,  hp2: 0.3,  bias: 0.5 }, // nefes + arka arkaya kayma
   { shift: 160, pre: 50, dblShift: 0.35, spd: 3.0, interval: 54, dbl: 0.2,  hp2: 0.4,  bias: 0.65 },
 ];
-const ARCHIVE_FULL = 2800; // akışta bu kadar kare = %100 (neredeyse hep akışta kalmak gerekir)
+const ARCHIVE_FULL = 2400; // akışta bu kadar kare = %100; bölüm arşiv dolunca biter (dalgalar arşivle ilerler)
 const ARCHIVE_MSG = [
   '...if this message ever reaches you,',
   'the colony is not what we were promised.',
@@ -3499,7 +3499,7 @@ function updateStream(D, ending) {
   inStream = !player.dead && Math.abs(streamX - tx) < 4 && Math.abs(player.x - streamX) < LANE_W * 0.4;
   if (inStream && archive < 1) {
     archive = Math.min(1, archive + 1 / ARCHIVE_FULL);
-    if (playFrames % 14 === 0) Sound.sfx.crystal();
+    if (frameCount % 14 === 0) Sound.sfx.crystal();
   }
   if (frameCount % 3 === 0) streamBits.push({ x: (Math.random() - 0.5) * LANE_W * 0.6, y: HUD_H, v: 5 + Math.random() * 3, c: Math.random() < 0.5 ? '0' : '1' });
   streamBits = streamBits.filter(b => {
@@ -3554,7 +3554,7 @@ function drawArchiveCard() { // bölüm sonu: toplanan kadar çözülmüş mesaj
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillStyle = 'rgba(160,255,210,0.7)'; drawSpaced('ARCHIVE FRAGMENT RECOVERED', W / 2, cy + 30, 10, 700, MONO_FONT, 2);
   ctx.fillStyle = '#fff'; drawSpaced('PERSONAL MESSAGE', W / 2, cy + 56, 15, 700, UI_FONT, 3);
-  ctx.fillStyle = 'rgba(160,255,210,0.7)'; drawSpaced('DECODED ' + Math.round(pct * 100) + '%', W / 2, cy + 80, 10, 700, MONO_FONT, 2);
+  ctx.fillStyle = 'rgba(160,255,210,0.7)'; drawSpaced(n0done(C) ? 'DECODED 100%' : 'DECODING...', W / 2, cy + 80, 10, 700, MONO_FONT, 2);
   const shown = Math.floor(C.t * 1.4); let n = 0; // daktilo
   const glyph = '#%&/\\|=+*';
   ctx.font = `600 14px ${MONO_FONT}`;
@@ -3564,17 +3564,18 @@ function drawArchiveCard() { // bölüm sonu: toplanan kadar çözülmüş mesaj
     for (let i = 0; i < line.length; i++, n++) {
       if (n > shown) break;
       const ch2 = line[i], hs = Math.sin(li * 12.9898 + i * 78.233) * 43758.5453, h = hs - Math.floor(hs); // harf başına sabit rastgele
-      out += ch2 === ' ' || last || h < 0.15 + pct * 0.85 ? ch2 : glyph[(i + Math.floor(frameCount / 5)) % glyph.length];
+      out += ch2 === ' ' || n < shown - 5 ? ch2 : glyph[(i + Math.floor(frameCount / 3)) % glyph.length]; // yazılırken kısa çözülme titremesi
     }
     ctx.fillStyle = last ? '#c8ffe4' : 'rgba(200,255,225,0.85)';
     if (last) { ctx.shadowColor = '#5dffb0'; ctx.shadowBlur = 10; }
     ctx.fillText(out, W / 2, cy + 128 + li * (last ? 34 : 30) + (last ? 14 : 0));
     ctx.shadowBlur = 0;
   });
-  if (C.t > 90 && Math.floor(frameCount / 20) % 2) { ctx.fillStyle = 'rgba(160,255,210,0.8)'; drawSpaced('TAP TO CONTINUE', W / 2, cy + ch - 26, 11, 700, UI_FONT, 3); }
+  if (n0done(C) && Math.floor(frameCount / 20) % 2) { ctx.fillStyle = 'rgba(160,255,210,0.8)'; drawSpaced('TAP TO CONTINUE', W / 2, cy + ch - 26, 11, 700, UI_FONT, 3); }
   ctx.restore();
 }
-function closeArchiveCard() { if (!archiveCard || archiveCard.t <= 90) return; archiveCard = null; archiveDone = true; Sound.sfx.click(); }
+function n0done(C) { return C.t * 1.4 > ARCHIVE_MSG.join('').length + 8; }
+function closeArchiveCard() { if (!archiveCard || !n0done(archiveCard)) return; archiveCard = null; archiveDone = true; Sound.sfx.click(); }
 const RADAR_WAVES = [ // 2026-11-08: gemiler azaltıldı (kullanıcı: mayınlar iyi, gemi çok)
   { every: 120, fade: 70, spd: 2.6, interval: 102, dbl: 0.05, hp2: 0.2,  mine: 115 },
   { every: 130, fade: 62, spd: 2.8, interval: 94,  dbl: 0.08, hp2: 0.25, mine: 95 },
@@ -4823,7 +4824,7 @@ const LEVEL_BRIEFS = [
   { title: 'RADAR PING',      vis: 'radar',     line: 'The nebula blinds your sensors. Ships and mines stay hidden.', tips: ['Each radar ping shows them for a moment.', "Mines can't be shot. Remember where they are and steer clear!"] },
   { title: 'ION STORM',       vis: 'storm',     line: 'The storm guards their base. Lightning strikes a whole lane.', tips: ['When the cloud above a lane glows, get out of that lane!', 'Sometimes it strikes lane after lane. Move the other way.'] },
   { title: 'GHOST FLEET',     vis: 'warp',      line: 'Their ships warp forward, all at once.', tips: ['When they flicker, they are about to jump.', 'The faint copy shows where each one lands.'] },
-  { title: 'DATA STREAM',     vis: 'stream',    line: 'Their data flows through the nebula. Stay inside the stream to copy it.', tips: ['The stream jumps lanes. A faint line shows where it goes next.', 'Enemies like the stream too. Dodge out and come back.'] },
+  { title: 'DATA STREAM',     vis: 'stream',    line: 'Their data flows through the nebula. Stay inside the stream to copy it.', tips: ['The level ends when the archive is full.', 'The stream jumps lanes. A faint line shows where it goes next.', 'Enemies like the stream too. Dodge out and come back.'] },
   { title: 'COMMAND CENTER',  vis: 'boss',      line: 'Destroy the Void Colony command center!', tips: ['Drones come down the lane its shots leave open.', 'It turns invisible in later phases.'] },
   { title: 'GRAVITY WELL',    vis: 'gravity',   line: 'Gravity pulls enemies into other lanes.', tips: ['Some get pulled twice. Follow them!'] },
   { title: 'BENT SHOTS',      vis: 'bent',      line: 'Enemy shots curve toward the center.', tips: ['Watch where a shot will land.'] },
@@ -5394,7 +5395,7 @@ const FIRST_SEEN = {
   explosive: { title: 'EXPLOSIVE ROCK', text: 'Shoot it to blow up everything nearby.' },
   meteor:    { title: 'INCOMING ROCKS', text: 'Rocks are coming down this lane. Move out!' },
   phantom:   { title: 'PHANTOM',        text: 'Turns invisible. Shots pass through it while hidden.' },
-  stream:    { title: 'DATA STREAM',    text: 'Stay inside the green stream to copy their archive. The bar at the top fills up.' },
+  stream:    { title: 'DATA STREAM',    text: 'Stay inside the green stream to copy their archive. The level ends when the bar at the bottom is full.' },
   warp:      { title: 'WARP JUMP',      text: 'When the ships flicker, they all jump forward. The faint copy shows where each one lands.' },
   bolt:      { title: 'LIGHTNING',      text: 'The glowing cloud marks the lane it will strike. Get out of that lane!' },
   ion:       { title: 'ION CLOUD',      text: 'Your guns jam inside it. Steer around it.' },
@@ -5909,7 +5910,8 @@ function update() {
   checkFirstSeen();
   if (introCard) return;
   levelPlayT++;
-  playFrames++;
+  if (currentLevel === 14 && !boss) playFrames = (currentLevel - 1) * LEVEL_SEC * 60 + Math.round(archive * LEVEL_SEC * 60); // L14: dalgalar arşivle ilerler, %100'de biter
+  else playFrames++;
   tipPlan.forEach(tp => { if (levelPlayT === tp.at) showToast(tp.text); });
   if (toasts.length && ++toasts[0].t >= toasts[0].dur) toasts.shift();
   if (hurtFx > 0) hurtFx--;
