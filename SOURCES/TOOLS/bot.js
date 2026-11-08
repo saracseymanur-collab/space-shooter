@@ -33,6 +33,10 @@ function laneDanger(l, horizon, blind) { // isabet edecek mermi/kaya/lazer: kesi
     if (q.type !== 'mine' || q.lane !== l || q.y > player.y + 40) continue;
     const t = (player.y - q.y) / (convoySpd || 3); if (t <= horizon * 2) d += 1e5 / (1 + Math.max(0, t));
   }
+  if (typeof nebMines !== 'undefined') for (const q of nebMines) { // L11: sadece radarda görülmüş mayınları bilir (hilesiz)
+    if (!q.known || q.lane !== l || q.y > player.y + 40) continue;
+    const t = (player.y - q.y) / q.spd; if (t <= horizon * 2) d += 1e5 / (1 + Math.max(0, t));
+  }
   if (boss && boss.zone === 2 && boss.lane === l && (boss.tState === 'mark' || boss.tState === 'dive' || boss.tState === 'strike')) d += 1e6; // L10: matkap dalışı
   if (blind) return d;
   for (const b of eBullets) { const vy = b.vy || 4; if (vy <= 0) continue; const t = (player.y - b.y) / vy; if (t < -8 || t > horizon) continue;
