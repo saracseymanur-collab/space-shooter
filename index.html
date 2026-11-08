@@ -3392,12 +3392,12 @@ function drawStorm() {
   if (stormFlash > 0) { ctx.fillStyle = `rgba(210,230,255,${0.22 * stormFlash / 10})`; ctx.fillRect(0, 0, W, H); }
 }
 // --- L13 GHOST FLEET: tüm gemiler titrer (uyarı, inecekleri yerde soluk kopya), sonra aynı anda ileri ışınlanır ---
-const WARP_WAVES = [ // hp3: üç canlı oranı
-  { every: 105, warn: 44, dist: 260, spd: 2.6, interval: 52, dbl: 0.25, hp2: 0.4,  hp3: 0.05 },
-  { every: 92,  warn: 40, dist: 290, spd: 2.8, interval: 48, dbl: 0.3,  hp2: 0.45, hp3: 0.1 },
-  { every: 88,  warn: 38, dist: 300, spd: 2.8, interval: 48, dbl: 0.3,  hp2: 0.45, hp3: 0.12 },
-  { every: 120, warn: 28, dist: 320, spd: 2.6, interval: 58, dbl: 0.25, hp2: 0.45, hp3: 0.1 }, // nefes + kısa uyarılı sürpriz
-  { every: 76,  warn: 36, dist: 320, spd: 3.0, interval: 44, dbl: 0.35, hp2: 0.5,  hp3: 0.15 },
+const WARP_WAVES = [ // hp3: üç canlı oranı · warn kısa (kullanıcı: titreme çok kısa, hemen ışınlansın, baskı artsın)
+  { every: 88,  warn: 16, dist: 260, spd: 2.6, interval: 52, dbl: 0.25, hp2: 0.4,  hp3: 0.05 },
+  { every: 78,  warn: 15, dist: 290, spd: 2.8, interval: 48, dbl: 0.3,  hp2: 0.45, hp3: 0.1 },
+  { every: 74,  warn: 14, dist: 300, spd: 2.8, interval: 48, dbl: 0.3,  hp2: 0.45, hp3: 0.12 },
+  { every: 100, warn: 11, dist: 320, spd: 2.6, interval: 58, dbl: 0.25, hp2: 0.45, hp3: 0.1 }, // nefes + çok kısa uyarılı sürpriz
+  { every: 64,  warn: 13, dist: 320, spd: 3.0, interval: 44, dbl: 0.35, hp2: 0.5,  hp3: 0.15 },
 ];
 const WARP_LIMIT = 160; // oyuncunun bu kadar üstüne kadar ışınlanır (önüne düşmez)
 let warpT = 0, warpWarn = 0, warpTrails = [], warpSeen = null;
@@ -3446,9 +3446,9 @@ function drawWarp() { // ışınlanma izi + uyarıda inecekleri yerdeki soluk ko
   if (warpWarn > 0) enemies.forEach(e => {
     if (e.warpTo == null) return;
     const sz = ENEMY_SIZES[e.maxHp] ?? { w: 80, h: 60 }, spr = getWarpGhost(e.maxHp);
-    ctx.strokeStyle = 'rgba(120,230,255,0.35)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 6]);
+    ctx.strokeStyle = 'rgba(120,230,255,0.18)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 6]);
     ctx.beginPath(); ctx.moveTo(e.x, e.y + 20); ctx.lineTo(e.x, e.warpTo - 20); ctx.stroke(); ctx.setLineDash([]);
-    if (spr) { ctx.globalAlpha = 0.45 + 0.15 * Math.sin(frameCount * 0.6); ctx.drawImage(spr, e.x - sz.w / 2, e.warpTo - sz.h / 2, sz.w, sz.h); ctx.globalAlpha = 1; }
+    if (spr) { ctx.globalAlpha = 0.22 + 0.06 * Math.sin(frameCount * 0.6); ctx.drawImage(spr, e.x - sz.w / 2, e.warpTo - sz.h / 2, sz.w, sz.h); ctx.globalAlpha = 1; }
   });
   ctx.restore();
 }
