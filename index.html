@@ -3244,11 +3244,9 @@ function updateNebMines(R, ending) {
     return true;
   });
 }
-function drawNebMines() {
-  nebMines.forEach(m => {
-    if (!(m.seen > 0.02)) return;
-    ctx.save(); ctx.translate(m.x, m.y); ctx.globalAlpha = m.seen;
-    ctx.rotate(m.spin);
+function drawMineBody(x, y, sc, alpha, spin) { // L11 gizli mayın (oyunda ve kartta)
+    ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc); ctx.globalAlpha = alpha;
+    ctx.rotate(spin);
     const pulse = 0.5 + 0.5 * Math.sin(frameCount * 0.2);
     const halo = ctx.createRadialGradient(0, 0, 10, 0, 0, 38); // kırmızı hale: mor bulutsuda seçilsin
     halo.addColorStop(0, `rgba(255,40,70,${0.35 + 0.2 * pulse})`); halo.addColorStop(1, 'rgba(255,40,70,0)');
@@ -3261,6 +3259,11 @@ function drawNebMines() {
     ctx.fillStyle = `rgba(255,50,80,${0.7 + 0.3 * pulse})`; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 12;
     ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
+}
+function drawNebMines() {
+  nebMines.forEach(m => {
+    if (!(m.seen > 0.02)) return;
+    drawMineBody(m.x, m.y, 1, m.seen, m.spin);
     ctx.save(); ctx.strokeStyle = `rgba(255,90,110,${0.7 * m.seen})`; ctx.lineWidth = 1.5; // radar işareti: mayın kırmızı
     const s2 = 34, k2 = 9;
     [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([dx, dy]) => {
@@ -4829,9 +4832,10 @@ function drawBriefVisual(kind, cx, cy, zc) {
       const r = (frameCount * 1.6) % 150, sx = cx, sy = cy + 40;
       ctx.strokeStyle = `rgba(120,255,230,${0.7 * (1 - r / 150)})`; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(sx, sy, r, Math.PI, Math.PI * 2); ctx.stroke();
-      [[-70, -14], [0, -30], [70, -6]].forEach(([dx, dy]) => {
+      [[-70, -14], [0, -30], [70, -6]].forEach(([dx, dy], k) => {
         const d = Math.hypot(dx, dy - 40), a = r > d ? Math.max(0, 1 - (r - d) / 70) : 0;
-        briefEnemy(1, cx + dx, cy + dy, 0.5, a);
+        if (k === 1) drawMineBody(cx + dx, cy + dy, 0.6, a, frameCount * 0.03); // ortadaki: mayın
+        else briefEnemy(1, cx + dx, cy + dy, 0.5, a);
       });
       ctx.fillStyle = '#9fe8ff'; ctx.beginPath(); ctx.moveTo(sx, sy - 9); ctx.lineTo(sx - 8, sy + 7); ctx.lineTo(sx + 8, sy + 7); ctx.closePath(); ctx.fill();
       break;
