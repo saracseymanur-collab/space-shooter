@@ -1094,7 +1094,7 @@ function startLevel(level) {
   playFrames     = (level - 1) * LEVEL_SEC * 60;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; shards = []; powerups = [];
-  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1;
+  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1; stormClouds = []; stormCloudT = 0;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
   countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
@@ -3223,16 +3223,55 @@ function drawFog(density) {
 // Gemiler de mayınlar da gizli: şerit tarayarak ateş etmek mayına çarptırır, radarda görüleni hatırlamak gerekir.
 // --- L12 ION STORM: şeridin tepesindeki bulut parlar (uyarı), sonra şimşek tüm şeridi vurur ---
 // single: tek şerit · dbl: iki şerit (biri hep güvenli) · chain: üç şerit sırayla (yanından kaç)
-const STORM_WAVES = [
-  { every: 120, warn: 72, fire: 26, dblB: 0,    chain: 0,    spd: 2.6, interval: 96, dbl: 0.05, hp2: 0.2 },
-  { every: 108, warn: 66, fire: 26, dblB: 0.55, chain: 0,    spd: 2.8, interval: 92, dbl: 0.08, hp2: 0.25 },
-  { every: 112, warn: 64, fire: 26, dblB: 0.3,  chain: 0.45, spd: 2.8, interval: 92, dbl: 0.08, hp2: 0.3 },
-  { every: 170, warn: 40, fire: 26, dblB: 0,    chain: 0,    spd: 2.6, interval: 100, dbl: 0.05, hp2: 0.25 }, // nefes + kısa uyarılı sürpriz
-  { every: 92,  warn: 58, fire: 26, dblB: 0.45, chain: 0.35, spd: 3.0, interval: 86, dbl: 0.1, hp2: 0.3 },
+const STORM_WAVES = [ // cloud: ortadan süzülen bulut aralığı (gemiler içinde kaybolur)
+  { every: 112, warn: 70, fire: 26, dblB: 0,    chain: 0,    spd: 2.6, interval: 92, dbl: 0.05, hp2: 0.2,  cloud: 200 },
+  { every: 100, warn: 64, fire: 26, dblB: 0.55, chain: 0,    spd: 2.8, interval: 88, dbl: 0.08, hp2: 0.25, cloud: 170 },
+  { every: 104, warn: 62, fire: 26, dblB: 0.3,  chain: 0.45, spd: 2.8, interval: 88, dbl: 0.08, hp2: 0.3,  cloud: 170 },
+  { every: 160, warn: 40, fire: 26, dblB: 0,    chain: 0,    spd: 2.6, interval: 96, dbl: 0.05, hp2: 0.25, cloud: 140 }, // nefes + kısa uyarılı sürpriz
+  { every: 86,  warn: 56, fire: 26, dblB: 0.45, chain: 0.35, spd: 3.0, interval: 82, dbl: 0.1,  hp2: 0.3,  cloud: 150 },
 ];
 const STORM_CHAIN = 50; // zincirde şimşekler arası kare: önceki çakış bitip geçmeye vakit kalsın (24 iken kaçış imkânsızdı)
-let bolts = [], stormT = 0, stormFlash = 0, stormLast = -1;
+let bolts = [], stormT = 0, stormFlash = 0, stormLast = -1, stormClouds = [], stormCloudT = 0;
+const STORM_CLOUD_SPD = 1.5;
+const stormPuffSprites = [];
+function getStormPuff(i) { // ortadaki fırtına bulutu: koyu, yoğun çekirdek (gemiyi örter), yumuşak kenar
+  if (stormPuffSprites[i]) return stormPuffSprites[i];
+  const c = document.createElement('canvas'); c.width = 240; c.height = 170;
+  const g = c.getContext('2d');
+  let seed = 11 + i * 37; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  for (let k = 0; k < 16; k++) {
+    const x = 50 + rnd() * 140, y = 55 + rnd() * 60, r = 34 + rnd() * 30;
+    const rg = g.createRadialGradient(x, y, 2, x, y, r);
+    rg.addColorStop(0, 'rgba(38,24,70,1)'); rg.addColorStop(0.6, 'rgba(48,30,88,0.9)'); rg.addColorStop(1, 'rgba(48,30,88,0)');
+    g.fillStyle = rg; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  }
+  for (let k = 0; k < 8; k++) { // üstte açık tonlu kabarıklar
+    const x = 60 + rnd() * 120, y = 45 + rnd() * 30, r = 18 + rnd() * 18;
+    const rg = g.createRadialGradient(x, y - 4, 1, x, y, r);
+    rg.addColorStop(0, 'rgba(130,110,190,0.35)'); rg.addColorStop(1, 'rgba(90,70,150,0)');
+    g.fillStyle = rg; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  }
+  return (stormPuffSprites[i] = c);
+}
+function updateStormClouds(S, ending) {
+  if (!ending && ++stormCloudT >= S.cloud && stormClouds.length < 3) {
+    stormCloudT = 0;
+    const lane = Math.floor(Math.random() * 3);
+    const x = LANE_CENTERS[lane] + (Math.random() - 0.5) * 60;
+    stormClouds.push({ x, y: -90, spr: Math.floor(Math.random() * 3), flip: Math.random() < 0.5, sc: 1.2 + Math.random() * 0.3 });
+  }
+  stormClouds = stormClouds.filter(c => (c.y += STORM_CLOUD_SPD) < H + 100);
+}
+function drawStormClouds() { // düşmanların üstünde, düşman mermilerinin ve oyuncunun altında
+  stormClouds.forEach(c => {
+    const im = getStormPuff(c.spr), w = 240 * c.sc, h = 170 * c.sc;
+    ctx.save(); ctx.translate(c.x, c.y); if (c.flip) ctx.scale(-1, 1);
+    ctx.drawImage(im, -w / 2, -h / 2, w, h);
+    ctx.restore();
+  });
+}
 function updateStorm(S, ending) {
+  updateStormClouds(S, ending);
   if (!ending && !bolts.length && ++stormT >= S.every) {
     stormT = 0;
     const r = Math.random();
@@ -6996,6 +7035,7 @@ function render() {
   drawRecoilFx('under');
   if (boss) drawBoss(boss);
   drawRecoilFx('top');
+  if (currentLevel === 12 && stormClouds.length) drawStormClouds();
   if (currentZone === 3) { const fc = getLevelConfig(); drawFog(fc && fc.fog ? fc.fog : 0.4); } // sis düşmanları örter, mermileri değil
   if (radarOn()) { drawNebMines(); drawRadar(); }
   if (currentLevel === 12 && state !== 'levelcomplete') drawStorm();
