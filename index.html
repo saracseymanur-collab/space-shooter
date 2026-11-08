@@ -198,6 +198,9 @@ const Sound = (() => {
     blast()     { noise({ dur: 0.8, vol: 0.38, freq: 1200, end: 60 }); tone({ type: 'sine', f: 90, f2: 30, dur: 0.6, vol: 0.32 });
                   noise({ dur: 0.9, vol: 0.06, freq: 6000, type: 'highpass', q: 0.5, delay: 0.1, end: 2500 }); },
     swipe()     { tone({ type: 'sine', f: 420, f2: 700, dur: 0.06, vol: 0.03 }); },
+    thunder()   { noise({ dur: 1.0, vol: 0.34, freq: 2600, end: 70 }); tone({ type: 'sine', f: 75, f2: 28, dur: 0.9, vol: 0.3 });
+                  noise({ dur: 0.12, vol: 0.14, freq: 6000, type: 'highpass', q: 0.7, end: 3000 }); },
+    crackle()   { noise({ dur: 0.18, vol: 0.05, freq: 5000, type: 'highpass', q: 1, end: 2500 }); },
     ping()      { tone({ type: 'sine', f: 1500, f2: 1100, dur: 0.22, vol: 0.025 }); },
     crystal()   { tone({ type: 'triangle', f: 1500, f2: 2100, dur: 0.07, vol: 0.05 }); },
     click()     { tone({ type: 'square', f: 660, f2: 990, dur: 0.05, vol: 0.05 }); },
@@ -599,7 +602,7 @@ function getDoubleSpawnChance() {
 const LEVEL_TUNE = {
   // 2026-11: bölümler 50 sn'ye inince (WAVE_DENSITY) kolay kalanlar için ek sıklık
   1: { iMul: 1.2, fireMul: 1.4 }, // öğretici ama kolay değil (kullanıcı: sektör 1 kolay)
-  11: { iMul: 1 }, 12: { gunner: 1300, iMul: 1.4 }, 13: { iMul: 0.85 }, 14: { iMul: 1.5, diver: 0.25 },
+  11: { iMul: 1 }, 12: { iMul: 1 }, 13: { iMul: 0.85 }, 14: { iMul: 1.5, diver: 0.25 },
   16: { diver: 0.35, formation: true, iMul: 0.42, fireMul: 0.7 }, 17: { gunner: 1700, iMul: 1.05 }, 18: { fireMul: 0.9, iMul: 0.85 }, 19: { diver: 0.3, iMul: 0.75 },
 };
 // Bölümler 70 → 50 sn kısalınca zorluk düşmesin diye: düşman sıklığı ve özel düşman aralıkları sıklaşır
@@ -714,12 +717,15 @@ function baseLevelConfig() {
         canShoot: true, zigzag: false, fog: 0.3, radar: R,
       };
     }
-    case 12: return { // iyon bulutları
-      interval: 66, doubleChance: 0.22,
-      speed: () => 1.7 + Math.random() * 0.4,
-      hp: () => Math.random() < 0.45 ? 2 : 1,
-      canShoot: true, zigzag: false, phantom: 0.3, fog: 0.35, ion: 400,
-    };
+    case 12: { // ION STORM: şimşek şeridi önce parlatır, sonra vurur
+      const lw = Math.min(5, Math.max(1, getWave() - (currentLevel - 1) * 5)), S = STORM_WAVES[lw - 1];
+      return {
+        interval: S.interval, doubleChance: S.dbl,
+        speed: () => S.spd + Math.random() * 0.4,
+        hp: () => Math.random() < S.hp2 ? 2 : 1,
+        canShoot: true, zigzag: false, fog: 0.15, fireMul: 1.3, storm: S,
+      };
+    }
     case 13: return { // yoğun sis
       interval: 62, doubleChance: 0.28,
       speed: () => 1.8 + Math.random() * 0.5,
@@ -1088,7 +1094,7 @@ function startLevel(level) {
   playFrames     = (level - 1) * LEVEL_SEC * 60;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; shards = []; powerups = [];
-  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0;
+  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
   countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
@@ -2104,6 +2110,7 @@ function hazardWindows() {
     if (t + d > 0) lanesHit(b.x + (b.vx || 0) * Math.max(0, t), 30).forEach(lane => out.push({ lane, t0: t - d, t1: t + d }));
   });
   lasers.forEach(L => out.push({ lane: L.lane, t0: L.warn - L.t, t1: L.warn - L.t + (L.meteor ? 60 : L.fire) }));
+  bolts.forEach(B => out.push({ lane: B.lane, t0: B.warn - B.t, t1: B.warn - B.t + B.fire }));
   return out;
 }
 const WALL_MARGIN = 20; // oyuncunun şerit değiştirmesine pay (~0.33 sn)
@@ -3214,6 +3221,134 @@ function drawFog(density) {
 // düşman mermileri hep görünür. every: dalga aralığı · fade: görünür kalma süresi (kare)
 // mine: gizli mayın aralığı (kare). Mayın vurulamaz, mermi içinden geçer; değersen can gider.
 // Gemiler de mayınlar da gizli: şerit tarayarak ateş etmek mayına çarptırır, radarda görüleni hatırlamak gerekir.
+// --- L12 ION STORM: şeridin tepesindeki bulut parlar (uyarı), sonra şimşek tüm şeridi vurur ---
+// single: tek şerit · dbl: iki şerit (biri hep güvenli) · chain: üç şerit sırayla (yanından kaç)
+const STORM_WAVES = [
+  { every: 120, warn: 72, fire: 26, dblB: 0,    chain: 0,    spd: 2.6, interval: 96, dbl: 0.05, hp2: 0.2 },
+  { every: 108, warn: 66, fire: 26, dblB: 0.55, chain: 0,    spd: 2.8, interval: 92, dbl: 0.08, hp2: 0.25 },
+  { every: 112, warn: 64, fire: 26, dblB: 0.3,  chain: 0.45, spd: 2.8, interval: 92, dbl: 0.08, hp2: 0.3 },
+  { every: 170, warn: 40, fire: 26, dblB: 0,    chain: 0,    spd: 2.6, interval: 100, dbl: 0.05, hp2: 0.25 }, // nefes + kısa uyarılı sürpriz
+  { every: 92,  warn: 58, fire: 26, dblB: 0.45, chain: 0.35, spd: 3.0, interval: 86, dbl: 0.1, hp2: 0.3 },
+];
+const STORM_CHAIN = 50; // zincirde şimşekler arası kare: önceki çakış bitip geçmeye vakit kalsın (24 iken kaçış imkânsızdı)
+let bolts = [], stormT = 0, stormFlash = 0, stormLast = -1;
+function updateStorm(S, ending) {
+  if (!ending && !bolts.length && ++stormT >= S.every) {
+    stormT = 0;
+    const r = Math.random();
+    if (r < S.chain) {
+      const order = Math.random() < 0.5 ? [0, 1, 2] : [2, 1, 0];
+      order.forEach((lane, k) => bolts.push({ lane, t: -k * STORM_CHAIN, warn: S.warn, fire: S.fire, seed: Math.random() * 99 }));
+    } else {
+      const two = r < S.chain + S.dblB;
+      const hz = hazardWindows();
+      const freeDuring = l => !hz.some(h => h.lane === l && h.t0 < S.warn + S.fire + WALL_MARGIN && h.t1 > S.warn - WALL_MARGIN);
+      let combos = two ? [[0, 1], [0, 2], [1, 2]] : [[0], [1], [2]];
+      if (!two && stormLast >= 0) combos = combos.filter(c => c[0] !== stormLast || Math.random() < 0.35); // aynı şerit üst üste az
+      const ok = combos.filter(c => [0, 1, 2].some(l => !c.includes(l) && freeDuring(l)));
+      const pool = ok.length ? ok : combos;
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      pick.forEach(lane => bolts.push({ lane, t: 0, warn: S.warn, fire: S.fire, seed: Math.random() * 99 }));
+      if (!two) stormLast = pick[0];
+    }
+  }
+  if (stormFlash > 0) stormFlash--;
+  bolts = bolts.filter(B => {
+    B.t++;
+    if (B.t === 1) Sound.sfx.crackle();
+    if (B.t === B.warn) { // çakış: şeritteki gemiler de yanar (kargo hariç)
+      Sound.sfx.thunder(); stormFlash = Math.max(stormFlash, 10); hurtFx = Math.max(hurtFx, 4);
+      enemies = enemies.filter(e => {
+        if (e.runner || nearestLane(e.x) !== B.lane || e.y < HUD_H) return true;
+        spawnShipDeath(e); return false;
+      });
+    }
+    if (B.t >= B.warn && B.t < B.warn + B.fire && !B.hit && !player.dead && !(player.invuln > 0) && Math.abs(player.x - LANE_CENTERS[B.lane]) < LANE_W * 0.42) {
+      B.hit = true; damagePlayer('Struck by lightning!');
+    }
+    return B.t < B.warn + B.fire;
+  });
+}
+let stormCloudSprite = null;
+function getStormCloudSprite() { // tepedeki fırtına bulutu: bir kez çizilir
+  if (stormCloudSprite) return stormCloudSprite;
+  const c = document.createElement('canvas'); c.width = W; c.height = 150;
+  const g = c.getContext('2d');
+  const lg = g.createLinearGradient(0, 0, 0, 150);
+  lg.addColorStop(0, 'rgba(20,10,40,0.95)'); lg.addColorStop(0.55, 'rgba(40,24,80,0.55)'); lg.addColorStop(1, 'rgba(40,24,80,0)');
+  g.fillStyle = lg; g.fillRect(0, 0, W, 150);
+  let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  for (let i = 0; i < 26; i++) {
+    const x = rnd() * W, y = 30 + rnd() * 60, r = 30 + rnd() * 40;
+    const rg = g.createRadialGradient(x, y - r * 0.2, 2, x, y, r);
+    rg.addColorStop(0, 'rgba(110,90,170,0.35)'); rg.addColorStop(1, 'rgba(60,40,110,0)');
+    g.fillStyle = rg; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  }
+  return (stormCloudSprite = c);
+}
+function boltPath(x, top, bot, seed) { // kırık şimşek çizgisi: birkaç karede bir şekil değişir
+  let s2 = seed + Math.floor(frameCount / 3) * 13.7;
+  const rnd = () => { s2 = (s2 * 9301 + 49297) % 233280; return s2 / 233280; };
+  const pts = [[x, top]], n = 14;
+  for (let i = 1; i < n; i++) pts.push([x + (rnd() - 0.5) * 34, top + (bot - top) * i / n]);
+  pts.push([x + (rnd() - 0.5) * 10, bot]);
+  const branches = [];
+  for (let k = 0; k < 3; k++) {
+    const i = 2 + Math.floor(rnd() * (n - 4)), dir = rnd() < 0.5 ? -1 : 1;
+    let [bx, by] = pts[i]; const br = [[bx, by]];
+    for (let j = 0; j < 3; j++) { bx += dir * (8 + rnd() * 14); by += 18 + rnd() * 16; br.push([bx, by]); }
+    branches.push(br);
+  }
+  return { pts, branches };
+}
+function strokePts(pts) { ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.stroke(); }
+function drawStorm() {
+  const top = HUD_H - 10;
+  const cl = getStormCloudSprite();
+  ctx.drawImage(cl, 0, top - 30);
+  bolts.forEach(B => {
+    const x = LANE_CENTERS[B.lane];
+    if (B.t <= 0) return;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    if (B.t < B.warn) { // uyarı: bulut parlar, kıvılcımlar şeritten aşağı süzülür
+      const p = B.t / B.warn, fl = 0.75 + 0.25 * Math.sin(B.t * 0.9);
+      const cg = ctx.createRadialGradient(x, top + 40, 4, x, top + 40, 90);
+      cg.addColorStop(0, `rgba(170,220,255,${(0.25 + 0.5 * p) * fl})`); cg.addColorStop(1, 'rgba(90,120,255,0)');
+      ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(x, top + 40, 90, 0, Math.PI * 2); ctx.fill();
+      const lg = ctx.createLinearGradient(0, top, 0, H);
+      lg.addColorStop(0, `rgba(120,180,255,${0.16 * p})`); lg.addColorStop(1, `rgba(120,180,255,${0.05 * p})`);
+      ctx.fillStyle = lg; ctx.fillRect(x - LANE_W / 2 + 8, top, LANE_W - 16, H - top);
+      const reach = top + 40 + (H - top - 40) * p;
+      ctx.fillStyle = 'rgba(210,240,255,0.9)';
+      for (let k = 0; k < 7; k++) {
+        const yy = top + 40 + ((B.t * 9 + k * 97 + B.seed * 7) % Math.max(1, reach - top - 40));
+        const xx = x + Math.sin(yy * 0.07 + k * 2 + B.seed) * LANE_W * 0.22;
+        ctx.fillRect(xx - 1.5, yy - 4, 3, 8);
+      }
+      if (p > 0.55 && Math.floor(B.t / 4) % 2) { // çakmadan hemen önce bulutta küçük çatlak
+        ctx.strokeStyle = 'rgba(220,245,255,0.8)'; ctx.lineWidth = 1.5;
+        strokePts(boltPath(x, top + 30, top + 110, B.seed).pts.slice(0, 5));
+      }
+    } else { // çakış
+      const k = 1 - (B.t - B.warn) / B.fire;
+      const { pts, branches } = boltPath(x, top + 30, H, B.seed);
+      const gl = ctx.createLinearGradient(x - 60, 0, x + 60, 0);
+      gl.addColorStop(0, 'rgba(90,140,255,0)'); gl.addColorStop(0.5, `rgba(120,180,255,${0.35 * k})`); gl.addColorStop(1, 'rgba(90,140,255,0)');
+      ctx.fillStyle = gl; ctx.fillRect(x - 60, top, 120, H - top);
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.strokeStyle = `rgba(110,170,255,${0.55 * k})`; ctx.lineWidth = 14; strokePts(pts);
+      ctx.strokeStyle = `rgba(190,230,255,${0.8 * k})`; ctx.lineWidth = 6; strokePts(pts);
+      ctx.strokeStyle = `rgba(255,255,255,${k})`; ctx.lineWidth = 2.5; strokePts(pts);
+      ctx.lineWidth = 1.5; ctx.strokeStyle = `rgba(200,235,255,${0.8 * k})`;
+      branches.forEach(strokePts);
+      const ig = ctx.createRadialGradient(x, H - 40, 4, x, H - 40, 70);
+      ig.addColorStop(0, `rgba(220,240,255,${0.6 * k})`); ig.addColorStop(1, 'rgba(120,170,255,0)');
+      ctx.fillStyle = ig; ctx.beginPath(); ctx.arc(x, H - 40, 70, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  });
+  if (stormFlash > 0) { ctx.fillStyle = `rgba(210,230,255,${0.22 * stormFlash / 10})`; ctx.fillRect(0, 0, W, H); }
+}
 const RADAR_WAVES = [ // 2026-11-08: gemiler azaltıldı (kullanıcı: mayınlar iyi, gemi çok)
   { every: 120, fade: 70, spd: 2.6, interval: 102, dbl: 0.05, hp2: 0.2,  mine: 115 },
   { every: 130, fade: 62, spd: 2.8, interval: 94,  dbl: 0.08, hp2: 0.25, mine: 95 },
@@ -4455,7 +4590,7 @@ const LEVEL_BRIEFS = [
   { title: 'HOLD FIRE',       vis: 'holdfire',  line: 'Tap anywhere on the screen to hold fire, tap again to shoot.', tips: ['Unknown signals ahead. Hit the ships, but a pod hit costs a life.', 'Red charges blow up the whole screen. Never touch or shoot them!'] },
   { title: 'IT WOKE UP',      vis: 'quake',     line: 'Deep in the mine, something has awoken. Its troops come first.', tips: ['Collect the bombs dropped by destroyed ships.', 'When its core glows, get below it and tap anywhere.', 'A bomb that misses is lost. Your guns barely scratch it.'] },
   { title: 'RADAR PING',      vis: 'radar',     line: 'The nebula blinds your sensors. Ships and mines stay hidden.', tips: ['Each radar ping shows them for a moment.', "Mines can't be shot. Remember where they are and steer clear!"] },
-  { title: 'ION CLOUDS',      vis: 'ion',       line: 'Inside a blue ion cloud your guns jam.', tips: ['Steer around the clouds.'] },
+  { title: 'ION STORM',       vis: 'storm',     line: 'The storm guards their base. Lightning strikes a whole lane.', tips: ['When the cloud above a lane glows, get out of that lane!', 'Sometimes it strikes lane after lane. Move the other way.'] },
   { title: 'DEEP FOG',        vis: 'fog',       line: 'Thick fog hides the enemies.', tips: ['Look for dark silhouettes.', 'Their shots are always visible.'] },
   { title: 'PHANTOM WEAVE',   vis: 'phantom',   line: 'Phantoms now zigzag between lanes.', tips: ['Ion clouds are back. Stay sharp!'] },
   { title: 'COMMAND CENTER',  vis: 'boss',      line: 'Destroy the Void Colony command center!', tips: ['Drones come down the lane its shots leave open.', 'It turns invisible in later phases.'] },
@@ -4848,6 +4983,28 @@ function drawBriefVisual(kind, cx, cy, zc) {
       });
       break;
     }
+    case 'storm': { // şeridin tepesinde parlayan bulut, sonra şimşek
+      const cyc = frameCount % 120, lx = cx - 70;
+      ctx.save();
+      const cg = ctx.createLinearGradient(0, cy - 50, 0, cy - 20); cg.addColorStop(0, 'rgba(60,40,110,0.8)'); cg.addColorStop(1, 'rgba(60,40,110,0)');
+      ctx.fillStyle = cg; ctx.fillRect(cx - 120, cy - 50, 240, 30);
+      ctx.globalCompositeOperation = 'lighter';
+      if (cyc < 80) {
+        const p = cyc / 80, g = ctx.createRadialGradient(lx, cy - 40, 2, lx, cy - 40, 40);
+        g.addColorStop(0, `rgba(170,220,255,${0.3 + 0.5 * p})`); g.addColorStop(1, 'rgba(90,120,255,0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(lx, cy - 40, 40, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(210,240,255,0.9)';
+        for (let k = 0; k < 4; k++) { const yy = cy - 30 + ((cyc * 3 + k * 19) % (60 * p + 1)); ctx.fillRect(lx - 1 + Math.sin(yy + k) * 6, yy, 2, 5); }
+      } else if (cyc < 100) {
+        const k = 1 - (cyc - 80) / 20, { pts } = boltPath(lx, cy - 40, cy + 40, 3);
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = `rgba(120,180,255,${0.6 * k})`; ctx.lineWidth = 8; strokePts(pts);
+        ctx.strokeStyle = `rgba(255,255,255,${k})`; ctx.lineWidth = 2; strokePts(pts);
+      }
+      ctx.restore();
+      if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, cx + 10 - 18, cy + 8, 36, 36);
+      break;
+    }
     case 'ion': {
       const g = ctx.createRadialGradient(cx, cy, 4, cx, cy, 44);
       g.addColorStop(0, 'rgba(120,220,255,0.45)'); g.addColorStop(1, 'rgba(40,80,255,0)');
@@ -4975,6 +5132,7 @@ const FIRST_SEEN = {
   explosive: { title: 'EXPLOSIVE ROCK', text: 'Shoot it to blow up everything nearby.' },
   meteor:    { title: 'INCOMING ROCKS', text: 'Rocks are coming down this lane. Move out!' },
   phantom:   { title: 'PHANTOM',        text: 'Turns invisible. Shots pass through it while hidden.' },
+  bolt:      { title: 'LIGHTNING',      text: 'The glowing cloud marks the lane it will strike. Get out of that lane!' },
   ion:       { title: 'ION CLOUD',      text: 'Your guns jam inside it. Steer around it.' },
   beam:      { title: 'BEAM WARNING',   text: 'A beam will fire down this lane. Move out!' },
   heart:     { title: 'EXTRA LIFE',     text: 'Fly over it to get back a lost life.' },
@@ -4998,6 +5156,7 @@ function checkFirstSeen() {
   if (titanCoreOpen()) want('titanCore', boss.x, boss.y);
   if (radarReveal) want('radar', radarReveal.x, radarReveal.y);
   if (mineReveal) want('nebMine', mineReveal.x, mineReveal.y);
+  for (const B of bolts) if (B.t > 6 && B.t < B.warn - 20) want('bolt', LANE_CENTERS[B.lane], H * 0.3);
   if (overdriveTimer > OVERDRIVE_TIME - 3) want('overdrive', player.x, player.y);
   for (const a of asteroids) {
     if (a.type === 'iron' && vis(a.y)) want('iron', a.x, a.y);
@@ -5747,6 +5906,7 @@ function update() {
     }
   }
 
+  if (currentLevel === 12 && !boss && state === 'play' && !player.dead && _zcfg && _zcfg.storm) updateStorm(_zcfg.storm, getWave() > currentLevel * 5);
   if (radarOn() && state === 'play' && !player.dead && _zcfg && _zcfg.radar) { updateRadar(_zcfg.radar); updateNebMines(_zcfg.radar, getWave() > currentLevel * 5); }
   if ((currentZone === 2 || currentZone === 4) && state === 'play' && !player.dead) {
     // Asteroid spawning (zone 2)
@@ -6838,6 +6998,7 @@ function render() {
   drawRecoilFx('top');
   if (currentZone === 3) { const fc = getLevelConfig(); drawFog(fc && fc.fog ? fc.fog : 0.4); } // sis düşmanları örter, mermileri değil
   if (radarOn()) { drawNebMines(); drawRadar(); }
+  if (currentLevel === 12 && state !== 'levelcomplete') drawStorm();
   powerups.forEach(drawPowerup); // güçlendirmeler her zaman net: sisin üstünde
   drawLasers();
   eBullets.forEach(drawEBullet);

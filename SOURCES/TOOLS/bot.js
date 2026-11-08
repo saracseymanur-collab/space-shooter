@@ -13,6 +13,7 @@ function laneDanger(l, horizon, blind) { // isabet edecek mermi/kaya/lazer: kesi
   const lx = LANE_CENTERS[l]; let d = 0;
   // büyük, ekranı kaplayan uyarılar (lazer, süpürme) "dalgınlıkta" bile görülür; dalgınlık sadece mermi/kaya kaçırmak
   for (const L of lasers) if (L.lane === l) d += 1e6;
+  if (typeof bolts !== 'undefined') for (const B of bolts) if (B.lane === l && B.t > 0) d += 1e6; // L12 şimşek: parlayan bulut görülür
   for (const e of enemies) if (e.sweeper && (e.sState === 'warn' || e.sState === 'sweep') && Math.min(e.from, e.to) <= l && l <= Math.max(e.from, e.to)) {
     if (e.sState === 'warn' && horizon < 20) continue; // uyarı sırasında içinden geçmek güvenli (geçiş kontrolü kısa ufukla çağrılır)
     d += e.sState === 'sweep' ? 1e6 : 2e5; // süpürülecek iki şerit
@@ -58,6 +59,7 @@ function hitWithin(l, t0, t1) {
   for (const a of asteroids) { const t = (player.y - a.y) / (a.speed || 2); if (t < t0 || t > t1) continue;
     if (Math.abs(a.x + (a.vx || 0) * Math.max(0, t) - lx) < a.size * 0.9 + 22) return true; }
   for (const L of lasers) if (L.lane === l && L.t > L.warn - t1) return true;
+  if (typeof bolts !== 'undefined') for (const B of bolts) if (B.lane === l && B.t > 0 && B.t > B.warn - t1 && B.t < B.warn + B.fire - t0) return true;
   return false;
 }
 function trapped() {
