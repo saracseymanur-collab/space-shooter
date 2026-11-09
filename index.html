@@ -998,7 +998,7 @@ canvas.addEventListener('click', e => {
 
   if (state === 'paused') {
     const b = PAUSE_BTNS.find(b => inBtn(b, mx, my));
-    if (!b) return;
+    if (!b) { Sound.sfx.click(); state = 'play'; return; } // düğmelerin dışına dokunmak = RESUME
     Sound.sfx.click();
     if (b.act === 'resume') state = 'play';
     else if (b.act === 'retry') startLevel(currentLevel);
@@ -4417,7 +4417,8 @@ function drawRunner(e) {
   if (spr) { ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 10; ctx.drawImage(spr, -dw / 2, -dh / 2, dw, dh); ctx.shadowBlur = 0; }
   if (e.flash > 8) { const w = getWhiteSprite(enemyImgs[1], 1); if (w) { ctx.globalAlpha = (e.flash - 8) / 6; ctx.drawImage(w, -dw / 2, -dh / 2, dw, dh); ctx.globalAlpha = 1; } }
   // taşıdığı rozet
-  if (powerupImgReady(e.drop)) ctx.drawImage(powerupImgs[e.drop], -13, -dh / 2 - 6, 26, 26);
+  if (e.drop === 'heart') drawHeart(0, -dh / 2 - 2, 12, true); // boss bölümlerinde kalp taşır
+  else if (powerupImgReady(e.drop)) ctx.drawImage(powerupImgs[e.drop], -13, -dh / 2 - 6, 26, 26);
   ctx.restore();
 }
 function drawEnemy(e) {
@@ -5598,7 +5599,6 @@ const FIRST_SEEN = {
   bolt:      { title: 'LIGHTNING',      text: 'The glowing cloud marks the lane it will strike. Get out of that lane!' },
   ion:       { title: 'ION CLOUD',      text: 'Your guns jam inside it. Steer around it.' },
   beam:      { title: 'BEAM WARNING',   text: 'A beam will fire down this lane. Move out!' },
-  heart:     { title: 'EXTRA LIFE',     text: 'Fly over it to get back a lost life.' },
   radar:     { title: 'RADAR PING',     text: 'Enemies hide in the nebula. Each radar ping shows them for a moment. Remember where they are!' },
   nebMine:   { title: 'HIDDEN MINE',    text: "Mines can't be shot and stay hidden too. Remember where the radar showed them and steer clear!" },
   titanBomb: { title: 'BOMBS',          text: 'Fly over bombs to collect them. You will need them for what is coming.' },
