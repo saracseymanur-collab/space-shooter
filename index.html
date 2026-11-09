@@ -5057,7 +5057,7 @@ const LEVEL_BRIEFS = [
   { title: 'DRILL LINE',      vis: 'drills',    line: 'Giant drills punch out of the walls. Time your way past them!', tips: ['The wall cracks and glows right before a drill comes out.'] },
   { title: 'HOLD FIRE',       vis: 'holdfire',  line: 'Tap anywhere on the screen to hold fire, tap again to shoot.', tips: ['Hit the ships, but a pod hit costs a life.', 'Red charges blow up the whole screen. Never touch or shoot them!'] },
   { title: 'IT WOKE UP',      vis: 'quake',     line: 'Deep in the mine, something has awoken. Its troops come first.', tips: ["Collect the bombs dropped by destroyed ships. You'll need them."] },
-  { title: 'RADAR PING',      vis: 'radar',     line: 'The nebula blinds your sensors. Ships and mines stay hidden.', tips: ['Each radar ping shows them for a moment.', "Mines can't be shot. Remember where they are and steer clear!"] },
+  { title: 'RADAR PING',      vis: 'radar',     line: 'The nebula blinds your sensors. Ships and mines stay hidden.', tips: ['Each radar ping shows them for a moment.'] },
   { title: 'ION STORM',       vis: 'storm',     line: 'The storm guards their base. Lightning strikes a whole lane.', tips: ['When the cloud above a lane glows, get out of that lane!', 'A red ring means it is hunting you. Move once it locks!'] },
   { title: 'GHOST FLEET',     vis: 'warp',      line: 'Their ships warp forward, all at once.', tips: ['When they flicker, they are about to jump.', 'The faint copy shows where each one lands.'] },
   { title: 'DATA STREAM',     vis: 'stream',    line: 'Their data flows through the nebula. Stay inside the stream to copy it.', tips: ['The level ends when the archive is full.', 'The stream jumps lanes. A faint line shows where it goes next.', 'Enemies like the stream too. Dodge out and come back.'] },
@@ -5672,7 +5672,6 @@ function checkFirstSeen() {
   for (const c of crystals) if (vis(c.y)) want('crystal', c.x, c.y);
   for (const d of bombDrops) if (vis(d.y)) want('titanBomb', d.x, d.y);
   if (titanCoreOpen()) want('titanCore', boss.x, boss.y);
-  if (radarReveal) want('radar', radarReveal.x, radarReveal.y);
   if (mineReveal) want('nebMine', mineReveal.x, mineReveal.y);
   if (currentLevel === 14 && levelPlayT === 40 && streamX) want('stream', streamX, H * 0.45);
   if (ccSeen) { want(ccSeen.key || 'ccCore', ccSeen.x, ccSeen.y); ccSeen = null; }
