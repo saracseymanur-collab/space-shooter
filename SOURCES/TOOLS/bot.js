@@ -82,7 +82,7 @@ function laneValue(l) {
     if (nearestLane(e.x) !== l) continue;
     v += 40 + Math.max(0, e.y) * 0.25 + e.hp * 10;     // aşağıdaki düşman daha acil
   }
-  if (boss && boss.zone === 3) { if (boss.lane === l) v += boss.shielded === false ? 400 : 60; } // L15: açık kapak
+  if (boss && boss.zone === 3 && typeof coreGapLane !== 'undefined') { if (coreOpenFor(l)) v += 400; else if (!boss.twoRings && Math.round(boss.gap1 ?? 1) === l) v += 150; else if (boss.twoRings && Math.round(((boss.gap1 ?? 1) + (boss.gap2 ?? 1)) / 2) === l) v += 150; } // L15: boşluk(lar)ın baktığı şerit
   else if (boss && Math.abs(boss.x - LANE_CENTERS[l]) < 80) v += boss.shielded === false ? 400 : 60; // açık boss = öncelik (insan gibi)
   for (const p of powerups) if (nearestLane(p.x) === l) v += 25;
   if (typeof streamLane !== 'undefined' && currentLevel === 14 && l === streamLane) v += 120; // L14: akışta kal
@@ -117,6 +117,11 @@ function runLevel(level, prof, maxFrames = 9000) { // insanlar gibi tek kararda 
       }
       player.targetLane = best;
       if (typeof titanCoreOpen !== 'undefined' && titanCoreOpen() && titanAligned()) useTitanBomb(); // L10: hizadayken ve çekirdek açıkken bomba
+      if (typeof coreOpenFor !== 'undefined' && currentLevel === 15 && boss && coreOpenFor(playerLaneNow())) useTitanBomb(); // L15: boşluk bakarken bomba
+      if (typeof gates !== 'undefined' && currentLevel === 15 && !boss) { // L15: kapı kapalıyken atıl (tepki gecikmeli)
+        const g = gates.find(g => !g.passed && g.y >= player.y - GATE_HOLD - 2);
+        if (g && !gateOn(g)) { const c = g.t % (g.on + g.off); if (g.off - (c - g.on) > 8 && Math.random() < 0.25) coreDash(); }
+      }
       if (typeof drifters !== 'undefined' && convoySpd > 0) { // L9: şeritte mermiye ilk değecek şey kapsül / patlayıcıysa ateşi kes
         const low = arr => arr.filter(q => nearestLane(q.x) === best && q.y < player.y && q.y > 60).reduce((m, q) => Math.max(m, q.y), -1e9);
         if ((low(drifters) > low(enemies)) !== fireHold) toggleFire();
