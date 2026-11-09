@@ -3581,16 +3581,28 @@ function drawStorm() {
       const p = B.t / B.warn, fl = 0.75 + 0.25 * Math.sin(B.t * 0.9), locked = B.track && B.t >= B.warn - TRACK_LOCK;
       const cg = ctx.createRadialGradient(x, top + 40, 4, x, top + 40, 90);
       cg.addColorStop(0, B.track ? `rgba(255,${locked ? 70 : 120},${locked ? 110 : 230},${(0.35 + 0.5 * p) * fl})` : `rgba(170,220,255,${(0.25 + 0.5 * p) * fl})`); cg.addColorStop(1, B.track ? 'rgba(200,40,160,0)' : 'rgba(90,120,255,0)');
-      if (B.track) { // takip eden şimşek: geminin etrafında hedef halkası, kilitlenince kırmızı ve sabit
-        const rr = locked ? 30 : 38 + 6 * Math.sin(frameCount * 0.3);
-        ctx.strokeStyle = locked ? 'rgba(255,70,100,0.95)' : 'rgba(230,120,255,0.7)'; ctx.lineWidth = locked ? 3 : 2;
-        ctx.beginPath(); ctx.arc(x, player.y, rr, 0, Math.PI * 2); ctx.stroke();
-        [0, 1, 2, 3].forEach(q => { const a = q * Math.PI / 2; ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * (rr - 8), player.y + Math.sin(a) * (rr - 8)); ctx.lineTo(x + Math.cos(a) * (rr + 8), player.y + Math.sin(a) * (rr + 8)); ctx.stroke(); });
+      if (B.track) { // takip eden şimşek: önce ince kesikli mor halka geminin peşinden gelir; kilitlenince kalın kırmızı hedef + çizgi + LOCKED
+        ctx.save(); ctx.globalCompositeOperation = 'source-over';
+        const py = player.y;
+        if (!locked) {
+          ctx.strokeStyle = 'rgba(220,130,255,0.75)'; ctx.lineWidth = 2; ctx.setLineDash([6, 8]); ctx.lineDashOffset = -frameCount * 1.5;
+          ctx.beginPath(); ctx.arc(x, py, 40, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+        } else {
+          const on = Math.floor(frameCount / 3) % 2 === 0, rr = 34;
+          ctx.strokeStyle = on ? '#ff2244' : '#ff8899'; ctx.lineWidth = 3; // gökten hedefe nişan çizgisi
+          ctx.globalAlpha = 0.8; ctx.beginPath(); ctx.moveTo(x, top + 60); ctx.lineTo(x, py - rr - 6); ctx.stroke(); ctx.globalAlpha = 1;
+          ctx.lineWidth = 6; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 14;
+          ctx.beginPath(); ctx.arc(x, py, rr, 0, Math.PI * 2); ctx.stroke(); ctx.shadowBlur = 0;
+          ctx.fillStyle = ctx.strokeStyle;
+          [0, 1, 2, 3].forEach(q => { const a = q * Math.PI / 2, cx2 = x + Math.cos(a) * (rr + 14), cy2 = py + Math.sin(a) * (rr + 14);
+            ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * (rr + 2), py + Math.sin(a) * (rr + 2));
+            ctx.lineTo(cx2 + Math.cos(a + Math.PI / 2) * 8, cy2 + Math.sin(a + Math.PI / 2) * 8); ctx.lineTo(cx2 - Math.cos(a + Math.PI / 2) * 8, cy2 - Math.sin(a + Math.PI / 2) * 8); ctx.closePath(); ctx.fill(); });
+          ctx.font = `700 13px ${UI_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillStyle = '#ff4d66'; ctx.fillText('LOCKED', x, py - rr - 26);
+        }
+        ctx.restore();
       }
       ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(x, top + 40, 90, 0, Math.PI * 2); ctx.fill();
-      const lg = ctx.createLinearGradient(0, top, 0, H);
-      lg.addColorStop(0, `rgba(120,180,255,${0.16 * p})`); lg.addColorStop(1, `rgba(120,180,255,${0.05 * p})`);
-      ctx.fillStyle = lg; ctx.fillRect(x - LANE_W / 2 + 8, top, LANE_W - 16, H - top);
       const reach = top + 40 + (H - top - 40) * p;
       ctx.fillStyle = 'rgba(210,240,255,0.9)';
       for (let k = 0; k < 7; k++) {
@@ -5043,7 +5055,7 @@ const LEVEL_BRIEFS = [
   { title: 'ASTEROID RUN',    vis: 'slalom',    line: "Iron rocks can't be shot. Weave through the gaps at full speed!", tips: ['Other rocks can be shot out of the way.'] },
   { title: 'STAY DARK',       vis: 'stealth',   line: "Weapons are offline. When the scan comes, hide in an iron rock's shadow!", tips: ['Caught in the light? A Rammer comes for you.'] },
   { title: 'DRILL LINE',      vis: 'drills',    line: 'Giant drills punch out of the walls. Time your way past them!', tips: ['The wall cracks and glows right before a drill comes out.'] },
-  { title: 'HOLD FIRE',       vis: 'holdfire',  line: 'Tap anywhere on the screen to hold fire, tap again to shoot.', tips: ['Unknown signals ahead. Hit the ships, but a pod hit costs a life.', 'Red charges blow up the whole screen. Never touch or shoot them!'] },
+  { title: 'HOLD FIRE',       vis: 'holdfire',  line: 'Tap anywhere on the screen to hold fire, tap again to shoot.', tips: ['Hit the ships, but a pod hit costs a life.', 'Red charges blow up the whole screen. Never touch or shoot them!'] },
   { title: 'IT WOKE UP',      vis: 'quake',     line: 'Deep in the mine, something has awoken. Its troops come first.', tips: ['Collect the bombs dropped by destroyed ships.', 'When its core glows, get below it and tap anywhere.', 'A bomb that misses is lost. Your guns barely scratch it.'] },
   { title: 'RADAR PING',      vis: 'radar',     line: 'The nebula blinds your sensors. Ships and mines stay hidden.', tips: ['Each radar ping shows them for a moment.', "Mines can't be shot. Remember where they are and steer clear!"] },
   { title: 'ION STORM',       vis: 'storm',     line: 'The storm guards their base. Lightning strikes a whole lane.', tips: ['When the cloud above a lane glows, get out of that lane!', 'A red ring means it is hunting you. Move once it locks!'] },
