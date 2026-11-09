@@ -241,7 +241,7 @@ Seçim, Void Leader'ın hayatta kalıp kalmayacağını belirler.
 
 **Zaman:** Oyun başlamadan önce.
 
-**Panel sayısı:** 7
+**Panel sayısı:** 8 (03B 2026-11-09'da eklendi)
 
 ### PANEL 01
 
@@ -262,6 +262,14 @@ Then came the Dark Wave.
 Astra went silent.
 
 No one answered.
+
+### PANEL 03B (2026-11-09 eklendi: insanlığın ayıbı)
+
+A few search ships were sent. None made it through.
+
+Too far. Too costly.
+
+So they stopped looking.
 
 ### PANEL 04
 

@@ -426,6 +426,7 @@ const INTRO_PANELS = [ // hikâye V1.0 (SOURCES/STORY/STORY.md): düşman kim be
   "Humanity found a new world. Far beyond the stars, they called it Astra.",
   "Thousands went to build a new home. For a while, they succeeded.",
   "Then came the Dark Wave. Astra went silent. No one answered.",
+  "A few search ships were sent. None made it through. Too far. Too costly. So they stopped looking.",
   "Years passed. Astra was declared lost. Until one final signal appeared.",
   "A rescue fleet was sent. You were among them. But someone was waiting.",
   "It was a trap. Your fleet was destroyed. You alone survived.",
@@ -439,7 +440,8 @@ const ENDING_PANELS = [
   "You came to save one planet. Maybe you saved two.",
   "THE END",
 ];
-const INTRO_IMGS = INTRO_PANELS.map((_, i) => { const im = new Image(); im.src = `ASSETS/story/intro-${i + 1}.jpg`; return im; }); // panel görselleri (852×1846; orijinaller SOURCES/STORY/intro)
+const INTRO_IMG_FILES = ['intro-1', 'intro-2', 'intro-3', null, 'intro-4', 'intro-5', 'intro-6', 'intro-7']; // null: görseli henüz yok (arama gemileri paneli, kullanıcı üretecek)
+const INTRO_IMGS = INTRO_IMG_FILES.map(f => { if (!f) return null; const im = new Image(); im.src = `ASSETS/story/${f}.jpg`; return im; }); // panel görselleri (852×1846; orijinaller SOURCES/STORY/intro)
 let cinePanels = INTRO_PANELS; // intro ve final sinematiği aynı ekranı kullanır
 let introPanelIdx = 0;
 let introAlpha = 0;
