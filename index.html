@@ -5062,7 +5062,7 @@ const LEVEL_BRIEFS = [
   { title: 'RADAR PING',      vis: 'radar',     line: 'The nebula blinds your sensors. Ships and mines stay hidden.', tips: ['Each radar ping shows them for a moment.'] },
   { title: 'ION STORM',       vis: 'storm',     line: 'The storm guards their base. Lightning strikes a whole lane.', tips: [] },
   { title: 'GHOST FLEET',     vis: 'warp',      line: 'Their ships warp forward, all at once.', tips: ['They flicker, then jump. A faint copy shows where they land.'] },
-  { title: 'DATA STREAM',     vis: 'stream',    line: 'Their data flows through the nebula. Stay inside the stream to copy it.', tips: ['The level ends when the archive is full.', 'The stream jumps lanes. A faint line shows where it goes next.', 'Enemies like the stream too. Dodge out and come back.'] },
+  { title: 'DATA STREAM',     vis: 'stream',    line: 'Their data flows through the nebula. Stay inside the stream to copy it.', tips: ['The level ends when the archive is full.'] },
   { title: 'THE SIGNAL SOURCE', vis: 'signal',  line: 'Every signal in the nebula comes from one place. Its guards come first.', tips: ['Radar, storm and warping ships, all at once.', 'Its core only takes damage while it glows.'] },
   { title: 'GRAVITY WELL',    vis: 'gravity',   line: 'Gravity pulls enemies into other lanes.', tips: ['Some get pulled twice. Follow them!'] },
   { title: 'BENT SHOTS',      vis: 'bent',      line: 'Enemy shots curve toward the center.', tips: ['Watch where a shot will land.'] },
@@ -5675,7 +5675,6 @@ function checkFirstSeen() {
   for (const d of bombDrops) if (vis(d.y)) want('titanBomb', d.x, d.y);
   if (titanCoreOpen()) want('titanCore', boss.x, boss.y);
   if (mineReveal) want('nebMine', mineReveal.x, mineReveal.y);
-  if (currentLevel === 14 && levelPlayT === 40 && streamX) want('stream', streamX, H * 0.45);
   if (ccSeen) { want(ccSeen.key || 'ccCore', ccSeen.x, ccSeen.y); ccSeen = null; }
   warpSeen = null; // WARP JUMP durdurma kartı kaldırıldı (2026-11-09): bilgi bölüm kartında
   for (const B of bolts) if (B.t > 6 && B.t < B.warn - 20) want(B.track ? 'boltTrack' : 'bolt', LANE_CENTERS[B.lane], B.track ? player.y : H * 0.3);
