@@ -198,6 +198,7 @@ const Sound = (() => {
     blast()     { noise({ dur: 0.8, vol: 0.38, freq: 1200, end: 60 }); tone({ type: 'sine', f: 90, f2: 30, dur: 0.6, vol: 0.32 });
                   noise({ dur: 0.9, vol: 0.06, freq: 6000, type: 'highpass', q: 0.5, delay: 0.1, end: 2500 }); },
     swipe()     { tone({ type: 'sine', f: 420, f2: 700, dur: 0.06, vol: 0.03 }); },
+    rumble()    { noise({ dur: 1.6, vol: 0.12, freq: 260, end: 50 }); tone({ type: 'sine', f: 50, f2: 32, dur: 1.4, vol: 0.12 }); },
     thunder()   { noise({ dur: 1.0, vol: 0.34, freq: 2600, end: 70 }); tone({ type: 'sine', f: 75, f2: 28, dur: 0.9, vol: 0.3 });
                   noise({ dur: 0.12, vol: 0.14, freq: 6000, type: 'highpass', q: 0.7, end: 3000 }); },
     crackle()   { noise({ dur: 0.18, vol: 0.05, freq: 5000, type: 'highpass', q: 1, end: 2500 }); },
@@ -723,7 +724,7 @@ function baseLevelConfig() {
         interval: S.interval, doubleChance: S.dbl,
         speed: () => S.spd + Math.random() * 0.4,
         hp: () => Math.random() < S.hp2 ? 2 : 1,
-        canShoot: true, zigzag: false, fog: 0.15, fireMul: 1.3, storm: S,
+        canShoot: true, zigzag: false, fog: 0, fireMul: 1.3, storm: S, // sis yok: fırtına karanlığı
       };
     }
     case 13: { // GHOST FLEET: gemiler titrer, hepsi birden ileri ışınlanır
@@ -1108,7 +1109,7 @@ function startLevel(level) {
   playFrames     = (level - 1) * LEVEL_SEC * 60;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; shards = []; powerups = [];
-  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; ccSeen = null; streamLane = 1; streamX = 0; streamNext = -1; streamT = 0; streamPre = 0; archive = 0; archiveCard = null; archiveDone = false; streamBits = []; inStream = false; streamChain = false; warpT = 0; warpWarn = 0; warpTrails = []; warpSeen = null; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1; stormClouds = []; stormCloudT = 0;
+  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; ccSeen = null; streamLane = 1; streamX = 0; streamNext = -1; streamT = 0; streamPre = 0; archive = 0; archiveCard = null; archiveDone = false; streamBits = []; inStream = false; streamChain = false; warpT = 0; warpWarn = 0; warpTrails = []; warpSeen = null; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1; stormClouds = []; stormCloudT = 0; stormShake = 0;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
   countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
@@ -3419,13 +3420,15 @@ function drawFog(density) {
 // --- L12 ION STORM: şeridin tepesindeki bulut parlar (uyarı), sonra şimşek tüm şeridi vurur ---
 // single: tek şerit · dbl: iki şerit (biri hep güvenli) · chain: üç şerit sırayla (yanından kaç)
 const STORM_WAVES = [ // cloud: ortadan süzülen bulut aralığı (gemiler içinde kaybolur)
-  { every: 112, warn: 70, fire: 26, dblB: 0,    chain: 0,    spd: 2.6, interval: 92, dbl: 0.05, hp2: 0.2,  cloud: 200 },
-  { every: 100, warn: 64, fire: 26, dblB: 0.55, chain: 0,    spd: 2.8, interval: 88, dbl: 0.08, hp2: 0.25, cloud: 170 },
-  { every: 104, warn: 62, fire: 26, dblB: 0.3,  chain: 0.45, spd: 2.8, interval: 88, dbl: 0.08, hp2: 0.3,  cloud: 170 },
-  { every: 160, warn: 40, fire: 26, dblB: 0,    chain: 0,    spd: 2.6, interval: 96, dbl: 0.05, hp2: 0.25, cloud: 140 }, // nefes + kısa uyarılı sürpriz
-  { every: 86,  warn: 56, fire: 26, dblB: 0.45, chain: 0.35, spd: 3.0, interval: 82, dbl: 0.1,  hp2: 0.3,  cloud: 150 },
+  { every: 112, warn: 70, fire: 26, dblB: 0,    chain: 0,    spd: 2.6, interval: 92, dbl: 0.05, hp2: 0.2,  cloud: 200, track: 0 },
+  { every: 100, warn: 64, fire: 26, dblB: 0.55, chain: 0,    spd: 2.8, interval: 88, dbl: 0.08, hp2: 0.25, cloud: 170, track: 0.3 },
+  { every: 104, warn: 62, fire: 26, dblB: 0.3,  chain: 0.45, spd: 2.8, interval: 88, dbl: 0.08, hp2: 0.3,  cloud: 170, track: 0.25 },
+  { every: 160, warn: 40, fire: 26, dblB: 0,    chain: 0,    spd: 2.6, interval: 96, dbl: 0.05, hp2: 0.25, cloud: 140, track: 0.4 }, // nefes + kısa uyarılı sürpriz
+  { every: 86,  warn: 56, fire: 26, dblB: 0.45, chain: 0.35, spd: 3.0, interval: 82, dbl: 0.1,  hp2: 0.3,  cloud: 150, track: 0.35 },
 ];
 const STORM_CHAIN = 50; // zincirde şimşekler arası kare: önceki çakış bitip geçmeye vakit kalsın (24 iken kaçış imkânsızdı)
+const TRACK_LOCK = 24; // takip eden şimşek: çakmadan bu kadar kare önce kilitlenir
+let stormShake = 0, rainDrops = [];
 let bolts = [], stormT = 0, stormFlash = 0, stormLast = -1, stormClouds = [], stormCloudT = 0;
 const STORM_CLOUD_SPD = 1.5;
 const stormPuffSprites = [];
@@ -3466,11 +3469,14 @@ function drawStormClouds() { // düşmanların üstünde, düşman mermilerinin 
   });
 }
 function updateStorm(S, ending) {
+  if (Math.random() < 1 / 420) { Sound.sfx.rumble(); stormFlash = Math.max(stormFlash, 4); } // uzaktan gök gürültüsü
   updateStormClouds(S, ending);
   if (!ending && !bolts.length && ++stormT >= S.every) {
     stormT = 0;
     const r = Math.random();
-    if (r < S.chain) {
+    if (Math.random() < S.track) { // seni takip eden şimşek: şeridine kilitlenir, son anda durur
+      bolts.push({ lane: playerLaneNow(), t: 0, warn: S.warn + 22, fire: S.fire, seed: Math.random() * 99, track: true });
+    } else if (r < S.chain) {
       const order = Math.random() < 0.5 ? [0, 1, 2] : [2, 1, 0];
       order.forEach((lane, k) => bolts.push({ lane, t: -k * STORM_CHAIN, warn: S.warn, fire: S.fire, seed: Math.random() * 99 }));
     } else {
@@ -3490,11 +3496,14 @@ function updateStorm(S, ending) {
 }
 function tickBolts() {
   if (stormFlash > 0) stormFlash--;
+  if (stormShake > 0) stormShake--;
   bolts = bolts.filter(B => {
     B.t++;
+    if (B.track && B.t < B.warn - TRACK_LOCK) B.lane = playerLaneNow(); // kilitlenene kadar peşinden gelir
+    if (B.track && B.t === B.warn - TRACK_LOCK) Sound.sfx.laserWarn();
     if (B.t === 1) Sound.sfx.crackle();
     if (B.t === B.warn) { // çakış: şeritteki gemiler de yanar (kargo hariç)
-      Sound.sfx.thunder(); stormFlash = Math.max(stormFlash, 10); hurtFx = Math.max(hurtFx, 4);
+      Sound.sfx.thunder(); stormFlash = Math.max(stormFlash, 14); stormShake = Math.max(stormShake, 10);
       enemies = enemies.filter(e => {
         if (e.runner || nearestLane(e.x) !== B.lane || e.y < HUD_H) return true;
         spawnShipDeath(e); return false;
@@ -3539,18 +3548,45 @@ function boltPath(x, top, bot, seed) { // kırık şimşek çizgisi: birkaç kar
   return { pts, branches };
 }
 function strokePts(pts) { ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.stroke(); }
+function drawStormDark() { // fırtınanın karanlığı + çapraz yağmur (gemilerin altında)
+  ctx.fillStyle = 'rgba(4,2,14,0.55)'; ctx.fillRect(0, 0, W, H);
+  ctx.save(); ctx.strokeStyle = 'rgba(170,190,255,0.32)'; ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  for (let i = 0; i < 46; i++) {
+    const sp = 14 + (i % 5) * 2, x0 = (i * 97.3 + frameCount * sp * 0.45) % (W + 120) - 60, y0 = (i * 151.7 + frameCount * sp) % (H + 60) - 30;
+    ctx.moveTo(x0, y0); ctx.lineTo(x0 - 7, y0 + 22);
+  }
+  ctx.stroke(); ctx.restore();
+}
 function drawStorm() {
   const top = HUD_H - 10;
   const cl = getStormCloudSprite();
-  ctx.drawImage(cl, 0, top - 30);
+  ctx.drawImage(cl, -20, top - 40, W + 40, 230); // büyük, kabarık bulut örtüsü
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; // bulut içinde küçük çakmalar
+  for (let k = 0; k < 3; k++) {
+    const ph = (frameCount + k * 53) % 160;
+    if (ph < 6) {
+      const fx = ((k * 131 + Math.floor((frameCount + k * 53) / 160) * 97) % (W - 60)) + 30, fy = top + 30 + (k * 23) % 50;
+      const g = ctx.createRadialGradient(fx, fy, 2, fx, fy, 60);
+      g.addColorStop(0, `rgba(190,200,255,${0.45 * (1 - ph / 6)})`); g.addColorStop(1, 'rgba(120,120,255,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(fx, fy, 60, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  ctx.restore();
   bolts.forEach(B => {
     const x = LANE_CENTERS[B.lane];
     if (B.t <= 0) return;
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     if (B.t < B.warn) { // uyarı: bulut parlar, kıvılcımlar şeritten aşağı süzülür
-      const p = B.t / B.warn, fl = 0.75 + 0.25 * Math.sin(B.t * 0.9);
+      const p = B.t / B.warn, fl = 0.75 + 0.25 * Math.sin(B.t * 0.9), locked = B.track && B.t >= B.warn - TRACK_LOCK;
       const cg = ctx.createRadialGradient(x, top + 40, 4, x, top + 40, 90);
-      cg.addColorStop(0, `rgba(170,220,255,${(0.25 + 0.5 * p) * fl})`); cg.addColorStop(1, 'rgba(90,120,255,0)');
+      cg.addColorStop(0, B.track ? `rgba(255,${locked ? 70 : 120},${locked ? 110 : 230},${(0.35 + 0.5 * p) * fl})` : `rgba(170,220,255,${(0.25 + 0.5 * p) * fl})`); cg.addColorStop(1, B.track ? 'rgba(200,40,160,0)' : 'rgba(90,120,255,0)');
+      if (B.track) { // takip eden şimşek: geminin etrafında hedef halkası, kilitlenince kırmızı ve sabit
+        const rr = locked ? 30 : 38 + 6 * Math.sin(frameCount * 0.3);
+        ctx.strokeStyle = locked ? 'rgba(255,70,100,0.95)' : 'rgba(230,120,255,0.7)'; ctx.lineWidth = locked ? 3 : 2;
+        ctx.beginPath(); ctx.arc(x, player.y, rr, 0, Math.PI * 2); ctx.stroke();
+        [0, 1, 2, 3].forEach(q => { const a = q * Math.PI / 2; ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * (rr - 8), player.y + Math.sin(a) * (rr - 8)); ctx.lineTo(x + Math.cos(a) * (rr + 8), player.y + Math.sin(a) * (rr + 8)); ctx.stroke(); });
+      }
       ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(x, top + 40, 90, 0, Math.PI * 2); ctx.fill();
       const lg = ctx.createLinearGradient(0, top, 0, H);
       lg.addColorStop(0, `rgba(120,180,255,${0.16 * p})`); lg.addColorStop(1, `rgba(120,180,255,${0.05 * p})`);
@@ -3584,7 +3620,7 @@ function drawStorm() {
     }
     ctx.restore();
   });
-  if (stormFlash > 0) { ctx.fillStyle = `rgba(210,230,255,${0.22 * stormFlash / 10})`; ctx.fillRect(0, 0, W, H); }
+  if (stormFlash > 0) { ctx.fillStyle = `rgba(225,235,255,${Math.min(0.6, 0.5 * stormFlash / 14)})`; ctx.fillRect(0, 0, W, H); } // çakınca ekran bembeyaz
 }
 // --- L13 GHOST FLEET: tüm gemiler titrer (uyarı, inecekleri yerde soluk kopya), sonra aynı anda ileri ışınlanır ---
 const WARP_WAVES = [ // hp3: üç canlı oranı · warn kısa (kullanıcı: titreme çok kısa, hemen ışınlansın, baskı artsın)
@@ -3716,7 +3752,7 @@ function drawStream() {
   ctx.restore();
 }
 function drawArchiveBar() { // üstte, düğme değil: ARCHIVE yüzde çubuğu
-  const bw = 150, bx = W / 2 - bw / 2, by = H - 34; // altta: üstteki bildirimlerle çakışmasın
+  const bw = 150, bx = W / 2 - bw / 2, by = HUD_H + 6; // üstte (kullanıcı); L14'te bildirimler biraz aşağıda
   ctx.save();
   ctx.fillStyle = 'rgba(10,30,24,0.7)'; ctx.fillRect(bx, by, bw, 6);
   ctx.fillStyle = '#5dffb0'; ctx.shadowColor = '#5dffb0'; ctx.shadowBlur = inStream ? 10 : 0; ctx.fillRect(bx, by, bw * archive, 6); ctx.shadowBlur = 0;
@@ -5010,7 +5046,7 @@ const LEVEL_BRIEFS = [
   { title: 'HOLD FIRE',       vis: 'holdfire',  line: 'Tap anywhere on the screen to hold fire, tap again to shoot.', tips: ['Unknown signals ahead. Hit the ships, but a pod hit costs a life.', 'Red charges blow up the whole screen. Never touch or shoot them!'] },
   { title: 'IT WOKE UP',      vis: 'quake',     line: 'Deep in the mine, something has awoken. Its troops come first.', tips: ['Collect the bombs dropped by destroyed ships.', 'When its core glows, get below it and tap anywhere.', 'A bomb that misses is lost. Your guns barely scratch it.'] },
   { title: 'RADAR PING',      vis: 'radar',     line: 'The nebula blinds your sensors. Ships and mines stay hidden.', tips: ['Each radar ping shows them for a moment.', "Mines can't be shot. Remember where they are and steer clear!"] },
-  { title: 'ION STORM',       vis: 'storm',     line: 'The storm guards their base. Lightning strikes a whole lane.', tips: ['When the cloud above a lane glows, get out of that lane!', 'Sometimes it strikes lane after lane. Move the other way.'] },
+  { title: 'ION STORM',       vis: 'storm',     line: 'The storm guards their base. Lightning strikes a whole lane.', tips: ['When the cloud above a lane glows, get out of that lane!', 'A red ring means it is hunting you. Move once it locks!'] },
   { title: 'GHOST FLEET',     vis: 'warp',      line: 'Their ships warp forward, all at once.', tips: ['When they flicker, they are about to jump.', 'The faint copy shows where each one lands.'] },
   { title: 'DATA STREAM',     vis: 'stream',    line: 'Their data flows through the nebula. Stay inside the stream to copy it.', tips: ['The level ends when the archive is full.', 'The stream jumps lanes. A faint line shows where it goes next.', 'Enemies like the stream too. Dodge out and come back.'] },
   { title: 'THE SIGNAL SOURCE', vis: 'signal',  line: 'Every signal in the nebula comes from one place. Its guards come first.', tips: ['Radar, storm and warping ships, all at once.', 'Its core only takes damage while it glows.'] },
@@ -5602,6 +5638,7 @@ const FIRST_SEEN = {
   ccWall:    { title: 'FIREWALL',       text: 'Red beams burn two lanes. Stay in the open lane. Green lines show where it moves next.' },
   stream:    { title: 'DATA STREAM',    text: 'Stay inside the green stream to copy their archive. The level ends when the bar at the bottom is full.' },
   warp:      { title: 'WARP JUMP',      text: 'When the ships flicker, they all jump forward. The faint copy shows where each one lands.' },
+  boltTrack: { title: 'HUNTING STRIKE', text: 'This one follows you. When the ring turns red it locks. Move out!' },
   bolt:      { title: 'LIGHTNING',      text: 'The glowing cloud marks the lane it will strike. Get out of that lane!' },
   ion:       { title: 'ION CLOUD',      text: 'Your guns jam inside it. Steer around it.' },
   beam:      { title: 'BEAM WARNING',   text: 'A beam will fire down this lane. Move out!' },
@@ -5628,7 +5665,7 @@ function checkFirstSeen() {
   if (currentLevel === 14 && levelPlayT === 40 && streamX) want('stream', streamX, H * 0.45);
   if (ccSeen) { want(ccSeen.key || 'ccCore', ccSeen.x, ccSeen.y); ccSeen = null; }
   if (warpSeen) { want('warp', warpSeen.x, warpSeen.y); warpSeen = null; }
-  for (const B of bolts) if (B.t > 6 && B.t < B.warn - 20) want('bolt', LANE_CENTERS[B.lane], H * 0.3);
+  for (const B of bolts) if (B.t > 6 && B.t < B.warn - 20) want(B.track ? 'boltTrack' : 'bolt', LANE_CENTERS[B.lane], B.track ? player.y : H * 0.3);
   if (overdriveTimer > OVERDRIVE_TIME - 3) want('overdrive', player.x, player.y);
   for (const a of asteroids) {
     if (a.type === 'iron' && vis(a.y)) want('iron', a.x, a.y);
@@ -5740,7 +5777,7 @@ function drawFeedbackOverlays() {
     const a = Math.min(1, T.t / 12, (T.dur - T.t) / 18);
     ctx.save(); ctx.globalAlpha = Math.max(0, a);
     ctx.font = `600 13px ${TEXT_FONT}`;
-    const tw = Math.min(W - 60, ctx.measureText(T.text).width + 44), tx = W / 2 - tw / 2, ty = HUD_H + (boss ? 40 : currentZone === 2 ? 34 : 14);
+    const tw = Math.min(W - 60, ctx.measureText(T.text).width + 44), tx = W / 2 - tw / 2, ty = HUD_H + (boss ? 40 : currentZone === 2 ? 34 : currentLevel === 14 ? 38 : 14);
     chamferPath(tx, ty, tw, 30, 8);
     ctx.fillStyle = 'rgba(4,12,28,0.88)'; ctx.fill();
     ctx.strokeStyle = T.color; ctx.lineWidth = 1.3; ctx.stroke();
@@ -7451,6 +7488,7 @@ function drawResult() {
 function render() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   if (hurtFx > 0 && (state === 'play' || state === 'gameover')) { const k = hurtFx / 26 * 5; ctx.translate((Math.random() - 0.5) * k, (Math.random() - 0.5) * k); }
+  else if (stormShake > 0 && state === 'play') { const k = stormShake * 0.7; ctx.translate((Math.random() - 0.5) * k, (Math.random() - 0.5) * k); } // şimşek sarsıntısı (kırmızı parlama yok)
 
   if (state === 'intro') { drawIntro(); return; }
   if (state === 'zonetransition') { drawZoneTransition(); return; }
@@ -7471,6 +7509,7 @@ function render() {
   if (currentLevel === 7 && state !== 'levelcomplete') drawStealth();
   if (currentLevel === 8) drawTunnel();
   if (currentLevel === 8 && drillSpd > 0) drawMineBack();
+  if (currentLevel === 12 && state !== 'levelcomplete') drawStormDark(); // her şeyin altında
   asteroids.forEach(drawAsteroid);
   drawIonClouds();
   if (slalomOutro > 0 && currentLevel !== 9) drawMineSilhouette();
@@ -7489,7 +7528,7 @@ function render() {
   if (boss) drawBoss(boss);
   drawRecoilFx('top');
   if (stormClouds.length) drawStormClouds();
-  if (currentZone === 3 && !boss) { const fc = getLevelConfig(); drawFog(fc && fc.fog ? fc.fog : 0.4); } // boss sırasında sis yok: üs net görünsün // sis düşmanları örter, mermileri değil
+  if (currentZone === 3 && !boss) { const fc = getLevelConfig(); if (!fc || fc.fog !== 0) drawFog(fc && fc.fog ? fc.fog : 0.4); } // boss sırasında sis yok: üs net görünsün // sis düşmanları örter, mermileri değil
   if (radarOn()) { drawNebMines(); drawRadar(); }
   if ((currentLevel === 12 || currentLevel === 15) && state !== 'levelcomplete') drawStorm();
   powerups.forEach(drawPowerup); // güçlendirmeler her zaman net: sisin üstünde
