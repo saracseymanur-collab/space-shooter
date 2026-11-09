@@ -3758,11 +3758,11 @@ function drawArchiveCard() { // bölüm sonu: toplanan kadar çözülmüş mesaj
 function n0done(C) { return C.t * 1.4 > ARCHIVE_MSG.join('').length + 8; }
 function closeArchiveCard() { if (!archiveCard || !n0done(archiveCard)) return; archiveCard = null; archiveDone = true; Sound.sfx.click(); }
 const RADAR_WAVES = [ // 2026-11-08: gemiler azaltıldı (kullanıcı: mayınlar iyi, gemi çok)
-  { every: 120, fade: 70, spd: 2.6, interval: 102, dbl: 0.05, hp2: 0.2,  mine: 115 },
-  { every: 130, fade: 62, spd: 2.8, interval: 94,  dbl: 0.08, hp2: 0.25, mine: 95 },
-  { every: 140, fade: 56, spd: 3.0, interval: 92,  dbl: 0.08, hp2: 0.3,  mine: 85 },
-  { every: 120, fade: 60, spd: 2.7, interval: 102, dbl: 0.05, hp2: 0.25, mine: 100 },
-  { every: 150, fade: 50, spd: 3.2, interval: 86,  dbl: 0.1,  hp2: 0.3,  mine: 75 },
+  { every: 120, fade: 70, spd: 2.6, interval: 102, dbl: 0.05, hp2: 0.2,  mine: 150 },
+  { every: 130, fade: 62, spd: 2.8, interval: 94,  dbl: 0.08, hp2: 0.25, mine: 125 },
+  { every: 140, fade: 56, spd: 3.0, interval: 92,  dbl: 0.08, hp2: 0.3,  mine: 112 },
+  { every: 120, fade: 60, spd: 2.7, interval: 102, dbl: 0.05, hp2: 0.25, mine: 130 },
+  { every: 150, fade: 50, spd: 3.2, interval: 86,  dbl: 0.1,  hp2: 0.3,  mine: 100 },
 ];
 let nebMines = [], nebMineT = 0;
 const NEB_MINE_GAP = 300; // aynı şeritte mayınla arkasındaki gemi arası en az bu kadar px
@@ -3770,7 +3770,7 @@ function spawnNebMine(R) {
   // aynı yükseklikte en fazla iki şerit: kaçış hep var
   const near = nebMines.filter(m => m.y < 90);
   const lanes = [0, 1, 2].filter(l => !near.some(m => m.lane === l) && !enemies.some(e => e.lane === l && e.y < 200)); // gemiyle üst üste binmesin, gemiyi vurmaya yer kalsın
-  if (near.length >= 2 || !lanes.length) return;
+  if (near.length >= 2 || !lanes.length || (near.length === 1 && Math.random() < 0.65)) return; // 2026-11-09: aynı hizada ikinci mayın seyrek (kaçış alanı geniş)
   const lane = lanes[Math.floor(Math.random() * lanes.length)];
   nebMines.push({ lane, x: LANE_CENTERS[lane], y: -30, spd: R.spd, seen: 0, known: false, spin: Math.random() * 6 });
 }
