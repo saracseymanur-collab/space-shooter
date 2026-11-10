@@ -606,7 +606,7 @@ const LEVEL_TUNE = {
   // 2026-11: bölümler 50 sn'ye inince (WAVE_DENSITY) kolay kalanlar için ek sıklık
   1: { iMul: 1.2, fireMul: 1.4 }, // öğretici ama kolay değil (kullanıcı: sektör 1 kolay)
   11: { iMul: 1 }, 12: { iMul: 1 }, 13: { iMul: 1 }, 14: { iMul: 1 },
-  16: { diver: 0.35, formation: true, iMul: 0.42, fireMul: 0.7 }, 17: { gunner: 1700, iMul: 1.05 }, 18: { fireMul: 0.9, iMul: 0.85 }, 19: { diver: 0.3, iMul: 0.75 },
+  16: { iMul: 1 }, 17: { gunner: 1700, iMul: 1.05 }, 18: { fireMul: 0.9, iMul: 0.85 }, 19: { diver: 0.3, iMul: 0.75 },
 };
 // Bölümler 70 → 50 sn kısalınca zorluk düşmesin diye: düşman sıklığı ve özel düşman aralıkları sıklaşır
 const WAVE_DENSITY = 0.66; // (2026-11-04: kullanıcı "bir tık daha zor" → 0.72'den)
@@ -752,12 +752,15 @@ function baseLevelConfig() {
       return { interval: G.interval, doubleChance: G.dblE, speed: () => 2.8 + Math.random() * 0.3, hp: () => Math.random() < G.hp2 ? 2 : 1, canShoot: true, zigzag: false, fog: 0, gates: G };
     }
     // ── Zone 4: Black Hole — çekim şerit değiştirtir, mermiler kıvrılır, enkaz ──
-    case 16: return { // shift2: ikinci kez savrulma ihtimali
-      interval: 62, doubleChance: 0.25,
-      speed: () => 1.8 + Math.random() * 0.4,
-      hp: () => Math.random() < 0.5 ? 2 : 1,
-      canShoot: true, zigzag: false, gravity: 0.8, shift2: 0.45,
-    };
+    case 16: { // TIME RIFT: zaman yarıkları (yavaşlama / hızlanma / ters dönme)
+      const lw = Math.min(5, Math.max(1, getWave() - (currentLevel - 1) * 5)), R = RIFT_WAVES[lw - 1];
+      return {
+        interval: R.interval, doubleChance: R.dbl,
+        speed: () => R.spd + Math.random() * 0.3,
+        hp: () => { const r = Math.random(); return r < R.hp3 ? 3 : r < R.hp3 + R.hp2 ? 2 : 1; },
+        canShoot: true, zigzag: false, rift: R,
+      };
+    }
     case 17: return {
       interval: 64, doubleChance: 0.25,
       speed: () => 1.8 + Math.random() * 0.4,
@@ -866,11 +869,11 @@ document.addEventListener('keydown', e => {
     if (e.code === 'Space' && !keyHandled[e.code] && currentLevel === 15) { keyHandled[e.code] = true; if (boss) useTitanBomb(); else coreDash(); }
     if (e.code === 'ArrowLeft' && !keyHandled[e.code]) {
       keyHandled[e.code] = true;
-      if (player.targetLane > 0) player.targetLane--;
+      laneStep(-1);
     }
     if (e.code === 'ArrowRight' && !keyHandled[e.code]) {
       keyHandled[e.code] = true;
-      if (player.targetLane < 2) player.targetLane++;
+      laneStep(1);
     }
   }
 });
@@ -905,8 +908,7 @@ canvas.addEventListener('touchmove', e => {
   const dx = t.clientX - touchStartX;
   const dy = t.clientY - touchStartY;
   if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10) {
-    if (dx < 0 && player.targetLane > 0) player.targetLane--;
-    if (dx > 0 && player.targetLane < 2) player.targetLane++;
+    laneStep(dx);
     swipeFired = true;
     if (tutorial) {
       if (dx > 0 && tutorial.step === 0) tutorial.step = 1;
@@ -958,8 +960,7 @@ canvas.addEventListener('mousemove', e => {
   const dx = e.clientX - mouseStartX;
   const dy = e.clientY - mouseStartY;
   if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10) {
-    if (dx < 0 && player.targetLane > 0) player.targetLane--;
-    if (dx > 0 && player.targetLane < 2) player.targetLane++;
+    laneStep(dx);
     mouseSwipeFired = true;
     if (tutorial) {
       if (dx > 0 && tutorial.step === 0) tutorial.step = 1;
@@ -1111,7 +1112,7 @@ function startLevel(level) {
   playFrames     = (level - 1) * LEVEL_SEC * 60;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; shards = []; powerups = [];
-  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; ccSeen = null; gates = []; gateT = 0; dashT = 0; dashTrail = 0; gateSeen = null; corridorY = 0; streamLane = 1; streamX = 0; streamNext = -1; streamT = 0; streamPre = 0; archive = 0; archiveCard = null; archiveDone = false; streamBits = []; inStream = false; streamChain = false; warpT = 0; warpWarn = 0; warpTrails = []; warpSeen = null; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1; stormClouds = []; stormCloudT = 0; stormShake = 0;
+  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; ccSeen = null; gates = []; gateT = 0; dashT = 0; dashTrail = 0; gateSeen = null; corridorY = 0; streamLane = 1; streamX = 0; streamNext = -1; streamT = 0; streamPre = 0; archive = 0; archiveCard = null; archiveDone = false; streamBits = []; inStream = false; streamChain = false; warpT = 0; warpWarn = 0; warpTrails = []; warpSeen = null; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1; stormClouds = []; stormCloudT = 0; stormShake = 0; rifts = []; riftMode = null; riftT = 0; riftNext = 150; riftIdx = 0; riftWave = 0; riftScaleCur = 1; riftAng = 0; riftFx = 0; riftSeen = null;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
   countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
@@ -2951,6 +2952,123 @@ function drawGates() {
     }
     ctx.restore();
   });
+}
+// --- L16 TIME RIFT (2026-11-10, kullanıcı fikri): ekranı boydan boya kaplayan zaman yarığı iner, gemiye değince
+// zaman bükülür: yavaşlama (her şey, gemin dahil, yavaşlar), hızlanma (her şey hızlanır), ters dönme (oyun alanı 180° döner).
+// Kaçış yok: her yarık geçilir. Hız loop()'taki adım çarpanıyla (riftScaleCur) değişir; dönme sadece çizimde + kaydırma yönü.
+const RIFT_WAVES = [ // seq: o dalgada sırayla gelen yarıklar · gap: bozulma bitince sonraki yarığa kadar (kare)
+  { seq: ['slow'],                     gap: 170, spd: 3.3, interval: 60, dbl: 0.25, hp2: 0.45, hp3: 0.15 },
+  { seq: ['fast', 'slow'],             gap: 150, spd: 3.3, interval: 58, dbl: 0.28, hp2: 0.45, hp3: 0.15 },
+  { seq: ['flip', 'fast'],             gap: 140, spd: 3.4, interval: 56, dbl: 0.3,  hp2: 0.45, hp3: 0.2 },
+  { seq: ['slow', 'flip'],             gap: 190, spd: 3.3, interval: 64, dbl: 0.25, hp2: 0.45, hp3: 0.15 }, // nefes
+  { seq: ['flipfast', 'slow', 'fast'], gap: 110, spd: 3.5, interval: 52, dbl: 0.32, hp2: 0.45, hp3: 0.25 },
+];
+const RIFT = {
+  slow:     { scale: 0.5, dur: 200, col: '120,190,255', label: 'TIME SLOWS' },
+  fast:     { scale: 1.7, dur: 470, col: '255,130,60',  label: 'TIME SPEEDS UP' },
+  flip:     { scale: 1,   dur: 430, col: '190,110,255', label: 'SPACE FLIPS' },
+  flipfast: { scale: 1.5, dur: 470, col: '230,100,200', label: 'FLIP + SPEED' },
+};
+const RIFT_SPD = 4.2, RIFT_H = 64;
+let rifts = [], riftMode = null, riftT = 0, riftNext = 150, riftIdx = 0, riftWave = 0, riftScaleCur = 1, riftAng = 0, riftFx = 0, riftSeen = null;
+const riftFlipTarget = () => riftMode && (riftMode === 'flip' || riftMode === 'flipfast') && riftT > 0;
+const riftFlipped = () => riftAng > Math.PI / 2;
+function laneStep(d) { // kaydırma ekranda görülen yöne göre: ters dönükken mantıksal yön tersine
+  if (currentLevel === 16 && riftFlipped()) d = -d;
+  if (d < 0 && player.targetLane > 0) player.targetLane--;
+  if (d > 0 && player.targetLane < 2) player.targetLane++;
+}
+function updateRift(R, ending) {
+  const lw = Math.min(5, Math.max(1, getWave() - (currentLevel - 1) * 5));
+  if (lw !== riftWave) { riftWave = lw; riftIdx = 0; }
+  if (!ending && !riftMode && !rifts.length && --riftNext <= 0) {
+    const type = R.seq[riftIdx % R.seq.length]; riftIdx++;
+    rifts.push({ y: HUD_H - RIFT_H, type, t: 0 });
+  }
+  rifts = rifts.filter(r => {
+    r.t++; r.y += RIFT_SPD;
+    if (!seenIntro['rift_' + r.type] && !riftSeen && r.y > H * 0.28) riftSeen = { key: 'rift_' + r.type, x: W / 2, y: r.y + RIFT_H / 2 };
+    if (r.y + RIFT_H / 2 >= player.y) { // gemiye değdi: zaman bükülür
+      riftMode = r.type; riftT = RIFT[r.type].dur; riftFx = 30;
+      Sound.sfx.whoosh();
+      showToast(RIFT[r.type].label, `rgb(${RIFT[r.type].col})`, 70);
+      return false;
+    }
+    return true;
+  });
+  if (riftMode && --riftT <= 0) { riftMode = null; riftNext = R.gap; }
+  if (riftFx > 0) riftFx--;
+  const target = riftMode ? RIFT[riftMode].scale : 1;
+  riftScaleCur += (target - riftScaleCur) * 0.08;
+  if (Math.abs(target - riftScaleCur) < 0.01) riftScaleCur = target;
+}
+function riftAngTick() { // çizimde dönme açısı (her karede, yumuşak)
+  const tgt = currentLevel === 16 && riftFlipTarget() && (state === 'play' || state === 'paused') ? Math.PI : 0;
+  riftAng += (tgt - riftAng) * 0.09;
+  if (Math.abs(tgt - riftAng) < 0.003) riftAng = tgt;
+}
+function riftPoint(x, y) { // mantıksal nokta → ekrandaki yeri (dönme sırasında)
+  if (!riftAng) return [x, y];
+  const c = Math.cos(riftAng), s = Math.sin(riftAng), k = riftZoom(), dx = (x - W / 2) * k, dy = (y - H / 2) * k;
+  return [W / 2 + dx * c - dy * s, H / 2 + dx * s + dy * c];
+}
+const riftZoom = () => 1 - 0.38 * Math.sin(riftAng); // dönerken küçülür, ekrana sığar
+function beginRiftWorld() {
+  if (!riftAng) return false;
+  ctx.save(); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+  ctx.translate(W / 2, H / 2); ctx.rotate(riftAng); const k = riftZoom(); ctx.scale(k, k); ctx.translate(-W / 2, -H / 2);
+  return true;
+}
+function drawRifts() { // inen yarıklar (dönmemiş ekranda)
+  rifts.forEach(r => {
+    const D = RIFT[r.type], y = r.y, mid = y + RIFT_H / 2;
+    ctx.save();
+    const g = ctx.createLinearGradient(0, y, 0, y + RIFT_H);
+    g.addColorStop(0, `rgba(${D.col},0)`); g.addColorStop(0.5, `rgba(${D.col},0.38)`); g.addColorStop(1, `rgba(${D.col},0)`);
+    ctx.fillStyle = g; ctx.fillRect(0, y, W, RIFT_H);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = `rgba(${D.col},0.8)`; ctx.lineWidth = 2;
+    ctx.beginPath(); // dalgalı orta çizgi
+    for (let x = 0; x <= W; x += 6) { const yy = mid + Math.sin(x * 0.045 + frameCount * (r.type === 'slow' ? 0.04 : 0.25)) * 6; x ? ctx.lineTo(x, yy) : ctx.moveTo(x, yy); }
+    ctx.stroke();
+    if (r.type === 'slow') { // ağır genişleyen halkalar
+      for (let i = 0; i < 3; i++) { const p = ((frameCount * 0.006) + i / 3) % 1; ctx.strokeStyle = `rgba(${D.col},${0.5 * (1 - p)})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(W / 2, mid, 30 + p * 170, 6 + p * 22, 0, 0, Math.PI * 2); ctx.stroke(); }
+    } else if (r.type === 'fast') { // hızla akan çizgiler
+      ctx.strokeStyle = `rgba(${D.col},0.7)`; ctx.lineWidth = 2;
+      for (let i = 0; i < 12; i++) { const x = ((i * 67 + frameCount * 14) % (W + 80)) - 40, yy = y + 10 + (i * 37) % (RIFT_H - 20); ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x + 46, yy); ctx.stroke(); }
+    }
+    if (r.type === 'flip' || r.type === 'flipfast') { // dönen girdap
+      ctx.translate(W / 2, mid); ctx.rotate(frameCount * 0.12);
+      for (let a = 0; a < 3; a++) { ctx.rotate(Math.PI * 2 / 3); ctx.strokeStyle = `rgba(${D.col},0.85)`; ctx.lineWidth = 2.5; ctx.beginPath(); for (let t = 0; t < 1; t += 0.05) { const rr = 4 + t * 26, aa = t * 4; t ? ctx.lineTo(Math.cos(aa) * rr, Math.sin(aa) * rr * 0.7) : ctx.moveTo(Math.cos(aa) * rr, Math.sin(aa) * rr * 0.7); } ctx.stroke(); }
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    }
+    ctx.restore();
+    ctx.save(); ctx.fillStyle = `rgba(${D.col},0.95)`; ctx.font = `700 12px ${UI_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    drawSpaced(D.label, W / 2, y - 6, 12, 700, UI_FONT, 3); ctx.restore();
+  });
+}
+function drawRiftFx() { // etkin bozulmanın ekran efekti (dönmeyen katman)
+  if (riftFx > 0) { ctx.fillStyle = `rgba(255,255,255,${0.35 * riftFx / 30})`; ctx.fillRect(0, 0, W, H); }
+  if (!riftMode) return;
+  const D = RIFT[riftMode], end = riftT < 60 && Math.floor(frameCount / 6) % 2; // biterken yanıp söner
+  ctx.save();
+  const v = ctx.createRadialGradient(W / 2, H / 2, H * 0.32, W / 2, H / 2, H * 0.62);
+  v.addColorStop(0, `rgba(${D.col},0)`); v.addColorStop(1, `rgba(${D.col},${end ? 0.18 : 0.38})`);
+  ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+  if (riftMode === 'slow') { // donuk mavi: ağır dönen saat halkaları
+    ctx.fillStyle = 'rgba(90,150,255,0.08)'; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = `rgba(${D.col},0.18)`; ctx.lineWidth = 2;
+    for (let i = 0; i < 3; i++) { const p = ((frameCount * 0.004) + i / 3) % 1; ctx.beginPath(); ctx.arc(W / 2, H / 2, 60 + p * 420, 0, Math.PI * 2); ctx.stroke(); }
+  } else if (riftMode === 'fast' || riftMode === 'flipfast') { // hız çizgileri
+    ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = `rgba(${D.col},0.35)`; ctx.lineWidth = 2;
+    for (let i = 0; i < 16; i++) { const x = 14 + ((i * 53) % (W - 28)), y = ((i * 131 + frameCount * 34) % (H + 120)) - 120; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 90); ctx.stroke(); }
+  }
+  if (riftMode === 'flip' || riftMode === 'flipfast') { ctx.strokeStyle = `rgba(${D.col},${end ? 0.3 : 0.75})`; ctx.lineWidth = 4; ctx.strokeRect(3, 3, W - 6, H - 6); }
+  // kalan süre: HUD altında ince çubuk
+  ctx.globalCompositeOperation = 'source-over';
+  const fr = riftT / D.dur; ctx.fillStyle = `rgba(${D.col},0.25)`; ctx.fillRect(40, HUD_H + 6, W - 80, 4);
+  ctx.fillStyle = `rgba(${D.col},0.95)`; ctx.fillRect(40, HUD_H + 6, (W - 80) * fr, 4);
+  ctx.restore();
 }
 // --- Boss: Ana Çekirdek ---
 const CORE_Y = H * 0.24, CORE_R = 46, CORE_GUN = 0.5; // boşluktan geçen mermi
@@ -5024,7 +5142,8 @@ function drawFloatTexts() {
     ctx.fillStyle = f.color;
     if (f.big) { ctx.shadowColor = f.color; ctx.shadowBlur = 18; }
     const sc = f.big ? 1 + 0.3 * Math.max(0, 1 - f.t / 12) : 1;
-    ctx.save(); ctx.translate(f.x, f.y); ctx.scale(sc, sc);
+    const [fx, fy] = currentLevel === 16 ? riftPoint(f.x, f.y) : [f.x, f.y];
+    ctx.save(); ctx.translate(fx, fy); ctx.scale(sc, sc);
     ctx.fillText(f.text, 0, 0);
     ctx.restore();
     ctx.shadowBlur = 0;
@@ -5071,7 +5190,7 @@ const LEVEL_BRIEFS = [
   { title: 'GHOST FLEET',     vis: 'warp',      line: 'Their ships warp forward, all at once.', tips: ['They flicker, then jump. A faint copy shows where they land.'] },
   { title: 'DATA STREAM',     vis: 'stream',    line: 'Their data flows through the nebula. Stay inside the stream to copy it.', tips: ['The level ends when the archive is full.'] },
   { title: 'CORE BREACH',     vis: 'gate',      line: 'You made it inside their base. Laser gates guard the way to its core.', tips: ['Tap anywhere to dash through a gate while the beam is off.', "Collect the bombs dropped by destroyed ships. You'll need them."] },
-  { title: 'GRAVITY WELL',    vis: 'gravity',   line: 'Gravity pulls enemies into other lanes.', tips: ['Some get pulled twice. Follow them!'] },
+  { title: 'TIME RIFT',       vis: 'rift',      line: 'Near the black hole, time bends. You cannot avoid the rifts.', tips: ['Blue slows time, orange speeds it up, purple flips space.'] },
   { title: 'BENT SHOTS',      vis: 'bent',      line: 'Enemy shots curve toward the center.', tips: ['Watch where a shot will land.'] },
   { title: 'DEBRIS FIELD',    vis: 'debris',    line: 'Wreckage is falling into the black hole.', tips: ['Dodge or shoot the debris.'] },
   { title: 'EVENT HORIZON',   vis: 'horizon',   line: 'Gravity, bent shots and debris. All at once.', tips: ['Hold on!'] },
@@ -5334,6 +5453,20 @@ function drawBriefVisual(kind, cx, cy, zc) {
       ctx.fillStyle = `rgba(255,34,68,${glow})`; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 18;
       [-22, 22].forEach(dx => { ctx.beginPath(); ctx.ellipse(cx + dx, cy, 9, 4.5 * blink, dx < 0 ? 0.25 : -0.25, 0, Math.PI * 2); ctx.fill(); });
       ctx.shadowBlur = 0;
+      break;
+    }
+    case 'rift': { // üç renkli yarık sırayla geminin üstünden geçer
+      const f = frameCount % 210, k = Math.floor(f / 70), D = RIFT[['slow', 'fast', 'flip'][k]], ry = cy - 60 + (f % 70) * 1.6;
+      ctx.save();
+      const g = ctx.createLinearGradient(0, ry - 14, 0, ry + 14);
+      g.addColorStop(0, `rgba(${D.col},0)`); g.addColorStop(0.5, `rgba(${D.col},0.5)`); g.addColorStop(1, `rgba(${D.col},0)`);
+      ctx.fillStyle = g; ctx.fillRect(cx - 120, ry - 14, 240, 28);
+      ctx.strokeStyle = `rgba(${D.col},0.9)`; ctx.lineWidth = 2; ctx.beginPath();
+      for (let x = -120; x <= 120; x += 6) { const yy = ry + Math.sin(x * 0.06 + frameCount * 0.2) * 4; x > -120 ? ctx.lineTo(cx + x, yy) : ctx.moveTo(cx + x, yy); }
+      ctx.stroke();
+      ctx.translate(cx, cy + 40); if (k === 2 && (f % 70) > 40) ctx.rotate(Math.min(1, ((f % 70) - 40) / 16) * Math.PI);
+      if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, -16, -16, 32, 32);
+      ctx.restore();
       break;
     }
     case 'gate': { // koridor: yanıp sönen lazer kapısı, gemi atılarak geçer
@@ -5667,6 +5800,10 @@ const FIRST_SEEN = {
   explosive: { title: 'EXPLOSIVE ROCK', text: 'Shoot it to blow up everything nearby.' },
   meteor:    { title: 'INCOMING ROCKS', text: 'Rocks are coming down this lane. Move out!' },
   phantom:   { title: 'PHANTOM',        text: 'Turns invisible. Shots pass through it while hidden.' },
+  rift_slow: { title: 'TIME SLOWS',     text: 'When this rift reaches you, everything slows down. Your ship too.' },
+  rift_fast: { title: 'TIME SPEEDS UP', text: 'When this rift reaches you, everything speeds up. Your ship too.' },
+  rift_flip: { title: 'SPACE FLIPS',    text: 'When this rift reaches you, the whole field turns upside down. Swipe the way you see it.' },
+  rift_flipfast: { title: 'FLIP + SPEED', text: 'Upside down and faster at the same time. Hold on!' },
   gate:      { title: 'LASER GATE',     text: 'Tap anywhere to dash forward. Dash through while the beam is off, before it reaches you!' },
   coreGap:   { title: 'SHIELD GAP',     text: 'The gap in its shield is facing you. Tap to throw a bomb now! A blocked bomb is lost.' },
   stream:    { title: 'DATA STREAM',    text: 'Stay inside the green stream to copy their archive. The level ends when the bar at the bottom is full.' },
@@ -5688,7 +5825,8 @@ function markSeen(key) { seenIntro[key] = 1; try { localStorage.setItem('ss_seen
 // Ekranda yeni bir şey var mı? (oyuncunun tepki verecek vakti olacak yükseklikteyken)
 function checkFirstSeen() {
   const vis = y => y > HUD_H + 30 && y < H * 0.62;
-  const want = (key, x, y) => { if (!seenIntro[key] && !introCard) { introCard = { key, x, y, t: 0 }; Sound.sfx.click(); } };
+  const want = (key, x, y) => { if (!seenIntro[key] && !introCard) { if (currentLevel === 16 && !key.startsWith('rift_')) [x, y] = riftPoint(x, y); introCard = { key, x, y, t: 0 }; Sound.sfx.click(); } };
+  if (riftSeen) { want(riftSeen.key, riftSeen.x, riftSeen.y); riftSeen = null; }
   for (const p of powerups) if (FIRST_SEEN[p.type] && vis(p.y)) want(p.type, p.x, p.y);
   for (const c of crystals) if (vis(c.y)) want('crystal', c.x, c.y);
   for (const d of bombDrops) if (vis(d.y)) want('titanBomb', d.x, d.y);
@@ -6464,6 +6602,7 @@ function update() {
 
   if (currentLevel === 15 && state === 'play' && (gates.length || (_zcfg && _zcfg.gates && !boss))) updateGates(_zcfg.gates || GATE_WAVES[2], !!boss || getWave() - (currentLevel - 1) * 5 > bossPreWaves());
   if (currentLevel === 15) updateTitanBombs();
+  if (currentLevel === 16 && !boss && state === 'play' && !player.dead && _zcfg && _zcfg.rift) updateRift(_zcfg.rift, getWave() > currentLevel * 5);
   if (currentLevel === 14 && !boss && state === 'play' && _zcfg && _zcfg.stream) updateStream(_zcfg.stream, getWave() > currentLevel * 5);
   if (currentLevel === 13 && !boss && state === 'play' && !player.dead && _zcfg && _zcfg.warp) updateWarp(_zcfg.warp);
   else if (warpWarn) { warpWarn = 0; enemies.forEach(e => { e.warpTo = null; }); } // ışınlanma yarıda kaldıysa gemiler donmasın
@@ -7545,6 +7684,8 @@ function render() {
   if (state === 'menu') { drawMenu(); return; }
   if (state === 'map') { drawMap(); return; }
 
+  riftAngTick();
+  const riftWorld = beginRiftWorld(); // L16 ters dönme: oyun alanı döner, HUD dönmez
   if (!drawZoneBackdrop(currentZone)) {
     // Görsel yüklenmediyse eski çizim arkaplanları
     if (currentZone === 2) drawZone2Background();
@@ -7599,6 +7740,8 @@ function render() {
   if (currentLevel === 7 && state !== 'levelcomplete') drawStealthShadows(); // gölgeye giren gemi kararır
   drawAlarmFx();
   drawHunterAim(); // geminin üstünde: nişangâh gemiyi çevreler
+  if (riftWorld) ctx.restore();
+  if (currentLevel === 16 && state !== 'levelcomplete') { drawRifts(); drawRiftFx(); }
 
 
   drawFloatTexts();
@@ -7631,7 +7774,7 @@ function loop(timestamp) {
   if (_lastTime === 0) { _lastTime = timestamp; }
   const delta = Math.min(timestamp - _lastTime, 100);
   _lastTime = timestamp;
-  _accum += delta * (state === 'play' && !briefing && !(countdown > 0) && !introCard ? GAME_SPEED : 1); // oynanış hızı (menü, kart, 3-2-1 normal)
+  _accum += delta * (state === 'play' && !briefing && !(countdown > 0) && !introCard ? GAME_SPEED * (currentLevel === 16 ? riftScaleCur : 1) : 1); // oynanış hızı (menü, kart, 3-2-1 normal)
   while (_accum >= _STEP) {
     _slowFlip = !_slowFlip;
     if (!(slowMoT > 0 && _slowFlip)) update(); // ağır çekimde her ikinci adım atlanır

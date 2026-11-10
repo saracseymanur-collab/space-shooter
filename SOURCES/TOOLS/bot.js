@@ -107,7 +107,8 @@ function runLevel(level, prof, maxFrames = 9000) { // insanlar gibi tek kararda 
     introCard = null; briefing = false;
     const tr = trapped(); if (tr && !wasTrapped) traps++; wasTrapped = tr;
     if (f >= next) {
-      next = f + prof.react + Math.floor(Math.random() * prof.react * 0.5);
+      const rk = typeof riftScaleCur !== 'undefined' && currentLevel === 16 ? riftScaleCur : 1; // L16: zaman hızlanınca insan tepkisi kare olarak uzar
+      next = f + Math.round((prof.react + Math.floor(Math.random() * prof.react * 0.5)) * rk);
       const blind = Math.random() < prof.miss, cur = player.targetLane;
       let best = cur, bestS = -1e12;
       for (const l of [0, 1, 2]) {
