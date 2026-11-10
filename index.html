@@ -2876,7 +2876,7 @@ const GATE_WAVES = [
 ];
 const GATE_HOLD = 150, GATE_WARN = 18, DASH_T = 10, DASH_DIST = 300;
 let gates = [], gateT = 0, dashT = 0, dashTrail = 0, gateSeen = null, corridorY = 0;
-const gateOn = g => (g.t % (g.on + g.off)) < g.on;
+const gateOn = g => g.closing || (g.t % (g.on + g.off)) < g.on; // üstüne gelen kapı hep açık: beklemek yakar
 const gateWarn = g => { const c = g.t % (g.on + g.off); return c >= g.on + g.off - GATE_WARN; };
 function coreDash() {
   if (player.dead || dashT > 0) return;
@@ -2899,6 +2899,7 @@ function updateGates(G, ending) {
     if (g.passed) g.y += 9;
     else if (dash && near) g.y += dash;
     else if (g.y < hold) g.y = Math.min(hold, g.y + G.spd);
+    else if ((g.held = (g.held || 0) + 1) > g.on + g.off + 24) { g.y += 5; g.closing = true; } // beklemek kurtarmaz: bir tur sonra kapı üstüne gelir (o anki haliyle geçer)
     if (!g.passed && prev < player.y && g.y >= player.y) { // gemi kapıdan geçti
       g.passed = true;
       if (gateOn(g) && !(player.invuln > 0)) { spawnExplosion(player.x, player.y, true); damagePlayer('Burned by a laser gate!'); }
@@ -2944,6 +2945,7 @@ function drawGates() {
       ctx.fillStyle = `rgba(255,225,230,${fl})`; ctx.fillRect(20, g.y - 2, W - 40, 4);
     } else {
       ctx.strokeStyle = warn ? 'rgba(255,120,140,0.6)' : 'rgba(160,190,230,0.25)'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 10]);
+      if (g.held > g.on + g.off - 30 && !g.passed) { ctx.strokeStyle = Math.floor(frameCount / 4) % 2 ? 'rgba(255,170,60,0.8)' : 'rgba(255,170,60,0.3)'; ctx.lineWidth = 2.5; } // yakında üstüne gelecek
       ctx.beginPath(); ctx.moveTo(26, g.y); ctx.lineTo(W - 26, g.y); ctx.stroke(); ctx.setLineDash([]);
     }
     ctx.restore();
@@ -5667,7 +5669,7 @@ const FIRST_SEEN = {
   explosive: { title: 'EXPLOSIVE ROCK', text: 'Shoot it to blow up everything nearby.' },
   meteor:    { title: 'INCOMING ROCKS', text: 'Rocks are coming down this lane. Move out!' },
   phantom:   { title: 'PHANTOM',        text: 'Turns invisible. Shots pass through it while hidden.' },
-  gate:      { title: 'LASER GATE',     text: 'Tap anywhere to dash forward. Dash through while the beam is off!' },
+  gate:      { title: 'LASER GATE',     text: "Tap anywhere to dash forward. Dash through while the beam is off! Don't wait too long, the gate closes in." },
   coreGap:   { title: 'SHIELD GAP',     text: 'The gap in its shield is facing you. Tap to throw a bomb now! A blocked bomb is lost.' },
   stream:    { title: 'DATA STREAM',    text: 'Stay inside the green stream to copy their archive. The level ends when the bar at the bottom is full.' },
   warp:      { title: 'WARP JUMP',      text: 'When the ships flicker, they all jump forward. The faint copy shows where each one lands.' },
