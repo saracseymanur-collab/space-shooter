@@ -2869,12 +2869,12 @@ function drawDrifters() {
 // üstünde bekler, açılıp kapanır. Ekrana dokununca gemi ileri atılır (kapıyı geçer): kapı açıkken geçersen yanarsın.
 // Boss: Ana Çekirdek. Etrafında boşluklu kalkan halkası şeritler arasında gidip gelir; boşluk senin şeridine bakarken
 // atılan bomba (Titan'daki gibi toplanır) çekirdeğe işler. F1 tek halka · F2 ters dönen iki halka · F3 hızlı + satır ateşi.
-const GATE_WAVES = [
-  { every: 230, on: 62, off: 36, spd: 2.2, dbl: 0,   interval: 92, dblE: 0.08, hp2: 0.3 },
-  { every: 200, on: 66, off: 30, spd: 2.4, dbl: 0.3, interval: 86, dblE: 0.1,  hp2: 0.35 },
-  { every: 190, on: 68, off: 28, spd: 2.4, dbl: 0.5, interval: 84, dblE: 0.12, hp2: 0.35 },
+const GATE_WAVES = [ // 2026-11-10: arka arkaya kapı yok, kapalı anı sana yaklaşırken gelir (kullanıcı: çok zor)
+  { every: 200, on: 56, off: 42, spd: 2.2, interval: 92, dblE: 0.08, hp2: 0.3 },
+  { every: 180, on: 60, off: 38, spd: 2.4, interval: 86, dblE: 0.1,  hp2: 0.35 },
+  { every: 170, on: 62, off: 36, spd: 2.5, interval: 84, dblE: 0.12, hp2: 0.35 },
 ];
-const GATE_HOLD = 150, GATE_WARN = 18, DASH_T = 10, DASH_DIST = 300;
+const GATE_HOLD = 150, GATE_WARN = 18, DASH_T = 10, DASH_DIST = 300, GATE_NEAR = 170;
 let gates = [], gateT = 0, dashT = 0, dashTrail = 0, gateSeen = null, corridorY = 0;
 const gateOn = g => (g.t % (g.on + g.off)) < g.on;
 const gateWarn = g => { const c = g.t % (g.on + g.off); return c >= g.on + g.off - GATE_WARN; };
@@ -2884,10 +2884,11 @@ function coreDash() {
 }
 function updateGates(G, ending) {
   const hold = player.y - GATE_HOLD;
-  if (!ending && ++gateT >= G.every && !gates.some(g => g.y < HUD_H + 220)) {
+  if (!ending && ++gateT >= G.every && !gates.some(g => !g.passed && g.y < HUD_H + DASH_DIST + 120)) { // kapılar arası atılma menzilinden uzun
     gateT = 0;
-    gates.push({ y: HUD_H - 10, t: Math.floor(Math.random() * 40), on: G.on, off: G.off });
-    if (Math.random() < G.dbl) gates.push({ y: HUD_H - 170, t: Math.floor(Math.random() * 60) + 30, on: G.on, off: G.off }); // arka arkaya ikinci kapı
+    const y0 = HUD_H - 10, cyc = G.on + G.off, T = Math.round((player.y - GATE_NEAR - y0) / G.spd);
+    const t0 = ((G.on + Math.round(G.off / 2) - T) % cyc + cyc) % cyc; // kapalı anının ortası, gemiye GATE_NEAR px kala gelir
+    gates.push({ y: y0, t: t0, on: G.on, off: G.off });
   }
   const dash = dashT > 0 ? DASH_DIST / DASH_T : 0;
   if (dashT > 0) dashT--;
