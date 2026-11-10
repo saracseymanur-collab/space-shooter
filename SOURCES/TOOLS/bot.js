@@ -119,8 +119,8 @@ function runLevel(level, prof, maxFrames = 9000) { // insanlar gibi tek kararda 
       if (typeof titanCoreOpen !== 'undefined' && titanCoreOpen() && titanAligned()) useTitanBomb(); // L10: hizadayken ve çekirdek açıkken bomba
       if (typeof coreOpenFor !== 'undefined' && currentLevel === 15 && boss && coreOpenFor(playerLaneNow())) useTitanBomb(); // L15: boşluk bakarken bomba
       if (typeof gates !== 'undefined' && currentLevel === 15 && !boss) { // L15: kapı kapalıyken atıl (tepki gecikmeli)
-        const g = gates.filter(g => !g.passed && g.y > player.y - DASH_DIST + 40 && g.y > HUD_H).sort((a, b) => b.y - a.y)[0];
-        if (g && !gateOn(g)) { const c = g.t % (g.on + g.off); if (g.off - (c - g.on) > 8) coreDash(); }
+        const g = gates.filter(g => !g.passed && g.y > player.y - DASH_RANGE + 20 && g.y > HUD_H).sort((a, b) => b.y - a.y)[0];
+        if (g && !gateOn(g)) { const c = g.t % (g.on + g.off); if (g.off - (c - g.on) > 13) coreDash(); }
       }
       if (typeof drifters !== 'undefined' && convoySpd > 0) { // L9: şeritte mermiye ilk değecek şey kapsül / patlayıcıysa ateşi kes
         const low = arr => arr.filter(q => nearestLane(q.x) === best && q.y < player.y && q.y > 60).reduce((m, q) => Math.max(m, q.y), -1e9);

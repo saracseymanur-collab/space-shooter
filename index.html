@@ -2874,29 +2874,31 @@ const GATE_WAVES = [ // 2026-11-10: arka arkaya kapı yok, kapalı anı sana yak
   { every: 180, on: 60, off: 38, spd: 2.4, interval: 86, dblE: 0.1,  hp2: 0.35 },
   { every: 170, on: 62, off: 36, spd: 2.5, interval: 84, dblE: 0.12, hp2: 0.35 },
 ];
-const GATE_HOLD = 150, GATE_WARN = 18, DASH_T = 10, DASH_DIST = 300, GATE_NEAR = 170;
-let gates = [], gateT = 0, dashT = 0, dashTrail = 0, gateSeen = null, corridorY = 0;
+const GATE_HOLD = 150, GATE_WARN = 18, DASH_T = 14, DASH_RANGE = 170, DASH_PAST = 45, DASH_IDLE = 70, GATE_NEAR = 80, GATE_GAP = 420;
+let gates = [], gateT = 0, dashT = 0, dashLen = 0, dashTrail = 0, gateSeen = null, corridorY = 0;
 const gateOn = g => (g.t % (g.on + g.off)) < g.on;
 const gateWarn = g => { const c = g.t % (g.on + g.off); return c >= g.on + g.off - GATE_WARN; };
 function coreDash() {
   if (player.dead || dashT > 0) return;
+  const g = gates.filter(g => !g.passed && g.y > player.y - DASH_RANGE && g.y > HUD_H).sort((a, b) => b.y - a.y)[0];
+  dashLen = g ? player.y + DASH_PAST - g.y : DASH_IDLE; // kapının hemen biraz ilerisinde durur
   dashT = DASH_T; dashTrail = 22; Sound.sfx.whoosh();
 }
 function updateGates(G, ending) {
   const hold = player.y - GATE_HOLD;
-  if (!ending && ++gateT >= G.every && !gates.some(g => !g.passed && g.y < HUD_H + DASH_DIST + 120)) { // kapılar arası atılma menzilinden uzun
+  if (!ending && ++gateT >= G.every && !gates.some(g => !g.passed && g.y < HUD_H + GATE_GAP)) { // kapılar arası atılma menzilinden uzun
     gateT = 0;
     const y0 = HUD_H - 10, cyc = G.on + G.off, T = Math.round((player.y - GATE_NEAR - y0) / G.spd);
     const t0 = ((G.on + Math.round(G.off / 2) - T) % cyc + cyc) % cyc; // kapalı anının ortası, gemiye GATE_NEAR px kala gelir
     gates.push({ y: y0, t: t0, on: G.on, off: G.off });
   }
-  const dash = dashT > 0 ? DASH_DIST / DASH_T : 0;
+  const dash = dashT > 0 ? dashLen / DASH_T : 0;
   if (dashT > 0) dashT--;
   if (dashTrail > 0) dashTrail--;
   corridorY += G.spd + dash;
   gates = gates.filter(g => {
     g.t++;
-    const prev = g.y, near = g.y > player.y - DASH_DIST && g.y > HUD_H; // atılma menzildeki (görünen) kapıları geçirir
+    const prev = g.y, near = g.y > player.y - DASH_RANGE - DASH_PAST && g.y > HUD_H; // atılma menzildeki (görünen) kapıları geçirir
     if (g.passed) g.y += 9;
     else if (dash && near) g.y += dash;
     else g.y += G.spd; // kapılar hiç durmaz: açıkken sana ulaşırsa yanarsın
