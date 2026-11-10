@@ -36,6 +36,10 @@ function laneDanger(l, horizon, blind) { // isabet edecek mermi/kaya/lazer: kesi
     if (q.type !== 'mine' || q.lane !== l || q.y > player.y + 40) continue;
     const t = (player.y - q.y) / (convoySpd || 3); if (t <= horizon * 2) d += 1e5 / (1 + Math.max(0, t));
   }
+  if (typeof photonOn !== 'undefined' && photonOn()) for (const b of bullets) { // L19 foton: alttan dönen kendi mermin
+    if (!b.ret || b.y < player.y - 10 || Math.abs(b.x - lx) > 30) continue;
+    const t = (b.y - player.y) / b.speed; if (t <= horizon * 1.5) d += 1e5 / (1 + Math.max(0, t));
+  }
   if (typeof severOn !== 'undefined' && currentLevel === 19 && severOn() && !severReach(l)) d += 1e6; // L19: açık perdenin öbür yanı
   if (typeof ringRows !== 'undefined') for (const r of ringRows) { // L17 enkaz halkası: boşluğun varacağı şerit (sabit hızla kaydığı için öngörülebilir)
     if (r.hit || r.end === l) continue;
@@ -127,6 +131,10 @@ function runLevel(level, prof, maxFrames = 9000) { // insanlar gibi tek kararda 
       if (typeof gates !== 'undefined' && currentLevel === 15 && !boss) { // L15: kapı kapalıyken atıl (tepki gecikmeli)
         const g = gates.filter(g => !g.passed && g.y > player.y - DASH_RANGE + 20 && g.y > HUD_H).sort((a, b) => b.y - a.y)[0];
         if (g && !gateOn(g)) { const c = g.t % (g.on + g.off); if (g.off - (c - g.on) > 13) coreDash(); }
+      }
+      if (typeof photonOn !== 'undefined' && photonOn()) { // L19 foton: sadece şeritte hedef varken ateş et (ıskalayan mermi geri döner)
+        const tgt = enemies.some(e => nearestLane(e.x) === best && e.y < player.y && e.y > 0);
+        if (tgt === fireHold) toggleFire();
       }
       if (typeof drifters !== 'undefined' && convoySpd > 0) { // L9: şeritte mermiye ilk değecek şey kapsül / patlayıcıysa ateşi kes
         const low = arr => arr.filter(q => nearestLane(q.x) === best && q.y < player.y && q.y > 60).reduce((m, q) => Math.max(m, q.y), -1e9);
