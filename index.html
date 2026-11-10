@@ -606,7 +606,7 @@ const LEVEL_TUNE = {
   // 2026-11: bölümler 50 sn'ye inince (WAVE_DENSITY) kolay kalanlar için ek sıklık
   1: { iMul: 1.2, fireMul: 1.4 }, // öğretici ama kolay değil (kullanıcı: sektör 1 kolay)
   11: { iMul: 1 }, 12: { iMul: 1 }, 13: { iMul: 1 }, 14: { iMul: 1 },
-  16: { iMul: 1 }, 17: { iMul: 1 }, 18: { iMul: 1 }, 19: { diver: 0.3, iMul: 0.75 },
+  16: { iMul: 1 }, 17: { iMul: 1 }, 18: { iMul: 1 }, 19: { iMul: 1 },
 };
 // Bölümler 70 → 50 sn kısalınca zorluk düşmesin diye: düşman sıklığı ve özel düşman aralıkları sıklaşır
 const WAVE_DENSITY = 0.66; // (2026-11-04: kullanıcı "bir tık daha zor" → 0.72'den)
@@ -780,7 +780,16 @@ function baseLevelConfig() {
         canShoot: true, zigzag: false, ring: R,
       };
     }
-    case 19: case 20: return {
+    case 19: { // EVENT HORIZON: ufuk gemiyi aşağı çeker, isabetler yukarı iter
+      const lw = Math.min(5, Math.max(1, getWave() - (currentLevel - 1) * 5)), Z = HORIZON_WAVES[lw - 1];
+      return {
+        interval: Z.interval, doubleChance: Z.dbl,
+        speed: () => Z.spd + Math.random() * 0.3,
+        hp: () => { const r = Math.random(); return r < Z.hp3 ? 3 : r < Z.hp3 + Z.hp2 ? 2 : 1; },
+        canShoot: true, zigzag: false, horizon: Z,
+      };
+    }
+    case 20: return {
       interval: 66, doubleChance: 0.25,
       speed: () => 1.9 + Math.random() * 0.5,
       hp: () => { const r = Math.random(); return r < 0.2 ? 3 : r < 0.6 ? 2 : 1; },
@@ -1130,7 +1139,7 @@ function startLevel(level) {
   // Zone 2 mechanics reset
   crystals = []; crystalMeter = 0; overdriveTimer = 0;
   meteorTimer = 0; floatTexts = [];
-  player.lane = 1; player.targetLane = 1;
+  player.lane = 1; player.targetLane = 1; player.y = level === 19 ? HZ_START : H - 160; hzKick = 0; hzFx = 0;
   player.x = LANE_CENTERS[1];
   player.dead = false; player.deathTimer = 0; player.flash = 0; player.invuln = 0;
   player.shieldTimer = 0; player.doubleTimer = 0; player.tripleTimer = 0;
@@ -1530,6 +1539,7 @@ function damagePlayer(cause) {
   try { if (navigator.vibrate) navigator.vibrate(60); } catch(e) {} // Android: kısa titreşim
   lives--;
   player.flash = 50; player.invuln = 60;
+  if (horizonOn() && !cause.startsWith('Pulled')) horizonPush(40); // L19: vurulunca ufka savrulur
   if (lives <= 0) {
     deathCause = cause;
     player.dead = true;
@@ -3222,6 +3232,64 @@ function drawRing() {
     });
     ctx.restore();
   });
+}
+// --- L19 EVENT HORIZON (2026-11-10, kullanıcı seçti): ekranın altında kara deliğin ufku gemiyi sürekli aşağı çeker.
+// İsabetlerin geri tepmesi yukarı iter (öldürünce daha çok); kaçan gemi ve hasar aşağı savurur. Ufka değersen can gider ve
+// yukarı fırlatılırsın. Gemiyi oyuncu dikeyde kontrol etmez; sadece şerit değiştirir.
+const HORIZON_WAVES = [ // pull: kare başına çekim (px) · kick: isabet başına geri tepme · kill: öldürme ek tepmesi (kick 7'de gemi hep tepedeydi, 3'te hep ufuktaydı)
+  { pull: 0.34, kick: 3.5, kill: 7, spd: 3.0, interval: 62, dbl: 0.2,  hp2: 0.4,  hp3: 0.1 },
+  { pull: 0.40, kick: 3.5, kill: 7, spd: 3.1, interval: 58, dbl: 0.25, hp2: 0.4,  hp3: 0.15 },
+  { pull: 0.44, kick: 3.5, kill: 7, spd: 3.2, interval: 58, dbl: 0.25, hp2: 0.45, hp3: 0.15 },
+  { pull: 0.38, kick: 3.5, kill: 7, spd: 3.0, interval: 70, dbl: 0.2,  hp2: 0.4,  hp3: 0.1 },  // nefes
+  { pull: 0.50, kick: 3.5, kill: 7, spd: 3.3, interval: 54, dbl: 0.3,  hp2: 0.45, hp3: 0.2 },
+];
+const HORIZON_Y = H - 64, HZ_TOP = H * 0.52, HZ_START = H - 190, HZ_DANGER = 110;
+let hzKick = 0, hzFx = 0;
+function horizonOn() { return currentLevel === 19 && !boss; }
+function horizonPush(dy) { if (horizonOn() && !player.dead) hzKick += dy; } // + aşağı, - yukarı
+function updateHorizon(Z) {
+  const k = hzKick * 0.18; hzKick -= k; // itmeler yumuşak uygulanır
+  player.y += Z.pull + k;
+  if (player.y < HZ_TOP) { player.y = HZ_TOP; hzKick = Math.max(0, hzKick); }
+  if (hzFx > 0) hzFx--;
+  if (player.y >= HORIZON_Y - 22) { // ufka değdi
+    if (!(player.invuln > 0)) { spawnExplosion(player.x, player.y, true); damagePlayer('Pulled into the event horizon!'); }
+    hzKick = -(player.y - HZ_START); hzFx = 30; Sound.sfx.whoosh(); // yukarı fırlatılır
+  }
+}
+function drawHorizon() { // ufuk: altta karanlık, parlayan halka çizgisi, aşağı akan çekim çizgileri
+  const near = Math.max(0, Math.min(1, (player.y - (HORIZON_Y - HZ_DANGER - 22)) / HZ_DANGER)); // 0 güvenli → 1 ufukta
+  const t = frameCount;
+  ctx.save();
+  // çekim çizgileri: ufka doğru hızlanarak akar
+  ctx.strokeStyle = 'rgba(255,170,110,0.18)'; ctx.lineWidth = 1.5;
+  for (let i = 0; i < 14; i++) { const x = 18 + ((i * 61) % (W - 36)), p = ((t * 0.012 + i * 0.137) % 1), y = HZ_TOP - 80 + p * p * (HORIZON_Y - HZ_TOP + 80); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 10 + p * 40); ctx.stroke(); }
+  // ufkun altı: karanlık
+  const g = ctx.createLinearGradient(0, HORIZON_Y - 60, 0, H);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.45, 'rgba(0,0,0,0.85)'); g.addColorStop(1, '#000');
+  ctx.fillStyle = g; ctx.fillRect(0, HORIZON_Y - 60, W, H - HORIZON_Y + 60);
+  // parlayan halka çizgisi (son dalgada kırmızılaşır)
+  const late = getWave() - (currentLevel - 1) * 5 >= 5, col = late ? '255,70,60' : '255,150,70';
+  ctx.globalCompositeOperation = 'lighter';
+  const glow = ctx.createLinearGradient(0, HORIZON_Y - 26, 0, HORIZON_Y + 26);
+  glow.addColorStop(0, `rgba(${col},0)`); glow.addColorStop(0.5, `rgba(${col},${0.45 + 0.35 * near})`); glow.addColorStop(1, `rgba(${col},0)`);
+  ctx.fillStyle = glow; ctx.fillRect(0, HORIZON_Y - 26, W, 52);
+  ctx.strokeStyle = `rgba(255,235,200,${0.75 + 0.2 * Math.sin(t * 0.2)})`; ctx.lineWidth = 2; ctx.beginPath();
+  for (let x = 0; x <= W; x += 6) { const y = HORIZON_Y + Math.sin(x * 0.03 + t * 0.08) * 2.5; x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+  ctx.stroke();
+  // halkada dönen kıvılcımlar
+  for (let i = 0; i < 10; i++) { const x = (i * 47 + t * (1.5 + (i % 3))) % (W + 20) - 10; ctx.fillStyle = `rgba(${col},0.8)`; ctx.fillRect(x, HORIZON_Y - 1 + Math.sin(i + t * 0.1) * 3, 6, 2); }
+  ctx.globalCompositeOperation = 'source-over';
+  // tehlike: ufka yakınken kenarlar kızarır, gemiden ufka çekim izi
+  if (near > 0) {
+    const v = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.62);
+    v.addColorStop(0, 'rgba(255,40,40,0)'); v.addColorStop(1, `rgba(255,40,40,${0.35 * near * (0.7 + 0.3 * Math.sin(t * 0.3))})`);
+    ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = `rgba(255,150,90,${0.5 * near})`; ctx.lineWidth = 3; ctx.setLineDash([6, 8]); ctx.lineDashOffset = -t * 2;
+    ctx.beginPath(); ctx.moveTo(player.x, player.y + 28); ctx.lineTo(player.x, HORIZON_Y); ctx.stroke(); ctx.setLineDash([]);
+  }
+  if (hzFx > 0) { ctx.fillStyle = `rgba(255,200,150,${0.3 * hzFx / 30})`; ctx.fillRect(0, 0, W, H); }
+  ctx.restore();
 }
 // --- Boss: Ana Çekirdek ---
 const CORE_Y = H * 0.24, CORE_R = 46, CORE_GUN = 0.5; // boşluktan geçen mermi
@@ -5347,7 +5415,7 @@ const LEVEL_BRIEFS = [
   { title: 'TIME RIFT',       vis: 'rift',      line: 'Near the black hole, time bends. You cannot avoid the rifts.', tips: ['Blue slows time, orange speeds it up, purple flips space.'] },
   { title: 'MIRROR FLEET',    vis: 'mirror',    line: 'The black hole bends light. Ships on the sides cast a reflection across.', tips: ['Reflections cannot be hit, but their shots are real. Shoot the real ship!'] },
   { title: 'DEBRIS RING',     vis: 'ring',      line: 'Wreckage circles the black hole. Each row has one gap, and it slides as the ring turns.', tips: ['Debris cannot be shot. Be in the gap when it reaches you!'] },
-  { title: 'EVENT HORIZON',   vis: 'horizon',   line: 'Gravity, bent shots and debris. All at once.', tips: ['Hold on!'] },
+  { title: 'EVENT HORIZON',   vis: 'horizon',   line: 'The black hole pulls you down toward its edge.', tips: ['Every hit pushes you back up. Keep shooting!', 'Touch the glowing edge and you lose a life.'] },
   { title: 'VOID LEADER',     vis: 'beam',      line: 'A red lane warning means a beam is coming.', tips: ['Move before it fires!'] },
 ];
 let briefing = false;
@@ -5876,7 +5944,21 @@ function drawBriefVisual(kind, cx, cy, zc) {
       ctx.beginPath(); ctx.moveTo(cx - 70, cy - 30); ctx.quadraticCurveTo(cx - 60, cy + 10, cx, cy + 20); ctx.stroke(); ctx.setLineDash([]);
       break;
     }
-    case 'bent': case 'horizon': {
+    case 'horizon': { // ufuk çizgisi, gemi isabetlerle yukarı, boşta aşağı
+      const ph = (t % 3) / 3, sy = cy + 2 + (ph < 0.5 ? ph * 2 * 16 : (1 - ph) * 2 * 16), hy = cy + 30;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const gl = ctx.createLinearGradient(0, hy - 10, 0, hy + 10); gl.addColorStop(0, 'rgba(255,150,70,0)'); gl.addColorStop(0.5, 'rgba(255,150,70,0.6)'); gl.addColorStop(1, 'rgba(255,150,70,0)');
+      ctx.fillStyle = gl; ctx.fillRect(cx - 120, hy - 10, 240, 20);
+      ctx.strokeStyle = 'rgba(255,235,200,0.85)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx - 120, hy); ctx.lineTo(cx + 120, hy); ctx.stroke();
+      ctx.globalCompositeOperation = 'source-over';
+      briefEnemy(2, cx, cy - 42, 0.4);
+      if (ph >= 0.5 && Math.floor(frameCount / 5) % 2) briefShot(cx, cy - 24);
+      if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, cx - 14, sy - 14, 28, 28);
+      ctx.restore();
+      break;
+    }
+    case 'bent': {
       briefEnemy(2, cx - 70, cy - 30, 0.5);
       ctx.strokeStyle = 'rgba(255,120,60,0.6)'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
       ctx.beginPath(); ctx.moveTo(cx - 70, cy - 16); ctx.quadraticCurveTo(cx - 64, cy + 20, cx - 8, cy + 36); ctx.stroke(); ctx.setLineDash([]);
@@ -6782,6 +6864,7 @@ function update() {
 
   if (currentLevel === 15 && state === 'play' && (gates.length || (_zcfg && _zcfg.gates && !boss))) updateGates(_zcfg.gates || GATE_WAVES[2], !!boss || getWave() - (currentLevel - 1) * 5 > bossPreWaves());
   if (currentLevel === 15) updateTitanBombs();
+  if (horizonOn() && state === 'play' && !player.dead && _zcfg && _zcfg.horizon) updateHorizon(_zcfg.horizon);
   if (currentLevel === 16 && !boss && state === 'play' && !player.dead && _zcfg && _zcfg.rift) updateRift(_zcfg.rift, getWave() > currentLevel * 5);
   if (currentLevel === 18 && state === 'play' && !player.dead && (ringRows.length || (_zcfg && _zcfg.ring))) updateRing(_zcfg.ring || RING_WAVES[4], getWave() > currentLevel * 5 || !(_zcfg && _zcfg.ring));
   if (currentLevel === 14 && !boss && state === 'play' && _zcfg && _zcfg.stream) updateStream(_zcfg.stream, getWave() > currentLevel * 5);
@@ -7216,6 +7299,7 @@ function update() {
       const hit = Math.abs(b.x - e.x) < 24 * sc && Math.abs(b.y - e.y) < 29 * sc;
       if (hit && ((e.gunner && e.gState !== 'cool') || e.armored || e.guardedBy || (e.hunter && (e.hState === 'enter' || e.hState === 'track')) || e.rammer || e.sweeper)) { e.shieldHit = 8; return false; } // kalkan: hasar yok (rammer vurulamaz: tek çare kaçmak)
       if (hit) {
+        if (horizonOn()) { const Z = getLevelConfig().horizon; horizonPush(-(Z.kick + (e.hp - 1 / (e.armor || 1) <= 0.001 ? Z.kill : 0))); } // L19: geri tepme
         e.hp -= 1 / (e.armor || 1); // zırh: mermi başına hasar azalır (görünüş/can barı aynı, daha yavaş erir)
         if (e.hp < 0.001) e.hp = 0;
         e.flash = 14;
@@ -7239,7 +7323,7 @@ function update() {
     if (e.free) { if (e.y > H + 40) return false; }
     else if (e.y > H - 55 && !e.runner && !e.seg && !e.rammer && !e.sweeper && !e.burster) {
       spawnShipDeath(e);
-      damagePlayer('The enemy reached the ship!');
+      horizonPush(45); damagePlayer('The enemy reached the ship!');
       return false;
     }
 
@@ -7922,6 +8006,7 @@ function render() {
   drawTitanBombs();
   drawAlarmFx();
 
+  if (currentLevel === 19 && !boss && state !== 'levelcomplete') drawHorizon();
   if ((state === 'play' || state === 'paused' || state === 'gameover') && !player.dead) {
     drawShip(player.x, player.y);
   }
