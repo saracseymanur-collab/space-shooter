@@ -606,7 +606,7 @@ const LEVEL_TUNE = {
   // 2026-11: bölümler 50 sn'ye inince (WAVE_DENSITY) kolay kalanlar için ek sıklık
   1: { iMul: 1.2, fireMul: 1.4 }, // öğretici ama kolay değil (kullanıcı: sektör 1 kolay)
   11: { iMul: 1 }, 12: { iMul: 1 }, 13: { iMul: 1 }, 14: { iMul: 1 },
-  16: { iMul: 1 }, 17: { iMul: 1 }, 18: { fireMul: 0.9, iMul: 0.85 }, 19: { diver: 0.3, iMul: 0.75 },
+  16: { iMul: 1 }, 17: { iMul: 1 }, 18: { iMul: 1 }, 19: { diver: 0.3, iMul: 0.75 },
 };
 // Bölümler 70 → 50 sn kısalınca zorluk düşmesin diye: düşman sıklığı ve özel düşman aralıkları sıklaşır
 const WAVE_DENSITY = 0.66; // (2026-11-04: kullanıcı "bir tık daha zor" → 0.72'den)
@@ -762,14 +762,7 @@ function baseLevelConfig() {
       };
     }
     case 17: { // MIRROR FLEET: yan şeritteki gemilerin karşı şeritte ateş eden yansıması
-      // 2026-11-10: kullanıcı iki fikri karşılaştırıyor. Ayna Filo için L17_TRY = 'mirror' yaz.
       const lw = Math.min(5, Math.max(1, getWave() - (currentLevel - 1) * 5));
-      if (L17_TRY === 'ring') { const R = RING_WAVES[lw - 1]; return {
-        interval: R.interval, doubleChance: R.dbl2,
-        speed: () => 3.0 + Math.random() * 0.3,
-        hp: () => { const r = Math.random(); return r < R.hp3 ? 3 : r < R.hp3 + R.hp2 ? 2 : 1; },
-        canShoot: true, zigzag: false, ring: R,
-      }; }
       const M = MIRROR_WAVES[lw - 1];
       return {
         interval: M.interval, doubleChance: M.dbl,
@@ -778,12 +771,15 @@ function baseLevelConfig() {
         canShoot: true, zigzag: false, mirror: M, stack: 300, fireMul: 0.75, // aynı şeritte üst üste: yan şeritler hep dolu olabilsin
       };
     }
-    case 18: return {
-      interval: 72, doubleChance: 0.2,
-      speed: () => 1.8 + Math.random() * 0.5,
-      hp: () => Math.random() < 0.5 ? 2 : 1,
-      canShoot: true, zigzag: false, gravity: 0.6, shift2: 0.25, curveShots: true, curve: 1.35, debris: 80,
-    };
+    case 18: { // DEBRIS RING: kayan boşluklu enkaz sıraları (2026-11-10: L17'de denendi, kullanıcı L18'e aldı)
+      const lw = Math.min(5, Math.max(1, getWave() - (currentLevel - 1) * 5)), R = RING_WAVES[lw - 1];
+      return {
+        interval: R.interval, doubleChance: R.dbl2,
+        speed: () => 3.0 + Math.random() * 0.3,
+        hp: () => { const r = Math.random(); return r < R.hp3 ? 3 : r < R.hp3 + R.hp2 ? 2 : 1; },
+        canShoot: true, zigzag: false, ring: R,
+      };
+    }
     case 19: case 20: return {
       interval: 66, doubleChance: 0.25,
       speed: () => 1.9 + Math.random() * 0.5,
@@ -3117,7 +3113,6 @@ const MIRROR_WAVES = [ // side: orta şeritteki gemiyi yana alma ihtimali · swa
   { side: 0.8,  swap: 0.45, spd: 3.1, interval: 60, dbl: 0.22, hp2: 0.4,  hp3: 0.15 }, // nefes + yer değiştirme
   { side: 0.85, swap: 0.4,  spd: 3.4, interval: 48, dbl: 0.36, hp2: 0.45, hp3: 0.2 },
 ];
-const L17_TRY = 'ring'; // 'mirror' | 'ring' (karşılaştırma)
 const MIRROR_WARN = 60; // yer değiştirmeden önce titreme (kare)
 let mirrorSeen = null;
 const mirrorSprites = {};
@@ -5350,10 +5345,8 @@ const LEVEL_BRIEFS = [
   { title: 'DATA STREAM',     vis: 'stream',    line: 'Their data flows through the nebula. Stay inside the stream to copy it.', tips: ['The level ends when the archive is full.'] },
   { title: 'CORE BREACH',     vis: 'gate',      line: 'You made it inside their base. Laser gates guard the way to its core.', tips: ['Tap anywhere to dash through a gate while the beam is off.', "Collect the bombs dropped by destroyed ships. You'll need them."] },
   { title: 'TIME RIFT',       vis: 'rift',      line: 'Near the black hole, time bends. You cannot avoid the rifts.', tips: ['Blue slows time, orange speeds it up, purple flips space.'] },
-  L17_TRY === 'ring'
-    ? { title: 'DEBRIS RING',     vis: 'ring',      line: 'Wreckage circles the black hole. Each row has one gap, and it slides as the ring turns.', tips: ['Debris cannot be shot. Be in the gap when it reaches you!'] }
-    : { title: 'MIRROR FLEET',    vis: 'mirror',    line: 'The black hole bends light. Ships on the sides cast a reflection across.', tips: ['Reflections cannot be hit, but their shots are real. Shoot the real ship!'] },
-  { title: 'DEBRIS FIELD',    vis: 'debris',    line: 'Wreckage is falling into the black hole.', tips: ['Dodge or shoot the debris.'] },
+  { title: 'MIRROR FLEET',    vis: 'mirror',    line: 'The black hole bends light. Ships on the sides cast a reflection across.', tips: ['Reflections cannot be hit, but their shots are real. Shoot the real ship!'] },
+  { title: 'DEBRIS RING',     vis: 'ring',      line: 'Wreckage circles the black hole. Each row has one gap, and it slides as the ring turns.', tips: ['Debris cannot be shot. Be in the gap when it reaches you!'] },
   { title: 'EVENT HORIZON',   vis: 'horizon',   line: 'Gravity, bent shots and debris. All at once.', tips: ['Hold on!'] },
   { title: 'VOID LEADER',     vis: 'beam',      line: 'A red lane warning means a beam is coming.', tips: ['Move before it fires!'] },
 ];
@@ -6790,7 +6783,7 @@ function update() {
   if (currentLevel === 15 && state === 'play' && (gates.length || (_zcfg && _zcfg.gates && !boss))) updateGates(_zcfg.gates || GATE_WAVES[2], !!boss || getWave() - (currentLevel - 1) * 5 > bossPreWaves());
   if (currentLevel === 15) updateTitanBombs();
   if (currentLevel === 16 && !boss && state === 'play' && !player.dead && _zcfg && _zcfg.rift) updateRift(_zcfg.rift, getWave() > currentLevel * 5);
-  if (currentLevel === 17 && state === 'play' && !player.dead && (ringRows.length || (_zcfg && _zcfg.ring))) updateRing(_zcfg.ring || RING_WAVES[4], getWave() > currentLevel * 5 || !(_zcfg && _zcfg.ring));
+  if (currentLevel === 18 && state === 'play' && !player.dead && (ringRows.length || (_zcfg && _zcfg.ring))) updateRing(_zcfg.ring || RING_WAVES[4], getWave() > currentLevel * 5 || !(_zcfg && _zcfg.ring));
   if (currentLevel === 14 && !boss && state === 'play' && _zcfg && _zcfg.stream) updateStream(_zcfg.stream, getWave() > currentLevel * 5);
   if (currentLevel === 13 && !boss && state === 'play' && !player.dead && _zcfg && _zcfg.warp) updateWarp(_zcfg.warp);
   else if (warpWarn) { warpWarn = 0; enemies.forEach(e => { e.warpTo = null; }); } // ışınlanma yarıda kaldıysa gemiler donmasın
@@ -7910,8 +7903,8 @@ function render() {
   if (currentLevel === 15 && gates.length) drawGates();
   if (currentLevel === 14 && state === 'play') drawStream();
   enemies.forEach(drawEnemy);
-  if (currentLevel === 17 && L17_TRY === 'mirror') drawMirrors();
-  if (currentLevel === 17 && ringRows.length) drawRing();
+  if (currentLevel === 17) drawMirrors();
+  if (currentLevel === 18 && ringRows.length) drawRing();
   drawRecoilFx('under');
   if (boss) drawBoss(boss);
   drawRecoilFx('top');
