@@ -796,7 +796,7 @@ function baseLevelConfig() {
       return {
         interval: P.interval, doubleChance: P.dbl, speed: () => P.spd + Math.random() * 0.3,
         hp: () => { const r = Math.random(); return r < P.hp3 ? 3 : r < P.hp3 + P.hp2 ? 2 : 1; },
-        canShoot: true, zigzag: false, photon: P,
+        canShoot: false, zigzag: false, photon: P, // 2026-11-11 kullanıcı: gemiler ateş etmesin (tehlike sadece kendi dönen mermin + çarpışma + kaçan gemi)
       };
     }
     default: return null;
