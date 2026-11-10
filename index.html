@@ -2987,7 +2987,7 @@ function updateCenter() {
   const move = (k, d, v0) => { let v = b[k] + b[d] * v0; if (v > 2) { v = 2; b[d] = -1; } if (v < 0) { v = 0; b[d] = 1; } b[k] = v; };
   move('gap1', 'd1', sp); if (b.twoRings) move('gap2', 'd2', sp * 0.55); // iç halka daha yavaş: boşluklar farklı şeritlerde buluşur
   // bomba kaynağı: ekranda gemi yoksa bombalı küçük gemi iner (2026-11-10: kaçarsa can gider)
-  if (!enemies.length && Math.random() < 0.02) {
+  if (!enemies.length && Math.random() < 0.008) { // 2026-11-10: 0.02 → 0.008, boss sırasında daha az gemi
     spawnSlalomScout(Math.floor(Math.random() * 3), -40);
     const e = enemies[enemies.length - 1];
     e.hp = e.maxHp = 2; e.sl = false; e.speed = 2.8;
