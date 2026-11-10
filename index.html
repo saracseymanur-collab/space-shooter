@@ -3500,11 +3500,12 @@ function twistPost() { // ekran dalgalanır + önceki kare gölge gibi kalır (b
 // dolanır, bir sağdaki şeritten (sol → orta → sağ → sol) alttan yukarı geri gelir. Dönen mermi seni yakar, yolundaki düşmanı da vurur.
 // Ekrana dokunmak ateşi açar / keser. Düşman ekranın altına ulaşırsa can gider; gemine çarparsa da.
 const PHOTON_WAVES = [ // ret: dönen mermi hızı · delay: yörüngede bekleme (px, ekran altından uzaklık) · every: kaç ıskalamada bir döner (2026-11-11: aynı şeritten döner)
-  { every: 2, ret: 5.0, delay: 160, spd: 2.9, interval: 66, dbl: 0.2,  hp2: 0.4,  hp3: 0.1 },
-  { every: 2, ret: 5.4, delay: 150, spd: 3.0, interval: 62, dbl: 0.22, hp2: 0.4,  hp3: 0.15 },
-  { every: 2, ret: 5.8, delay: 140, spd: 3.1, interval: 62, dbl: 0.25, hp2: 0.45, hp3: 0.15 },
-  { every: 2, ret: 5.4, delay: 150, spd: 3.0, interval: 72, dbl: 0.2,  hp2: 0.4,  hp3: 0.1 },
-  { every: 2, ret: 6.2, delay: 120, spd: 3.2, interval: 58, dbl: 0.28, hp2: 0.45, hp3: 0.2 },
+  // 2026-11-11 kullanıcı: "baya zor, yavaşlasın ve gemiler azalsın": gemi hızı 2.9-3.2 → 2.4-2.7, aralık ~%25 uzun, dönen mermi ~%15 yavaş
+  { every: 2, ret: 4.3, delay: 160, spd: 2.4, interval: 84, dbl: 0.15, hp2: 0.4,  hp3: 0.1 },
+  { every: 2, ret: 4.6, delay: 150, spd: 2.5, interval: 78, dbl: 0.18, hp2: 0.4,  hp3: 0.1 },
+  { every: 2, ret: 4.9, delay: 140, spd: 2.6, interval: 78, dbl: 0.2,  hp2: 0.45, hp3: 0.15 },
+  { every: 2, ret: 4.6, delay: 150, spd: 2.5, interval: 90, dbl: 0.15, hp2: 0.4,  hp3: 0.1 },
+  { every: 2, ret: 5.2, delay: 130, spd: 2.7, interval: 72, dbl: 0.22, hp2: 0.45, hp3: 0.15 },
 ];
 const PHOTON_Y = H * 0.52;
 let photonSeen = null, photonN = 0;
