@@ -2955,7 +2955,7 @@ function drawGates() {
 // --- Boss: Ana Çekirdek ---
 const CORE_Y = H * 0.24, CORE_R = 46, CORE_GUN = 0.5; // boşluktan geçen mermi
 let ccSeen = null;
-function coreGapLane(pos) { const r = Math.round(pos); return Math.abs(pos - r) < 0.32 ? r : -1; }
+function coreGapLane(pos) { const r = Math.round(pos); return Math.abs(pos - r) < 0.42 ? r : -1; } // 2026-11-10: 0.32 → 0.42, denk getirmek daha rahat
 function coreOpenFor(lane) { // kalkan boşluğu (iki halkada ikisi de) bu şeride bakıyor mu
   const b = boss;
   if (!b || b.zone !== 3 || b.dying || bossWarn > 0 || b.cState !== 'fight') return false;
@@ -2983,14 +2983,14 @@ function updateCenter() {
     showToast(ph === 2 ? 'A SECOND SHIELD RING' : 'THE CORE IS OVERHEATING', ph === 2 ? '#9fe8ff' : '#ff4d66', 100);
   }
   b.twoRings = ph === 2;
-  const sp = ph === 1 ? 0.011 : ph === 2 ? 0.013 : 0.02;
+  const sp = ph === 1 ? 0.009 : ph === 2 ? 0.011 : 0.016;
   const move = (k, d, v0) => { let v = b[k] + b[d] * v0; if (v > 2) { v = 2; b[d] = -1; } if (v < 0) { v = 0; b[d] = 1; } b[k] = v; };
   move('gap1', 'd1', sp); if (b.twoRings) move('gap2', 'd2', sp * 0.55); // iç halka daha yavaş: boşluklar farklı şeritlerde buluşur
-  // bomba kaynağı: ekranda gemi yoksa bombalı küçük gemi iner (kaçarsa can gitmez)
+  // bomba kaynağı: ekranda gemi yoksa bombalı küçük gemi iner (2026-11-10: kaçarsa can gider)
   if (!enemies.length && Math.random() < 0.02) {
     spawnSlalomScout(Math.floor(Math.random() * 3), -40);
     const e = enemies[enemies.length - 1];
-    e.hp = e.maxHp = 2; e.sl = false; e.speed = 2.8; e.free = true;
+    e.hp = e.maxHp = 2; e.sl = false; e.speed = 2.8;
   }
   if (--b.fireT <= 0) { // çekirdek oyuncunun şeridine ateş eder
     b.fireT = ph === 3 ? 50 : 70;
