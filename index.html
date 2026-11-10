@@ -780,14 +780,14 @@ function baseLevelConfig() {
         canShoot: true, zigzag: false, ring: R,
       };
     }
-    case 19: { // TIDAL STRETCH: gemiler yana esner, tüm kapladığı şeritlere enerji duvarı atar
-      // (EVENT HORIZON denendi, kullanıcı "bir şey katmadı" dedi; geri getirmek için tidal yerine horizon: HORIZON_WAVES[lw - 1])
-      const lw = Math.min(5, Math.max(1, getWave() - (currentLevel - 1) * 5)), Z = TIDAL_WAVES[lw - 1];
+    case 19: { // SEVERED SPACE: şerit sınırlarında içinden geçilemeyen enerji perdeleri
+      // Denenenler: EVENT HORIZON (horizon: HORIZON_WAVES[lw - 1]), TIDAL STRETCH (tidal: TIDAL_WAVES[lw - 1])
+      const lw = Math.min(5, Math.max(1, getWave() - (currentLevel - 1) * 5)), Z = SEVER_WAVES[lw - 1];
       return {
         interval: Z.interval, doubleChance: Z.dbl,
         speed: () => Z.spd + Math.random() * 0.3,
         hp: () => { const r = Math.random(); return r < Z.hp3 ? 3 : r < Z.hp3 + Z.hp2 ? 2 : 1; },
-        canShoot: true, zigzag: false, tidal: Z,
+        canShoot: true, zigzag: false, sever: Z,
       };
     }
     case 20: return {
@@ -1129,7 +1129,7 @@ function startLevel(level) {
   playFrames     = (level - 1) * LEVEL_SEC * 60;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; shards = []; powerups = [];
-  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; ccSeen = null; gates = []; gateT = 0; dashT = 0; dashTrail = 0; gateSeen = null; corridorY = 0; streamLane = 1; streamX = 0; streamNext = -1; streamT = 0; streamPre = 0; archive = 0; archiveCard = null; archiveDone = false; streamBits = []; inStream = false; streamChain = false; warpT = 0; warpWarn = 0; warpTrails = []; warpSeen = null; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1; stormClouds = []; stormCloudT = 0; stormShake = 0; rifts = []; riftMode = null; riftT = 0; riftNext = 90; riftIdx = 0; riftScaleCur = 1; riftAng = 0; riftAngTgt = 0; riftFlip = false; riftFx = 0; riftSeen = null; mirrorSeen = null; ringRows = []; ringT = 0; ringSeen = null; tidalSeen = null;
+  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; ccSeen = null; gates = []; gateT = 0; dashT = 0; dashTrail = 0; gateSeen = null; corridorY = 0; streamLane = 1; streamX = 0; streamNext = -1; streamT = 0; streamPre = 0; archive = 0; archiveCard = null; archiveDone = false; streamBits = []; inStream = false; streamChain = false; warpT = 0; warpWarn = 0; warpTrails = []; warpSeen = null; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1; stormClouds = []; stormCloudT = 0; stormShake = 0; rifts = []; riftMode = null; riftT = 0; riftNext = 90; riftIdx = 0; riftScaleCur = 1; riftAng = 0; riftAngTgt = 0; riftFlip = false; riftFx = 0; riftSeen = null; mirrorSeen = null; ringRows = []; ringT = 0; ringSeen = null; tidalSeen = null; sever = null; severT = 90; severLast = -1; severBump = 0; severSeen = null;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
   countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
@@ -2158,6 +2158,7 @@ function hazardWindows() {
   });
   lasers.forEach(L => out.push({ lane: L.lane, t0: L.warn - L.t, t1: L.warn - L.t + (L.meteor ? 60 : L.fire) }));
   bolts.forEach(B => out.push({ lane: B.lane, t0: B.warn - B.t, t1: B.warn - B.t + B.fire }));
+  if (currentLevel === 19 && severOn()) [0, 1, 2].forEach(l => { if (!severReach(l)) out.push({ lane: l, t0: -999, t1: sever.dur - sever.t }); }); // L19: perdenin öbür yanı ulaşılmaz
   ringRows.forEach(r => { if (r.hit) return; const t = (py - r.y) / r.spd, d = (RING_H / 2 + 16) / r.spd; [0, 1, 2].forEach(l => { if (l !== r.end) out.push({ lane: l, t0: t - d, t1: t + d }); }); }); // L17 enkaz sırası
   return out;
 }
@@ -3359,6 +3360,77 @@ function drawBarShot(b) { // enerji duvarının bir şerit parçası
   g.addColorStop(0, 'rgba(255,60,60,0)'); g.addColorStop(0.5, 'rgba(255,80,70,0.85)'); g.addColorStop(1, 'rgba(255,60,60,0)');
   ctx.fillStyle = g; ctx.fillRect(-w, -14, w * 2, 28);
   ctx.fillStyle = 'rgba(255,230,210,0.9)'; ctx.fillRect(-w, -2, w * 2, 4);
+  ctx.restore();
+}
+// --- L19 SEVERED SPACE (2026-11-10, ChatGPT fikri, kullanıcı "dene" dedi): iki şeridin arasındaki sınır parlar (warn),
+// sonra orada içinden geçilemeyen dikey enerji perdesi açılır (on). Kapanmadan önce hangi tarafta kalacağını seçersin:
+// tek şeritte yeni mermi gelmez ama diğer şeritlerdeki gemiler kaçar; iki şeritte daha az gemi kaçar ama mermiden kaçman gerekir.
+// Perdeye kaydırmak can götürmez, gemi sınırda kalır. Aynı anda tek perde. Mermiler (seninki dahil) perdeden etkilenmez.
+const SEVER_WAVES = [ // every: perdeler arası (kare) · warn: uyarı · on: açık kalma
+  { every: 160, warn: 80, on: 115, spd: 3.0, interval: 72, dbl: 0.18, hp2: 0.4,  hp3: 0.1 },
+  { every: 130, warn: 72, on: 125, spd: 3.0, interval: 68, dbl: 0.2,  hp2: 0.4,  hp3: 0.1 },
+  { every: 120, warn: 66, on: 130, spd: 3.1, interval: 68, dbl: 0.22, hp2: 0.4,  hp3: 0.15 },
+  { every: 170, warn: 60, on: 110, spd: 3.0, interval: 78, dbl: 0.18, hp2: 0.4,  hp3: 0.1 },  // nefes, kısa uyarı
+  { every: 90,  warn: 58, on: 140, spd: 3.2, interval: 64, dbl: 0.25, hp2: 0.45, hp3: 0.15 },
+];
+let sever = null, severT = 90, severLast = -1, severBump = 0, severSeen = null;
+const severX = b => LANE_W * (b + 1); // 0: sol-orta sınırı, 1: orta-sağ
+function severOn() { return !!(sever && sever.on); }
+function severSide() { return player.x < severX(sever.b) ? 0 : 1; } // 0: sol taraf, 1: sağ taraf
+function severReach(l) { // perde açıkken bu şeride ulaşılabilir mi
+  if (!severOn()) return true;
+  return severSide() === 0 ? l <= sever.b : l > sever.b;
+}
+function severClamp() { // açık perde gemiyi kendi tarafında tutar
+  if (!severOn()) return;
+  const side = severSide(), lo = side === 0 ? 0 : sever.b + 1, hi = side === 0 ? sever.b : 2;
+  if (player.targetLane < lo || player.targetLane > hi) {
+    player.targetLane = Math.max(lo, Math.min(hi, player.targetLane)); prevTargetLane = player.targetLane;
+    if (!severBump) { severBump = 14; Sound.sfx.shield(); }
+  }
+}
+function updateSever(S, ending) {
+  if (severBump > 0) severBump--;
+  if (!sever) {
+    if (!ending && --severT <= 0) {
+      const b = severLast < 0 ? (Math.random() < 0.5 ? 0 : 1) : 1 - severLast; // sınırlar sırayla değişir
+      severLast = b; sever = { b, t: 0, warn: S.warn, dur: S.on, on: false };
+    }
+    return;
+  }
+  sever.t++;
+  if (!sever.on && sever.t >= sever.warn) {
+    sever.on = true; sever.t = 0;
+    // geçiş ortasındaysa gemi yöneldiği değil, bulunduğu tarafta kalır
+    Sound.sfx.blast();
+  }
+  if (!sever.on && !seenIntro.sever && !severSeen && sever.t > 10) severSeen = { x: severX(sever.b), y: player.y - 120 };
+  if (sever.on && sever.t >= sever.dur) { sever = null; severT = S.every; }
+}
+function drawSever() {
+  if (!sever) return;
+  const x = severX(sever.b), t = frameCount;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  if (!sever.on) { // uyarı: sınır çizgisi giderek parlar, kıvılcımlar
+    const k = sever.t / sever.warn, blink = Math.floor(t / (k > 0.7 ? 3 : 6)) % 2;
+    ctx.fillStyle = `rgba(255,60,130,${(0.28 + 0.4 * k) * (blink ? 1 : 0.45)})`; ctx.fillRect(x - 5 - 8 * k, HUD_H, 10 + 16 * k, H - HUD_H);
+    ctx.fillStyle = `rgba(255,200,230,${(0.55 + 0.4 * k) * (blink ? 1 : 0.6)})`; ctx.fillRect(x - 1.5, HUD_H, 3, H - HUD_H);
+    for (let i = 0; i < 6; i++) { const y = HUD_H + ((i * 151 + t * 3) % (H - HUD_H)); ctx.fillStyle = `rgba(255,150,200,${0.5 * k})`; ctx.fillRect(x - 2 + Math.sin(t * 0.3 + i) * 4, y, 3, 8); }
+  } else { // açık perde: parlak çekirdek + akan enerji; biterken titrer
+    const end = sever.dur - sever.t < 40 && Math.floor(t / 4) % 2, a = end ? 0.5 : 1;
+    const g = ctx.createLinearGradient(x - 22, 0, x + 22, 0);
+    g.addColorStop(0, 'rgba(255,40,120,0)'); g.addColorStop(0.5, `rgba(255,70,150,${0.55 * a})`); g.addColorStop(1, 'rgba(255,40,120,0)');
+    ctx.fillStyle = g; ctx.fillRect(x - 22, HUD_H, 44, H - HUD_H);
+    ctx.fillStyle = `rgba(255,235,245,${0.9 * a})`; ctx.fillRect(x - 2.5, HUD_H, 5, H - HUD_H);
+    ctx.strokeStyle = `rgba(255,170,210,${0.6 * a})`; ctx.lineWidth = 1.5;
+    for (let i = 0; i < 2; i++) { ctx.beginPath(); for (let y = HUD_H; y <= H; y += 10) { const xx = x + Math.sin(y * 0.05 + t * 0.25 + i * 3) * 7; y === HUD_H ? ctx.moveTo(xx, y) : ctx.lineTo(xx, y); } ctx.stroke(); }
+    // kalan süre: perdenin üstünden aşağı inen sönük kısım
+    const left = 1 - sever.t / sever.dur; ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillRect(x - 6, HUD_H + 4, 12, 3); ctx.fillStyle = 'rgba(255,70,150,0.9)'; ctx.fillRect(x - 6, HUD_H + 4, 12 * left, 3);
+  }
+  if (severBump > 0) { // perdeye çarptı: sınırda kıvılcım
+    const bx = x + (severSide() === 0 ? -4 : 4);
+    ctx.fillStyle = `rgba(255,220,240,${severBump / 14})`; ctx.beginPath(); ctx.arc(bx, player.y, 10 + (14 - severBump) * 2, 0, Math.PI * 2); ctx.fill();
+  }
   ctx.restore();
 }
 // --- Boss: Ana Çekirdek ---
@@ -5487,7 +5559,7 @@ const LEVEL_BRIEFS = [
   { title: 'TIME RIFT',       vis: 'rift',      line: 'Near the black hole, time bends. You cannot avoid the rifts.', tips: ['Blue slows time, orange speeds it up, purple flips space.'] },
   { title: 'MIRROR FLEET',    vis: 'mirror',    line: 'The black hole bends light. Ships on the sides cast a reflection across.', tips: ['Reflections cannot be hit, but their shots are real. Shoot the real ship!'] },
   { title: 'DEBRIS RING',     vis: 'ring',      line: 'Wreckage circles the black hole. Each row has one gap, and it slides as the ring turns.', tips: ['Debris cannot be shot. Be in the gap when it reaches you!'] },
-  { title: 'TIDAL STRETCH',   vis: 'tidal',     line: 'This close to the black hole, ships stretch across the lanes.', tips: ['Only its glowing core can be hit. Get under it, or get out of the way!'] },
+  { title: 'SEVERED SPACE',   vis: 'sever',     line: 'Their last defense cuts space apart between the lanes.', tips: ['When a border glows, pick your side before it closes.'] },
   { title: 'VOID LEADER',     vis: 'beam',      line: 'A red lane warning means a beam is coming.', tips: ['Move before it fires!'] },
 ];
 let briefing = false;
@@ -6016,6 +6088,16 @@ function drawBriefVisual(kind, cx, cy, zc) {
       ctx.beginPath(); ctx.moveTo(cx - 70, cy - 30); ctx.quadraticCurveTo(cx - 60, cy + 10, cx, cy + 20); ctx.stroke(); ctx.setLineDash([]);
       break;
     }
+    case 'sever': { // sınır parlar, perde kapanır, gemi bir tarafta kalır
+      const ph = (t % 3.2) / 3.2, bx = cx - 40, on = ph > 0.4 && ph < 0.85;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      if (!on && ph <= 0.4) { const k = ph / 0.4; ctx.fillStyle = `rgba(255,60,130,${(0.15 + 0.4 * k) * (Math.floor(frameCount / 6) % 2 ? 1 : 0.5)})`; ctx.fillRect(bx - 3 - 4 * k, cy - 60, 6 + 8 * k, 110); }
+      if (on) { const g = ctx.createLinearGradient(bx - 16, 0, bx + 16, 0); g.addColorStop(0, 'rgba(255,40,120,0)'); g.addColorStop(0.5, 'rgba(255,70,150,0.6)'); g.addColorStop(1, 'rgba(255,40,120,0)'); ctx.fillStyle = g; ctx.fillRect(bx - 16, cy - 60, 32, 110); ctx.fillStyle = 'rgba(255,235,245,0.9)'; ctx.fillRect(bx - 2, cy - 60, 4, 110); }
+      ctx.restore();
+      const sx = ph < 0.3 ? cx - 80 : ph < 0.38 ? cx - 80 + (ph - 0.3) / 0.08 * 80 : cx;
+      if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, sx - 14, cy + 18, 28, 28);
+      break;
+    }
     case 'tidal': { // gemi yana esner, ısınır, iki şeride duvar atar
       const ph = (t % 3) / 3, k = Math.min(1, ph / 0.4), img = enemyImgs[2], spr = img && (getNeonSprite(img, 2) || img);
       const ey = cy - 36, wdt = 44 + 76 * k, bx = cx - 80 + 40 * k; // sol şeritten ortaya doğru esner
@@ -6139,6 +6221,7 @@ const FIRST_SEEN = {
   explosive: { title: 'EXPLOSIVE ROCK', text: 'Shoot it to blow up everything nearby.' },
   meteor:    { title: 'INCOMING ROCKS', text: 'Rocks are coming down this lane. Move out!' },
   phantom:   { title: 'PHANTOM',        text: 'Turns invisible. Shots pass through it while hidden.' },
+  sever:     { title: 'SEVERED SPACE',  text: 'A glowing border is about to close. Once it does, you cannot cross it. Choose your side now!' },
   tidal:     { title: 'TIDAL STRETCH',  text: 'It charges, then fires a wall across every lane it covers. Only the glowing core takes damage. Hit it before the charge ends!' },
   ring:      { title: 'DEBRIS RING',    text: "The ring turns as it falls, so the gap slides. Be in the gap's lane when it reaches you. Debris can't be shot." },
   mirror:    { title: 'REFLECTION',     text: "The glassy copy can't be hit, but its shots are real. Destroy the real ship to break it." },
@@ -6172,6 +6255,7 @@ function checkFirstSeen() {
   if (riftSeen) { want(riftSeen.key, riftSeen.x, riftSeen.y); riftSeen = null; }
   if (ringSeen) { want('ring', ringSeen.x, ringSeen.y); ringSeen = null; }
   if (tidalSeen) { want('tidal', tidalSeen.x, tidalSeen.y); tidalSeen = null; }
+  if (severSeen) { want('sever', severSeen.x, severSeen.y); severSeen = null; }
   if (currentLevel === 17) { for (const e of enemies) if (e.mirror && vis(e.y)) want('mirror', W - e.x, e.y); if (mirrorSeen) { want(mirrorSeen.key, mirrorSeen.x, mirrorSeen.y); mirrorSeen = null; } }
   for (const p of powerups) if (FIRST_SEEN[p.type] && vis(p.y)) want(p.type, p.x, p.y);
   for (const c of crystals) if (vis(c.y)) want('crystal', c.x, c.y);
@@ -6694,6 +6778,7 @@ function update() {
     prevTargetLane = player.targetLane;
   }
 
+  if (currentLevel === 19) severClamp(); // L19: açık perdeden geçilmez
   const targetX = LANE_CENTERS[player.targetLane];
   const slideFactor = 0.35;
   player.x += (targetX - player.x) * slideFactor;
@@ -6949,6 +7034,7 @@ function update() {
   if (currentLevel === 15 && state === 'play' && (gates.length || (_zcfg && _zcfg.gates && !boss))) updateGates(_zcfg.gates || GATE_WAVES[2], !!boss || getWave() - (currentLevel - 1) * 5 > bossPreWaves());
   if (currentLevel === 15) updateTitanBombs();
   if (horizonOn() && state === 'play' && !player.dead && _zcfg && _zcfg.horizon) updateHorizon(_zcfg.horizon);
+  if (currentLevel === 19 && state === 'play' && !player.dead && (sever || (_zcfg && _zcfg.sever))) updateSever(_zcfg.sever || SEVER_WAVES[4], getWave() > currentLevel * 5 || !(_zcfg && _zcfg.sever));
   if (currentLevel === 16 && !boss && state === 'play' && !player.dead && _zcfg && _zcfg.rift) updateRift(_zcfg.rift, getWave() > currentLevel * 5);
   if (currentLevel === 18 && state === 'play' && !player.dead && (ringRows.length || (_zcfg && _zcfg.ring))) updateRing(_zcfg.ring || RING_WAVES[4], getWave() > currentLevel * 5 || !(_zcfg && _zcfg.ring));
   if (currentLevel === 14 && !boss && state === 'play' && _zcfg && _zcfg.stream) updateStream(_zcfg.stream, getWave() > currentLevel * 5);
@@ -8076,6 +8162,7 @@ function render() {
   enemies.forEach(drawEnemy);
   if (currentLevel === 17) drawMirrors();
   if (currentLevel === 18 && ringRows.length) drawRing();
+  if (currentLevel === 19 && sever) drawSever();
   drawRecoilFx('under');
   if (boss) drawBoss(boss);
   drawRecoilFx('top');
