@@ -783,11 +783,6 @@ function baseLevelConfig() {
     case 19: { // TWISTED SPACE: akıntı gemiyi yana sürükler, her şey uzar, ekran dalgalanır
       // Denenenler: EVENT HORIZON (horizon: HORIZON_WAVES[lw - 1]), TIDAL STRETCH (tidal: TIDAL_WAVES[lw - 1]), SEVERED SPACE (sever: SEVER_WAVES[lw - 1])
       const lw = Math.min(5, Math.max(1, getWave() - (currentLevel - 1) * 5));
-      if (L19_TRY === 'photon') { const P = PHOTON_WAVES[lw - 1]; return { // PHOTON SPHERE denemesi
-        interval: P.interval, doubleChance: P.dbl, speed: () => P.spd + Math.random() * 0.3,
-        hp: () => { const r = Math.random(); return r < P.hp3 ? 3 : r < P.hp3 + P.hp2 ? 2 : 1; },
-        canShoot: true, zigzag: false, photon: P,
-      }; }
       const Z = TWIST_WAVES[lw - 1];
       return {
         interval: Z.interval, doubleChance: Z.dbl,
@@ -796,12 +791,14 @@ function baseLevelConfig() {
         canShoot: true, zigzag: false, twist: Z,
       };
     }
-    case 20: return {
-      interval: 66, doubleChance: 0.25,
-      speed: () => 1.9 + Math.random() * 0.5,
-      hp: () => { const r = Math.random(); return r < 0.2 ? 3 : r < 0.6 ? 2 : 1; },
-      canShoot: true, zigzag: false, gravity: 0.7, shift2: 0.35, curveShots: true, curve: 1.35, debris: 64,
-    };
+    case 20: { // VOID LEADER öncüleri + boss: PHOTON SPHERE (2026-11-11: L19'da denendi, kullanıcı boss bölümüne taşıdı)
+      const lw = Math.min(5, Math.max(1, getWave() - (currentLevel - 1) * 5)), P = PHOTON_WAVES[lw - 1];
+      return {
+        interval: P.interval, doubleChance: P.dbl, speed: () => P.spd + Math.random() * 0.3,
+        hp: () => { const r = Math.random(); return r < P.hp3 ? 3 : r < P.hp3 + P.hp2 ? 2 : 1; },
+        canShoot: true, zigzag: false, photon: P,
+      };
+    }
     default: return null;
   }
 }
@@ -1146,7 +1143,7 @@ function startLevel(level) {
   // Zone 2 mechanics reset
   crystals = []; crystalMeter = 0; overdriveTimer = 0;
   meteorTimer = 0; floatTexts = [];
-  player.lane = 1; player.targetLane = 1; player.y = level === 19 && L19_TRY === 'photon' ? PHOTON_Y : H - 160; hzKick = 0; hzFx = 0;
+  player.lane = 1; player.targetLane = 1; player.y = level === 20 ? PHOTON_Y : H - 160; hzKick = 0; hzFx = 0;
   player.x = LANE_CENTERS[1];
   player.dead = false; player.deathTimer = 0; player.flash = 0; player.invuln = 0;
   player.shieldTimer = 0; player.doubleTimer = 0; player.tripleTimer = 0;
@@ -2157,7 +2154,7 @@ function hazardWindows() {
     const t = (py - a.y) / a.speed, d = (a.size * 0.9 + 16) / a.speed;
     if (t + d > 0) lanesHit(a.x, a.size * 0.9 + 14).forEach(lane => out.push({ lane, t0: t - d, t1: t + d }));
   });
-  if (currentLevel === 19) bullets.forEach(b => { if (!b.ret || b.y < py) return; const t = (b.y - py) / b.speed, d = 34 / b.speed; [0, 1, 2].filter(l => Math.abs(b.x - LANE_CENTERS[l]) < 30).forEach(lane => out.push({ lane, t0: t - d, t1: t + d })); }); // L19 foton: dönen mermi
+  if (currentLevel === 20) bullets.forEach(b => { if (!b.ret || b.y < py) return; const t = (b.y - py) / b.speed, d = 34 / b.speed; [0, 1, 2].filter(l => Math.abs(b.x - LANE_CENTERS[l]) < 30).forEach(lane => out.push({ lane, t0: t - d, t1: t + d })); }); // L19 foton: dönen mermi
   eBullets.forEach(b => {
     if (!(b.vy > 0)) return;
     const t = (py - b.y) / b.vy, d = 40 / b.vy;
@@ -3502,20 +3499,20 @@ function twistPost() { // ekran dalgalanır + önceki kare gölge gibi kalır (b
 // kara deliğin etrafında ışık yörüngeye girer: ıskalayan mermin ekranın tepesinden çıkınca kara deliğin etrafından
 // dolanır, bir sağdaki şeritten (sol → orta → sağ → sol) alttan yukarı geri gelir. Dönen mermi seni yakar, yolundaki düşmanı da vurur.
 // Ekrana dokunmak ateşi açar / keser. Düşman ekranın altına ulaşırsa can gider; gemine çarparsa da.
-const PHOTON_WAVES = [ // ret: dönen mermi hızı · delay: yörüngede bekleme (px, ekran altından uzaklık) · every: kaç ıskalamada bir döner
-  { every: 5, ret: 5.0, delay: 160, spd: 2.9, interval: 66, dbl: 0.2,  hp2: 0.4,  hp3: 0.1 },
-  { every: 4, ret: 5.4, delay: 150, spd: 3.0, interval: 62, dbl: 0.22, hp2: 0.4,  hp3: 0.15 },
-  { every: 4, ret: 5.8, delay: 140, spd: 3.1, interval: 62, dbl: 0.25, hp2: 0.45, hp3: 0.15 },
-  { every: 4, ret: 5.4, delay: 150, spd: 3.0, interval: 72, dbl: 0.2,  hp2: 0.4,  hp3: 0.1 },  // nefes
-  { every: 3, ret: 6.2, delay: 120, spd: 3.2, interval: 58, dbl: 0.28, hp2: 0.45, hp3: 0.2 },
+const PHOTON_WAVES = [ // ret: dönen mermi hızı · delay: yörüngede bekleme (px, ekran altından uzaklık) · every: kaç ıskalamada bir döner (2026-11-11: aynı şeritten döner)
+  { every: 2, ret: 5.0, delay: 160, spd: 2.9, interval: 66, dbl: 0.2,  hp2: 0.4,  hp3: 0.1 },
+  { every: 2, ret: 5.4, delay: 150, spd: 3.0, interval: 62, dbl: 0.22, hp2: 0.4,  hp3: 0.15 },
+  { every: 2, ret: 5.8, delay: 140, spd: 3.1, interval: 62, dbl: 0.25, hp2: 0.45, hp3: 0.15 },
+  { every: 2, ret: 5.4, delay: 150, spd: 3.0, interval: 72, dbl: 0.2,  hp2: 0.4,  hp3: 0.1 },
+  { every: 2, ret: 6.2, delay: 120, spd: 3.2, interval: 58, dbl: 0.28, hp2: 0.45, hp3: 0.2 },
 ];
-const PHOTON_Y = H * 0.52, L19_TRY = 'photon'; // 'twist' | 'photon' (karşılaştırma)
+const PHOTON_Y = H * 0.52;
 let photonSeen = null, photonN = 0;
-const photonOn = () => currentLevel === 19 && !boss && !!(getLevelConfig() || {}).photon;
+const photonOn = () => currentLevel === 20 && !!(getLevelConfig() || {}).photon; // boss sırasında da
 function photonWrap(b, Z) { // tepeden çıkan mermi yörüngeye girer, ayna şeritten alttan döner
   if (b.ret || b.y > HUD_H - 4) return false;
   if (++photonN % Z.every) return false; // ıskalayanların sadece bir kısmı döner (hepsi dönünce ortada durmak imkânsızdı)
-  const l = nearestLane(b.x); b.ret = true; b.x = LANE_CENTERS[(l + 1) % 3] + (b.x - LANE_CENTERS[l]); b.y = H + Z.delay; b.speed = Z.ret; // bir sağdaki şeritten (sağdaki en sola) döner: ayna şeritte orta kendi mermisini alıyordu
+  b.ret = true; b.y = H + Z.delay; b.speed = Z.ret; // 2026-11-11 kullanıcı: attığın şeritten geri döner (ateşi iyi kullanmak gerek; ayna / bir sağ şerit denendi)
   return true;
 }
 function updatePhoton(Z) { // dönen mermiler gemiye çarpar
@@ -3542,7 +3539,7 @@ function drawPhotonRing() { // tepede ve altta foton halkası: mermi girip çık
   // alttan gelecek mermilerin işareti: ekranın altında, yörüngedeki mermi yaklaştıkça parlayan nokta
   bullets.forEach(b => { if (!b.ret || b.y < H) return; const k = 1 - Math.min(1, (b.y - H) / 160); ctx.fillStyle = `rgba(255,120,60,${0.25 + 0.6 * k})`; ctx.beginPath(); ctx.arc(b.x, H - 6, 4 + 6 * k, 0, Math.PI * 2); ctx.fill(); });
   ctx.restore();
-  if (state === 'play') { ctx.save(); ctx.fillStyle = fireHold ? '#9fe8ff' : 'rgba(255,179,71,0.8)'; ctx.textBaseline = 'middle'; drawSpaced(fireHold ? 'HOLD FIRE' : 'FIRE ON', W / 2, HUD_H + 16, 11, 700, UI_FONT, 2); ctx.restore(); }
+  if (state === 'play') { ctx.save(); ctx.fillStyle = fireHold ? '#9fe8ff' : 'rgba(255,179,71,0.8)'; ctx.textBaseline = 'middle'; drawSpaced(fireHold ? 'HOLD FIRE' : 'FIRE ON', W / 2, HUD_H + (boss ? 44 : 16), 11, 700, UI_FONT, 2); ctx.restore(); }
 }
 function drawReturnShot(b) { // dönen mermi: turuncu-kırmızı, yukarı akan iz
   ctx.save(); ctx.translate(b.x, b.y); ctx.globalCompositeOperation = 'lighter';
@@ -5681,10 +5678,8 @@ const LEVEL_BRIEFS = [
   { title: 'TIME RIFT',       vis: 'rift',      line: 'Near the black hole, time bends. You cannot avoid the rifts.', tips: ['Blue slows time, orange speeds it up, purple flips space.'] },
   { title: 'MIRROR FLEET',    vis: 'mirror',    line: 'The black hole bends light. Ships on the sides cast a reflection across.', tips: ['Reflections cannot be hit, but their shots are real. Shoot the real ship!'] },
   { title: 'DEBRIS RING',     vis: 'ring',      line: 'Wreckage circles the black hole. Each row has one gap, and it slides as the ring turns.', tips: ['Debris cannot be shot. Be in the gap when it reaches you!'] },
-  L19_TRY === 'photon'
-    ? { title: 'PHOTON SPHERE',   vis: 'photon',    line: 'Light orbits the black hole here. So do your missed shots.', tips: ['They come back from below, one lane to the right. Tap to hold fire.'] }
-    : { title: 'TWISTED SPACE',   vis: 'twist',     line: 'The spinning black hole drags space itself. The current pulls you sideways.', tips: ['Swipe against the current to hold your lane.'] },
-  { title: 'VOID LEADER',     vis: 'beam',      line: 'A red lane warning means a beam is coming.', tips: ['Move before it fires!'] },
+  { title: 'TWISTED SPACE',   vis: 'twist',     line: 'The spinning black hole drags space itself. The current pulls you sideways.', tips: ['Swipe against the current to hold your lane.'] },
+  { title: 'PHOTON SPHERE',   vis: 'photon',    line: 'Light orbits the black hole here. So do your missed shots.', tips: ['They come back from below, in the same lane. Tap to hold fire.'] },
 ];
 let briefing = false;
 let briefBtn = null, briefCard = null; // çizimde hesaplanır, dokunma için kullanılır
@@ -6216,10 +6211,10 @@ function drawBriefVisual(kind, cx, cy, zc) {
       const ph = (t % 2.4) / 2.4, lx = cx - 70, rx = cx + 70, sy = cy + 4;
       ctx.save();
       ctx.strokeStyle = 'rgba(255,200,140,0.35)'; ctx.setLineDash([4, 6]); ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(lx, sy - 20); ctx.lineTo(lx, cy - 60); ctx.quadraticCurveTo(lx + 35, cy - 100, cx, cy - 60); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(cx, cy + 60); ctx.lineTo(cx, sy + 10); ctx.stroke(); ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(lx, sy - 20); ctx.lineTo(lx, cy - 60); ctx.quadraticCurveTo(lx + 60, cy - 100, lx + 80, cy - 20); ctx.quadraticCurveTo(lx + 60, cy + 90, lx, cy + 60); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(lx, cy + 60); ctx.lineTo(lx, sy + 16); ctx.stroke(); ctx.setLineDash([]);
       if (ph < 0.45) { ctx.fillStyle = '#bff6ff'; ctx.beginPath(); ctx.arc(lx, sy - 20 - ph / 0.45 * 40, 3.5, 0, Math.PI * 2); ctx.fill(); }
-      else { const q = (ph - 0.45) / 0.55; ctx.fillStyle = '#ffb070'; ctx.beginPath(); ctx.arc(cx, cy + 60 - q * 50, 4.5, 0, Math.PI * 2); ctx.fill(); }
+      else { const q = (ph - 0.45) / 0.55; ctx.fillStyle = '#ffb070'; ctx.beginPath(); ctx.arc(lx, cy + 60 - q * 40, 4.5, 0, Math.PI * 2); ctx.fill(); }
       if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, lx - 14, sy - 14, 28, 28);
       ctx.restore();
       break;
@@ -6366,7 +6361,7 @@ const FIRST_SEEN = {
   explosive: { title: 'EXPLOSIVE ROCK', text: 'Shoot it to blow up everything nearby.' },
   meteor:    { title: 'INCOMING ROCKS', text: 'Rocks are coming down this lane. Move out!' },
   phantom:   { title: 'PHANTOM',        text: 'Turns invisible. Shots pass through it while hidden.' },
-  photon:    { title: 'PHOTON SPHERE',  text: 'Your missed shots orbit the black hole and come back from below, one lane to the right. Tap to hold fire!' },
+  photon:    { title: 'PHOTON SPHERE',  text: 'Your missed shots orbit the black hole and come back from below, in the same lane. Tap to hold fire!' },
   sever:     { title: 'SEVERED SPACE',  text: 'A glowing border is about to close. Once it does, you cannot cross it. Choose your side now!' },
   tidal:     { title: 'TIDAL STRETCH',  text: 'It charges, then fires a wall across every lane it covers. Only the glowing core takes damage. Hit it before the charge ends!' },
   ring:      { title: 'DEBRIS RING',    text: "The ring turns as it falls, so the gap slides. Be in the gap's lane when it reaches you. Debris can't be shot." },

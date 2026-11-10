@@ -133,7 +133,7 @@ function runLevel(level, prof, maxFrames = 9000) { // insanlar gibi tek kararda 
         if (g && !gateOn(g)) { const c = g.t % (g.on + g.off); if (g.off - (c - g.on) > 13) coreDash(); }
       }
       if (typeof photonOn !== 'undefined' && photonOn()) { // L19 foton: sadece şeritte hedef varken ateş et (ıskalayan mermi geri döner)
-        const tgt = enemies.some(e => nearestLane(e.x) === best && e.y < player.y && e.y > 0);
+        const tgt = enemies.some(e => nearestLane(e.x) === best && e.y < player.y && e.y > 0) || (boss && !boss.dying && Math.abs(boss.x - LANE_CENTERS[best]) < 90);
         if (tgt === fireHold) toggleFire();
       }
       if (typeof drifters !== 'undefined' && convoySpd > 0) { // L9: şeritte mermiye ilk değecek şey kapsül / patlayıcıysa ateşi kes
