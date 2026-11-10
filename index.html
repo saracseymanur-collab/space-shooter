@@ -762,7 +762,15 @@ function baseLevelConfig() {
       };
     }
     case 17: { // MIRROR FLEET: yan şeritteki gemilerin karşı şeritte ateş eden yansıması
-      const lw = Math.min(5, Math.max(1, getWave() - (currentLevel - 1) * 5)), M = MIRROR_WAVES[lw - 1];
+      // 2026-11-10: kullanıcı iki fikri karşılaştırıyor. Ayna Filo için L17_TRY = 'mirror' yaz.
+      const lw = Math.min(5, Math.max(1, getWave() - (currentLevel - 1) * 5));
+      if (L17_TRY === 'ring') { const R = RING_WAVES[lw - 1]; return {
+        interval: R.interval, doubleChance: R.dbl2,
+        speed: () => 3.0 + Math.random() * 0.3,
+        hp: () => { const r = Math.random(); return r < R.hp3 ? 3 : r < R.hp3 + R.hp2 ? 2 : 1; },
+        canShoot: true, zigzag: false, ring: R,
+      }; }
+      const M = MIRROR_WAVES[lw - 1];
       return {
         interval: M.interval, doubleChance: M.dbl,
         speed: () => M.spd + Math.random() * 0.3,
@@ -1115,7 +1123,7 @@ function startLevel(level) {
   playFrames     = (level - 1) * LEVEL_SEC * 60;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; shards = []; powerups = [];
-  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; ccSeen = null; gates = []; gateT = 0; dashT = 0; dashTrail = 0; gateSeen = null; corridorY = 0; streamLane = 1; streamX = 0; streamNext = -1; streamT = 0; streamPre = 0; archive = 0; archiveCard = null; archiveDone = false; streamBits = []; inStream = false; streamChain = false; warpT = 0; warpWarn = 0; warpTrails = []; warpSeen = null; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1; stormClouds = []; stormCloudT = 0; stormShake = 0; rifts = []; riftMode = null; riftT = 0; riftNext = 90; riftIdx = 0; riftScaleCur = 1; riftAng = 0; riftAngTgt = 0; riftFlip = false; riftFx = 0; riftSeen = null; mirrorSeen = null;
+  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; ccSeen = null; gates = []; gateT = 0; dashT = 0; dashTrail = 0; gateSeen = null; corridorY = 0; streamLane = 1; streamX = 0; streamNext = -1; streamT = 0; streamPre = 0; archive = 0; archiveCard = null; archiveDone = false; streamBits = []; inStream = false; streamChain = false; warpT = 0; warpWarn = 0; warpTrails = []; warpSeen = null; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1; stormClouds = []; stormCloudT = 0; stormShake = 0; rifts = []; riftMode = null; riftT = 0; riftNext = 90; riftIdx = 0; riftScaleCur = 1; riftAng = 0; riftAngTgt = 0; riftFlip = false; riftFx = 0; riftSeen = null; mirrorSeen = null; ringRows = []; ringT = 0; ringSeen = null;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
   countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
@@ -2142,6 +2150,7 @@ function hazardWindows() {
   });
   lasers.forEach(L => out.push({ lane: L.lane, t0: L.warn - L.t, t1: L.warn - L.t + (L.meteor ? 60 : L.fire) }));
   bolts.forEach(B => out.push({ lane: B.lane, t0: B.warn - B.t, t1: B.warn - B.t + B.fire }));
+  ringRows.forEach(r => { if (r.hit) return; const t = (py - r.y) / r.spd, d = (RING_H / 2 + 16) / r.spd; [0, 1, 2].forEach(l => { if (l !== r.end) out.push({ lane: l, t0: t - d, t1: t + d }); }); }); // L17 enkaz sırası
   return out;
 }
 const WALL_MARGIN = 20; // oyuncunun şerit değiştirmesine pay (~0.33 sn)
@@ -3108,6 +3117,7 @@ const MIRROR_WAVES = [ // side: orta şeritteki gemiyi yana alma ihtimali · swa
   { side: 0.8,  swap: 0.45, spd: 3.1, interval: 60, dbl: 0.22, hp2: 0.4,  hp3: 0.15 }, // nefes + yer değiştirme
   { side: 0.85, swap: 0.4,  spd: 3.4, interval: 48, dbl: 0.36, hp2: 0.45, hp3: 0.2 },
 ];
+const L17_TRY = 'ring'; // 'mirror' | 'ring' (karşılaştırma)
 const MIRROR_WARN = 60; // yer değiştirmeden önce titreme (kare)
 let mirrorSeen = null;
 const mirrorSprites = {};
@@ -3148,6 +3158,73 @@ function drawMirrors() {
       const off = Math.sin(frameCount * 0.25 + q * 1.7) * 2;
       ctx.drawImage(spr, 0, q * sh, spr.width, sh, -sz.w / 2 + off, -sz.h / 2 + q * dsh, sz.w, dsh + 0.5);
     }
+    ctx.restore();
+  });
+}
+// --- L17 ACCRETION RING (2026-11-10, Ayna Filo ile karşılaştırma için): kara deliğin etrafında dönen enkaz halkası.
+// Üç şeridi kaplayan enkaz sırası iner, tek boşluğu sıra inerken yana kayar (halka döner, kenardan taşan karşıdan girer).
+// Boşluk sana ulaştığında tam bir şeridin hizasında olur (geri hesaplanır). Enkaz vurulamaz (mermi içinden geçer); değersen can gider.
+const RING_WAVES = [ // every: sıra aralığı · spd: iniş · travel: boşluğun yol boyunca kaydığı şerit sayısı · dbl: ardından ikinci sıra
+  { every: 230, spd: 3.2, travel: [1, 2],     dbl: 0,    interval: 92, dbl2: 0.15, hp2: 0.4, hp3: 0.1 },
+  { every: 210, spd: 3.4, travel: [1.5, 2.5], dbl: 0,    interval: 86, dbl2: 0.2,  hp2: 0.4, hp3: 0.1 },
+  { every: 200, spd: 3.5, travel: [2, 3],     dbl: 0.2,  interval: 86, dbl2: 0.2,  hp2: 0.4, hp3: 0.15 },
+  { every: 240, spd: 3.4, travel: [2, 3.5],   dbl: 0.5,  interval: 96, dbl2: 0.15, hp2: 0.4, hp3: 0.1 }, // nefes + arka arkaya sıra
+  { every: 180, spd: 3.7, travel: [2.5, 4],   dbl: 0.35, interval: 80, dbl2: 0.25, hp2: 0.45, hp3: 0.15 },
+];
+const RING_H = 44, LANE_SP = LANE_CENTERS[1] - LANE_CENTERS[0];
+let ringRows = [], ringT = 0, ringSeen = null;
+const ringWrap = u => ((u + 0.5) % 3 + 3) % 3 - 0.5; // şerit koordinatı, -0.5..2.5 (halka döner)
+function spawnRingRow(R, y) {
+  const T = (player.y - y) / R.spd, end = Math.floor(Math.random() * 3), dir = Math.random() < 0.5 ? -1 : 1;
+  const travel = R.travel[0] + Math.random() * (R.travel[1] - R.travel[0]), v = dir * travel / T;
+  const chunks = []; // halka üzerindeki parçalar (boşluk halka koordinatı 0'da)
+  for (let u = 0.64; u < 2.37; u += 0.12 + Math.random() * 0.05) chunks.push({ u, cls: ROCK_CLASSES[Math.floor(Math.random() * 3)], idx: Math.floor(Math.random() * 3), sz: 34 + Math.random() * 16, rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 0.05, dy: (Math.random() - 0.5) * 22 });
+  ringRows.push({ y, g0: end - v * T, v, end, spd: R.spd, t: 0, chunks, hit: false });
+}
+function ringGap(r) { return ringWrap(r.g0 + r.v * r.t); }
+function updateRing(R, ending) {
+  if (!ending && ++ringT >= R.every) {
+    ringT = 0; spawnRingRow(R, HUD_H - RING_H);
+    if (Math.random() < R.dbl) spawnRingRow(R, HUD_H - RING_H - 230); // hemen arkasından ikinci sıra
+  }
+  ringRows = ringRows.filter(r => {
+    r.t++; r.y += r.spd;
+    r.chunks.forEach(c => c.rot += c.vr);
+    if (!seenIntro.ring && !ringSeen && r.y > H * 0.3) ringSeen = { x: LANE_CENTERS[0] + ringGap(r) * LANE_SP, y: r.y };
+    if (!r.hit && r.y >= player.y - 8) { // sıra gemiye ulaştı
+      r.hit = true;
+      if (playerLaneNow() !== r.end && !(player.invuln > 0)) { spawnExplosion(player.x, player.y, true); damagePlayer('Hit by debris!'); }
+      else addFloat(player.x, player.y - 50, 'CLEAR', '#c9a0ff', false);
+    }
+    // enkaz mermiyi kesmez (kesince arkadaki gemiler kaçıyordu): zorluk boşluk zamanlamasında
+    return r.y < H + 60;
+  });
+}
+function drawRing() {
+  ringRows.forEach(r => {
+    const g = ringGap(r), gx = LANE_CENTERS[0] + g * LANE_SP;
+    ctx.save();
+    // halkanın parıltısı
+    const lg = ctx.createLinearGradient(0, r.y - RING_H, 0, r.y + RING_H);
+    lg.addColorStop(0, 'rgba(160,112,224,0)'); lg.addColorStop(0.5, 'rgba(160,112,224,0.22)'); lg.addColorStop(1, 'rgba(160,112,224,0)');
+    ctx.fillStyle = lg; ctx.fillRect(0, r.y - RING_H, W, RING_H * 2);
+    // boşluk: aydınlık şerit + kayma yönünü gösteren iz
+    ctx.globalCompositeOperation = 'lighter';
+    const bg = ctx.createRadialGradient(gx, r.y, 4, gx, r.y, LANE_SP * 0.5);
+    bg.addColorStop(0, 'rgba(255,220,255,0.25)'); bg.addColorStop(1, 'rgba(255,220,255,0)');
+    ctx.fillStyle = bg; ctx.fillRect(gx - LANE_SP / 2, r.y - RING_H, LANE_SP, RING_H * 2);
+    const dir = Math.sign(r.v);
+    ctx.strokeStyle = 'rgba(230,200,255,0.55)'; ctx.lineWidth = 2;
+    for (let k = 1; k <= 3; k++) { const x = gx - dir * (14 + k * 14); ctx.globalAlpha = 0.7 - k * 0.18; ctx.beginPath(); ctx.moveTo(x, r.y - RING_H * 0.55); ctx.lineTo(x, r.y + RING_H * 0.55); ctx.stroke(); }
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    // enkaz parçaları
+    r.chunks.forEach(c => {
+      const u = ringWrap(c.u + g), x = LANE_CENTERS[0] + u * LANE_SP, spr = getRockSprite(c.cls, c.idx, ROCK_TINTS.debris);
+      ctx.save(); ctx.translate(x, r.y + c.dy); ctx.rotate(c.rot);
+      if (spr) ctx.drawImage(spr, -c.sz / 2, -c.sz / 2, c.sz, c.sz);
+      else { ctx.fillStyle = '#6a5590'; ctx.beginPath(); ctx.arc(0, 0, c.sz * 0.4, 0, Math.PI * 2); ctx.fill(); }
+      ctx.restore();
+    });
     ctx.restore();
   });
 }
@@ -5273,7 +5350,9 @@ const LEVEL_BRIEFS = [
   { title: 'DATA STREAM',     vis: 'stream',    line: 'Their data flows through the nebula. Stay inside the stream to copy it.', tips: ['The level ends when the archive is full.'] },
   { title: 'CORE BREACH',     vis: 'gate',      line: 'You made it inside their base. Laser gates guard the way to its core.', tips: ['Tap anywhere to dash through a gate while the beam is off.', "Collect the bombs dropped by destroyed ships. You'll need them."] },
   { title: 'TIME RIFT',       vis: 'rift',      line: 'Near the black hole, time bends. You cannot avoid the rifts.', tips: ['Blue slows time, orange speeds it up, purple flips space.'] },
-  { title: 'MIRROR FLEET',    vis: 'mirror',    line: 'The black hole bends light. Ships on the sides cast a reflection across.', tips: ['Reflections cannot be hit, but their shots are real. Shoot the real ship!'] },
+  L17_TRY === 'ring'
+    ? { title: 'DEBRIS RING',     vis: 'ring',      line: 'Wreckage circles the black hole. Each row has one gap, and it slides as the ring turns.', tips: ['Debris cannot be shot. Be in the gap when it reaches you!'] }
+    : { title: 'MIRROR FLEET',    vis: 'mirror',    line: 'The black hole bends light. Ships on the sides cast a reflection across.', tips: ['Reflections cannot be hit, but their shots are real. Shoot the real ship!'] },
   { title: 'DEBRIS FIELD',    vis: 'debris',    line: 'Wreckage is falling into the black hole.', tips: ['Dodge or shoot the debris.'] },
   { title: 'EVENT HORIZON',   vis: 'horizon',   line: 'Gravity, bent shots and debris. All at once.', tips: ['Hold on!'] },
   { title: 'VOID LEADER',     vis: 'beam',      line: 'A red lane warning means a beam is coming.', tips: ['Move before it fires!'] },
@@ -5535,6 +5614,15 @@ function drawBriefVisual(kind, cx, cy, zc) {
       ctx.fillStyle = `rgba(255,34,68,${glow})`; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 18;
       [-22, 22].forEach(dx => { ctx.beginPath(); ctx.ellipse(cx + dx, cy, 9, 4.5 * blink, dx < 0 ? 0.25 : -0.25, 0, Math.PI * 2); ctx.fill(); });
       ctx.shadowBlur = 0;
+      break;
+    }
+    case 'ring': { // kayan boşluklu enkaz sırası iner, gemi boşluğa geçer
+      const f = frameCount % 150, ry = cy - 56 + f * 0.6, g = ((f / 150) * 2 + 0.0) % 3, gx = cx - 80 + g * 80;
+      ctx.save();
+      for (let u = 0.62; u < 2.4; u += 0.26) { const uu = ((u + g + 0.5) % 3) - 0.5, x = cx - 80 + uu * 80, spr = getRockSprite('small', Math.floor(u * 7) % 3, ROCK_TINTS.debris);
+        if (x < cx - 118 || x > cx + 118) continue; if (spr) ctx.drawImage(spr, x - 11, ry - 11, 22, 22); }
+      ctx.strokeStyle = 'rgba(230,200,255,0.5)'; ctx.lineWidth = 2; for (let k = 1; k <= 2; k++) { ctx.beginPath(); ctx.moveTo(gx - k * 12, ry - 10); ctx.lineTo(gx - k * 12, ry + 10); ctx.stroke(); }
+      ctx.restore();
       break;
     }
     case 'mirror': { // sol şeritte gerçek gemi, sağda camgöbeği yansıması ateş eder
@@ -5894,6 +5982,7 @@ const FIRST_SEEN = {
   explosive: { title: 'EXPLOSIVE ROCK', text: 'Shoot it to blow up everything nearby.' },
   meteor:    { title: 'INCOMING ROCKS', text: 'Rocks are coming down this lane. Move out!' },
   phantom:   { title: 'PHANTOM',        text: 'Turns invisible. Shots pass through it while hidden.' },
+  ring:      { title: 'DEBRIS RING',    text: "The ring turns as it falls, so the gap slides. Be in the gap's lane when it reaches you. Debris can't be shot." },
   mirror:    { title: 'REFLECTION',     text: "The glassy copy can't be hit, but its shots are real. Destroy the real ship to break it." },
   mirrorSwap:{ title: 'MIRROR SWAP',    text: 'When the mirror flickers, the ship and its reflection trade places.' },
   rift_slow: { title: 'TIME SLOWS',     text: 'When this rift reaches you, everything slows down. Your ship too.' },
@@ -5923,6 +6012,7 @@ function checkFirstSeen() {
   const vis = y => y > HUD_H + 30 && y < H * 0.62;
   const want = (key, x, y) => { if (!seenIntro[key] && !introCard) { if (currentLevel === 16) [x, y] = riftPoint(x, y); introCard = { key, x, y, t: 0 }; Sound.sfx.click(); } };
   if (riftSeen) { want(riftSeen.key, riftSeen.x, riftSeen.y); riftSeen = null; }
+  if (ringSeen) { want('ring', ringSeen.x, ringSeen.y); ringSeen = null; }
   if (currentLevel === 17) { for (const e of enemies) if (e.mirror && vis(e.y)) want('mirror', W - e.x, e.y); if (mirrorSeen) { want(mirrorSeen.key, mirrorSeen.x, mirrorSeen.y); mirrorSeen = null; } }
   for (const p of powerups) if (FIRST_SEEN[p.type] && vis(p.y)) want(p.type, p.x, p.y);
   for (const c of crystals) if (vis(c.y)) want('crystal', c.x, c.y);
@@ -6700,6 +6790,7 @@ function update() {
   if (currentLevel === 15 && state === 'play' && (gates.length || (_zcfg && _zcfg.gates && !boss))) updateGates(_zcfg.gates || GATE_WAVES[2], !!boss || getWave() - (currentLevel - 1) * 5 > bossPreWaves());
   if (currentLevel === 15) updateTitanBombs();
   if (currentLevel === 16 && !boss && state === 'play' && !player.dead && _zcfg && _zcfg.rift) updateRift(_zcfg.rift, getWave() > currentLevel * 5);
+  if (currentLevel === 17 && state === 'play' && !player.dead && (ringRows.length || (_zcfg && _zcfg.ring))) updateRing(_zcfg.ring || RING_WAVES[4], getWave() > currentLevel * 5 || !(_zcfg && _zcfg.ring));
   if (currentLevel === 14 && !boss && state === 'play' && _zcfg && _zcfg.stream) updateStream(_zcfg.stream, getWave() > currentLevel * 5);
   if (currentLevel === 13 && !boss && state === 'play' && !player.dead && _zcfg && _zcfg.warp) updateWarp(_zcfg.warp);
   else if (warpWarn) { warpWarn = 0; enemies.forEach(e => { e.warpTo = null; }); } // ışınlanma yarıda kaldıysa gemiler donmasın
@@ -7819,7 +7910,8 @@ function render() {
   if (currentLevel === 15 && gates.length) drawGates();
   if (currentLevel === 14 && state === 'play') drawStream();
   enemies.forEach(drawEnemy);
-  if (currentLevel === 17) drawMirrors();
+  if (currentLevel === 17 && L17_TRY === 'mirror') drawMirrors();
+  if (currentLevel === 17 && ringRows.length) drawRing();
   drawRecoilFx('under');
   if (boss) drawBoss(boss);
   drawRecoilFx('top');

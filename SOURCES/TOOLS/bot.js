@@ -36,6 +36,10 @@ function laneDanger(l, horizon, blind) { // isabet edecek mermi/kaya/lazer: kesi
     if (q.type !== 'mine' || q.lane !== l || q.y > player.y + 40) continue;
     const t = (player.y - q.y) / (convoySpd || 3); if (t <= horizon * 2) d += 1e5 / (1 + Math.max(0, t));
   }
+  if (typeof ringRows !== 'undefined') for (const r of ringRows) { // L17 enkaz halkası: boşluğun varacağı şerit (sabit hızla kaydığı için öngörülebilir)
+    if (r.hit || r.end === l) continue;
+    const t = (player.y - r.y) / r.spd; if (t <= horizon * 2.5) d += 1e5 / (1 + Math.max(0, t));
+  }
   if (typeof nebMines !== 'undefined') for (const q of nebMines) { // L11: sadece radarda görülmüş mayınları bilir (hilesiz)
     if (!q.known || q.lane !== l || q.y > player.y + 40) continue;
     const t = (player.y - q.y) / q.spd; if (t <= horizon * 2) d += 1e5 / (1 + Math.max(0, t));
