@@ -3012,10 +3012,7 @@ function drawCoreRing(b, r, pos, col, w) {
   // segment çizgileri
   ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 2;
   for (let k = 1; k < 10; k++) { const a = a0 + half + k * (Math.PI * 2 - half * 2) / 10; ctx.beginPath(); ctx.moveTo(b.x + Math.cos(a) * (r - w / 2), b.y + Math.sin(a) * (r - w / 2)); ctx.lineTo(b.x + Math.cos(a) * (r + w / 2), b.y + Math.sin(a) * (r + w / 2)); ctx.stroke(); }
-  if (coreGapLane(pos) === playerLaneNow()) { // boşluk sana bakıyor
-    ctx.strokeStyle = 'rgba(120,255,200,0.8)'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(b.x, b.y, r + w / 2 + 4, a0 - half, a0 + half); ctx.stroke();
-  }
+  // 2026-11-10: boşluğun üstündeki yeşil yay kaldırıldı (kalkan gibi görünüyordu); işaret TAP FOR BOMB yazısı
 }
 function drawCenter(b) {
   ctx.save();

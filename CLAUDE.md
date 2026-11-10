@@ -110,6 +110,7 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 - L15 yakın kapanma + kısa atılma (2026-11-10, kullanıcı: "çok uzaktan tıklayarak gidiyoruz, lazere yakın basalım, lazerin hemen biraz ilerisine geçelim"): `GATE_NEAR` 170 → 80 (lazer gemiye ~125 px kala söner, ~34 px kala yanar). Atılma sabit 300 px değil: `DASH_RANGE` 170 içindeki en yakın kapıyı geminin `DASH_PAST` 45 px ilerisine getirir (ölçülen ~38 px), kapı yoksa `DASH_IDLE` 70; `DASH_T` 10 → 14 (daha yavaş). Kapı aralığı `GATE_GAP` 420. Bot (10 koşu): casual 4.3, expert 2.9, pro 1.7, fast 2.1; kapıda yanma ~0.
 - L15 boss rahatlatma (2026-11-10, kullanıcı: lazer kısmı oturdu; boss'ta gemiler kaçınca can gitmiyordu, boşluğa denk getirmek zordu): boss sırasında inen bombalı gemiler artık normal kural (kaçarsa can gider, `e.free` kalktı). Boşluk hizası `coreGapLane` 0.32 → 0.42, halka hızı 0.011/0.013/0.02 → 0.009/0.011/0.016. Bot (10 koşu): boss 15-22 sn, boss'ta kaçan gemi 0.1-0.5; toplam casual 4.6, pro 1.5, fast 3.
 - L15 boss gemileri azaldı (2026-11-10, kullanıcı): ekran boşken bombalı gemi inme ihtimali kare başına 0.02 → 0.008 (aralık ~1 sn → ~2 sn). Bot (10 koşu): boss 16-27 sn, boss'ta can kaybı pro 0.2, casual 0.8.
+- L15 boşluk işareti (2026-11-10, kullanıcı: kalkan gibi görünüyor): boşluk sana bakarken çizilen yeşil yay kaldırıldı; sadece TAP FOR BOMB yazısı kalıyor.
 - Mağaza planı: App Store + Google Play, Capacitor; depo gizleme mağaza hazırlığına kadar bekliyor.
 
 ## Sıralı iş listesi (2026-11-07, kullanıcı "sırayla yapalım" dedi)
