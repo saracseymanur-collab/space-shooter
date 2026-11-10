@@ -7284,6 +7284,21 @@ function mapNodeRect(i) {
   if (i === 4) y = MAP_TOP;
   return { x: MAP_PATH_X + 38, y, w: MAP_NODE_W, h };
 }
+// Haritadaki bölüm adları tek boyda (2026-11-10): en uzun adın sığdığı boy, 20 bölümün hepsine
+let mapTitleSz = 0;
+function mapTitleSize() {
+  if (mapTitleSz) return mapTitleSz;
+  const maxW = MAP_NODE_W - 78, sp = 3, base = 15;
+  let sz = base;
+  for (let lv = 1; lv <= 20; lv++) {
+    const t = lv % 5 === 0 ? BOSS_NAMES[Math.ceil(lv / 5)] : LEVEL_BRIEFS[lv] ? LEVEL_BRIEFS[lv].title : '';
+    if (!t) continue;
+    const width = z => { ctx.font = `700 ${z}px ${UI_FONT}`; return ctx.measureText(t).width + sp * (z / base) * (t.length - 1); };
+    while (width(sz) > maxW && sz > 8) sz -= 0.5;
+  }
+  if (!document.fonts || document.fonts.status === 'loaded') mapTitleSz = sz; // yazı tipi yüklenince sabitlenir
+  return sz;
+}
 let mapPress = null; // { i, lv, t } — dokunma geri bildirimi, ardından bölüm başlar
 let mapShip = null;  // { zone, p }: haritadaki gemi; bölüm bitince yeni hedefe uçar
 function mapPathY(p) { // p: 0 = giriş, 1 = ilk durak … 5 = boss, 6 = çıkış
@@ -7404,7 +7419,7 @@ function drawMap() {
     const brief = LEVEL_BRIEFS[lv];
     const title = isBoss ? BOSS_NAMES[currentZone] : brief ? brief.title : `LEVEL ${String(i + 1).padStart(2, '0')}`;
     ctx.fillStyle = locked ? 'rgba(200,210,230,0.45)' : '#fff';
-    drawSpaced(title, R.x + 54, cy, isBoss ? 18 : 15, 700, UI_FONT, 3, R.w - 78, 'left');
+    drawSpaced(title, R.x + 54, cy, mapTitleSize(), 700, UI_FONT, 3, R.w - 78, 'left'); // tüm bölüm adları aynı boyda
 
     // Sol simge: tik / kilit / sıradaki görev
     const ix = R.x + 28;

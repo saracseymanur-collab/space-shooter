@@ -111,6 +111,7 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 - L15 boss rahatlatma (2026-11-10, kullanıcı: lazer kısmı oturdu; boss'ta gemiler kaçınca can gitmiyordu, boşluğa denk getirmek zordu): boss sırasında inen bombalı gemiler artık normal kural (kaçarsa can gider, `e.free` kalktı). Boşluk hizası `coreGapLane` 0.32 → 0.42, halka hızı 0.011/0.013/0.02 → 0.009/0.011/0.016. Bot (10 koşu): boss 15-22 sn, boss'ta kaçan gemi 0.1-0.5; toplam casual 4.6, pro 1.5, fast 3.
 - L15 boss gemileri azaldı (2026-11-10, kullanıcı): ekran boşken bombalı gemi inme ihtimali kare başına 0.02 → 0.008 (aralık ~1 sn → ~2 sn). Bot (10 koşu): boss 16-27 sn, boss'ta can kaybı pro 0.2, casual 0.8.
 - L15 boşluk işareti (2026-11-10, kullanıcı: kalkan gibi görünüyor): boşluk sana bakarken çizilen yeşil yay kaldırıldı; sadece TAP FOR BOMB yazısı kalıyor.
+- Harita bölüm adları tek boy (2026-11-10, kullanıcı): `mapTitleSize()` 20 bölüm adının (boss dahil) hepsinin sığdığı boyu bulur (şu an 13 px), tüm kartlarda o kullanılır; boss adı da artık aynı boyda.
 - Mağaza planı: App Store + Google Play, Capacitor; depo gizleme mağaza hazırlığına kadar bekliyor.
 
 ## Sıralı iş listesi (2026-11-07, kullanıcı "sırayla yapalım" dedi)
