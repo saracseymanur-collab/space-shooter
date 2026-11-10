@@ -1112,7 +1112,7 @@ function startLevel(level) {
   playFrames     = (level - 1) * LEVEL_SEC * 60;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; shards = []; powerups = [];
-  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; ccSeen = null; gates = []; gateT = 0; dashT = 0; dashTrail = 0; gateSeen = null; corridorY = 0; streamLane = 1; streamX = 0; streamNext = -1; streamT = 0; streamPre = 0; archive = 0; archiveCard = null; archiveDone = false; streamBits = []; inStream = false; streamChain = false; warpT = 0; warpWarn = 0; warpTrails = []; warpSeen = null; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1; stormClouds = []; stormCloudT = 0; stormShake = 0; rifts = []; riftMode = null; riftT = 0; riftNext = 150; riftIdx = 0; riftWave = 0; riftScaleCur = 1; riftAng = 0; riftFx = 0; riftSeen = null;
+  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; ccSeen = null; gates = []; gateT = 0; dashT = 0; dashTrail = 0; gateSeen = null; corridorY = 0; streamLane = 1; streamX = 0; streamNext = -1; streamT = 0; streamPre = 0; archive = 0; archiveCard = null; archiveDone = false; streamBits = []; inStream = false; streamChain = false; warpT = 0; warpWarn = 0; warpTrails = []; warpSeen = null; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1; stormClouds = []; stormCloudT = 0; stormShake = 0; rifts = []; riftMode = null; riftT = 0; riftNext = 90; riftIdx = 0; riftScaleCur = 1; riftAng = 0; riftAngTgt = 0; riftFlip = false; riftFx = 0; riftSeen = null;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
   countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
@@ -2956,42 +2956,43 @@ function drawGates() {
 // --- L16 TIME RIFT (2026-11-10, kullanıcı fikri): ekranı boydan boya kaplayan zaman yarığı iner, gemiye değince
 // zaman bükülür: yavaşlama (her şey, gemin dahil, yavaşlar), hızlanma (her şey hızlanır), ters dönme (oyun alanı 180° döner).
 // Kaçış yok: her yarık geçilir. Hız loop()'taki adım çarpanıyla (riftScaleCur) değişir; dönme sadece çizimde + kaydırma yönü.
-const RIFT_WAVES = [ // seq: o dalgada sırayla gelen yarıklar · gap: bozulma bitince sonraki yarığa kadar (kare)
-  { seq: ['slow'],                     gap: 170, spd: 3.3, interval: 60, dbl: 0.25, hp2: 0.45, hp3: 0.15 },
-  { seq: ['fast', 'slow'],             gap: 150, spd: 3.3, interval: 58, dbl: 0.28, hp2: 0.45, hp3: 0.15 },
-  { seq: ['flip', 'fast'],             gap: 140, spd: 3.4, interval: 56, dbl: 0.3,  hp2: 0.45, hp3: 0.2 },
-  { seq: ['slow', 'flip'],             gap: 190, spd: 3.3, interval: 64, dbl: 0.25, hp2: 0.45, hp3: 0.15 }, // nefes
-  { seq: ['flipfast', 'slow', 'fast'], gap: 110, spd: 3.5, interval: 52, dbl: 0.32, hp2: 0.45, hp3: 0.25 },
+const RIFT_SEQ = ['slow', 'fast', 'flip', 'slow', 'fast', 'flip', 'slow', 'fast']; // 2026-11-10: dönme kalıcı, sonraki yarığa kadar sürer
+const RIFT_WAVES = [ // gap: bozulma bitince sonraki yarığa kadar (kare)
+  { gap: 130, spd: 3.3, interval: 60, dbl: 0.25, hp2: 0.45, hp3: 0.15 },
+  { gap: 130, spd: 3.3, interval: 58, dbl: 0.28, hp2: 0.45, hp3: 0.15 },
+  { gap: 130, spd: 3.4, interval: 56, dbl: 0.3,  hp2: 0.45, hp3: 0.2 },
+  { gap: 150, spd: 3.3, interval: 64, dbl: 0.25, hp2: 0.45, hp3: 0.15 }, // nefes
+  { gap: 100, spd: 3.5, interval: 52, dbl: 0.32, hp2: 0.45, hp3: 0.25 },
 ];
-const RIFT = {
+const RIFT = { // flip: oyun alanını çevirir ve öyle kalır; bir sonraki flip geri çevirir
   slow:     { scale: 0.5, dur: 200, col: '120,190,255', label: 'TIME SLOWS' },
-  fast:     { scale: 1.7, dur: 470, col: '255,130,60',  label: 'TIME SPEEDS UP' },
-  flip:     { scale: 1,   dur: 430, col: '190,110,255', label: 'SPACE FLIPS' },
-  flipfast: { scale: 1.5, dur: 470, col: '230,100,200', label: 'FLIP + SPEED' },
+  fast:     { scale: 1.7, dur: 380, col: '255,130,60',  label: 'TIME SPEEDS UP' },
+  flip:     { scale: 1,   dur: 60,  col: '190,110,255', label: 'SPACE FLIPS', back: 'SPACE FLIPS BACK' },
+  flipfast: { scale: 1.5, dur: 470, col: '230,100,200', label: 'FLIP + SPEED', back: 'FLIP BACK + SPEED' },
 };
-const RIFT_SPD = 4.2, RIFT_H = 64;
-let rifts = [], riftMode = null, riftT = 0, riftNext = 150, riftIdx = 0, riftWave = 0, riftScaleCur = 1, riftAng = 0, riftFx = 0, riftSeen = null;
-const riftFlipTarget = () => riftMode && (riftMode === 'flip' || riftMode === 'flipfast') && riftT > 0;
-const riftFlipped = () => riftAng > Math.PI / 2;
+const RIFT_SPD = 5, RIFT_H = 64;
+let rifts = [], riftMode = null, riftT = 0, riftNext = 90, riftIdx = 0, riftScaleCur = 1, riftAng = 0, riftAngTgt = 0, riftFlip = false, riftFx = 0, riftSeen = null;
+const riftFlipped = () => Math.cos(riftAng) < 0;
+const riftLabel = type => riftFlip && RIFT[type].back ? RIFT[type].back : RIFT[type].label;
 function laneStep(d) { // kaydırma ekranda görülen yöne göre: ters dönükken mantıksal yön tersine
   if (currentLevel === 16 && riftFlipped()) d = -d;
   if (d < 0 && player.targetLane > 0) player.targetLane--;
   if (d > 0 && player.targetLane < 2) player.targetLane++;
 }
 function updateRift(R, ending) {
-  const lw = Math.min(5, Math.max(1, getWave() - (currentLevel - 1) * 5));
-  if (lw !== riftWave) { riftWave = lw; riftIdx = 0; }
   if (!ending && !riftMode && !rifts.length && --riftNext <= 0) {
-    const type = R.seq[riftIdx % R.seq.length]; riftIdx++;
+    const type = RIFT_SEQ[riftIdx % RIFT_SEQ.length]; riftIdx++;
     rifts.push({ y: HUD_H - RIFT_H, type, t: 0 });
   }
   rifts = rifts.filter(r => {
     r.t++; r.y += RIFT_SPD;
     if (!seenIntro['rift_' + r.type] && !riftSeen && r.y > H * 0.28) riftSeen = { key: 'rift_' + r.type, x: W / 2, y: r.y + RIFT_H / 2 };
     if (r.y + RIFT_H / 2 >= player.y) { // gemiye değdi: zaman bükülür
+      const label = riftLabel(r.type);
       riftMode = r.type; riftT = RIFT[r.type].dur; riftFx = 30;
+      if (r.type === 'flip' || r.type === 'flipfast') { riftFlip = !riftFlip; riftAngTgt += Math.PI; } // hep aynı yöne döner
       Sound.sfx.whoosh();
-      showToast(RIFT[r.type].label, `rgb(${RIFT[r.type].col})`, 70);
+      showToast(label, `rgb(${RIFT[r.type].col})`, 70);
       return false;
     }
     return true;
@@ -3003,25 +3004,39 @@ function updateRift(R, ending) {
   if (Math.abs(target - riftScaleCur) < 0.01) riftScaleCur = target;
 }
 function riftAngTick() { // çizimde dönme açısı (her karede, yumuşak)
-  const tgt = currentLevel === 16 && riftFlipTarget() && (state === 'play' || state === 'paused') ? Math.PI : 0;
-  riftAng += (tgt - riftAng) * 0.09;
-  if (Math.abs(tgt - riftAng) < 0.003) riftAng = tgt;
+  if (currentLevel !== 16) { riftAng = riftAngTgt = 0; riftFlip = false; return; }
+  if (riftFlip && state !== 'play' && state !== 'paused') { riftFlip = false; riftAngTgt += Math.PI; } // bölüm bitince düzelir
+  riftAng += (riftAngTgt - riftAng) * 0.09;
+  if (Math.abs(riftAngTgt - riftAng) < 0.003) { riftAng = riftAngTgt; if (!riftFlip) riftAng = riftAngTgt = 0; }
 }
-function riftPoint(x, y) { // mantıksal nokta → ekrandaki yeri (dönme sırasında)
+const riftSpin = () => Math.abs(Math.sin(riftAng)); // 0: düz ya da ters, 1: yan
+function riftPoint(x, y) { // mantıksal nokta → ekrandaki yeri
   if (!riftAng) return [x, y];
   const c = Math.cos(riftAng), s = Math.sin(riftAng), k = riftZoom(), dx = (x - W / 2) * k, dy = (y - H / 2) * k;
   return [W / 2 + dx * c - dy * s, H / 2 + dx * s + dy * c];
 }
-const riftZoom = () => 1 - 0.38 * Math.sin(riftAng); // dönerken küçülür, ekrana sığar
+const riftZoom = () => 1 - 0.3 * riftSpin(); // nesneler dönerken biraz küçülür
+function drawRiftBackdrop() { // arka plan döner; kenarları koyu halka gizler (kara deliğin halkası dönerken görünür)
+  const s = riftSpin(), k = 1 + 1.2 * s;
+  ctx.save(); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+  ctx.translate(W / 2, H / 2); ctx.rotate(riftAng); ctx.scale(k, k); ctx.translate(-W / 2, -H / 2);
+  if (!drawZoneBackdrop(currentZone)) { ctx.fillStyle = '#000010'; ctx.fillRect(0, 0, W, H); drawStars(); }
+  ctx.restore();
+  if (s > 0.005) { // görselin kenarı bu koyu halkanın içinde kalır
+    const a = Math.min(1, s * 3.5), g = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.44);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.55, `rgba(10,0,20,${0.55 * a})`); g.addColorStop(1, `rgba(0,0,0,${a})`);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
+}
 function beginRiftWorld() {
   if (!riftAng) return false;
-  ctx.save(); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+  ctx.save();
   ctx.translate(W / 2, H / 2); ctx.rotate(riftAng); const k = riftZoom(); ctx.scale(k, k); ctx.translate(-W / 2, -H / 2);
   return true;
 }
 function drawRifts() { // inen yarıklar (dönmemiş ekranda)
   rifts.forEach(r => {
-    const D = RIFT[r.type], y = r.y, mid = y + RIFT_H / 2;
+    const D = RIFT[r.type], fl = riftFlipped(), y = fl ? H - r.y - RIFT_H : r.y, mid = y + RIFT_H / 2; // ters dönükken alttan yukarı gelir
     ctx.save();
     const g = ctx.createLinearGradient(0, y, 0, y + RIFT_H);
     g.addColorStop(0, `rgba(${D.col},0)`); g.addColorStop(0.5, `rgba(${D.col},0.38)`); g.addColorStop(1, `rgba(${D.col},0)`);
@@ -3044,26 +3059,28 @@ function drawRifts() { // inen yarıklar (dönmemiş ekranda)
     }
     ctx.restore();
     ctx.save(); ctx.fillStyle = `rgba(${D.col},0.95)`; ctx.font = `700 12px ${UI_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    drawSpaced(D.label, W / 2, y - 6, 12, 700, UI_FONT, 3); ctx.restore();
+    drawSpaced(riftLabel(r.type), W / 2, fl ? y + RIFT_H + 8 : y - 6, 12, 700, UI_FONT, 3); ctx.restore();
   });
 }
 function drawRiftFx() { // etkin bozulmanın ekran efekti (dönmeyen katman)
   if (riftFx > 0) { ctx.fillStyle = `rgba(255,255,255,${0.35 * riftFx / 30})`; ctx.fillRect(0, 0, W, H); }
-  if (!riftMode) return;
-  const D = RIFT[riftMode], end = riftT < 60 && Math.floor(frameCount / 6) % 2; // biterken yanıp söner
   ctx.save();
+  if (riftFlip || riftFlipped()) { ctx.strokeStyle = 'rgba(190,110,255,0.6)'; ctx.lineWidth = 4; ctx.strokeRect(3, 3, W - 6, H - 6); } // ters dönük: mor çerçeve
+  const m = riftMode === 'flipfast' ? 'fast' : riftMode;
+  if (!m || m === 'flip') { ctx.restore(); return; }
+  const D = RIFT[riftMode], end = riftT < 60 && Math.floor(frameCount / 6) % 2; // biterken yanıp söner
   const v = ctx.createRadialGradient(W / 2, H / 2, H * 0.32, W / 2, H / 2, H * 0.62);
   v.addColorStop(0, `rgba(${D.col},0)`); v.addColorStop(1, `rgba(${D.col},${end ? 0.18 : 0.38})`);
   ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
-  if (riftMode === 'slow') { // donuk mavi: ağır dönen saat halkaları
+  if (m === 'slow') { // donuk mavi: ağır genişleyen halkalar
     ctx.fillStyle = 'rgba(90,150,255,0.08)'; ctx.fillRect(0, 0, W, H);
     ctx.strokeStyle = `rgba(${D.col},0.18)`; ctx.lineWidth = 2;
     for (let i = 0; i < 3; i++) { const p = ((frameCount * 0.004) + i / 3) % 1; ctx.beginPath(); ctx.arc(W / 2, H / 2, 60 + p * 420, 0, Math.PI * 2); ctx.stroke(); }
-  } else if (riftMode === 'fast' || riftMode === 'flipfast') { // hız çizgileri
+  } else { // hız çizgileri (ters dönükken yukarı akar)
+    const up = riftFlipped();
     ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = `rgba(${D.col},0.35)`; ctx.lineWidth = 2;
-    for (let i = 0; i < 16; i++) { const x = 14 + ((i * 53) % (W - 28)), y = ((i * 131 + frameCount * 34) % (H + 120)) - 120; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 90); ctx.stroke(); }
+    for (let i = 0; i < 16; i++) { const x = 14 + ((i * 53) % (W - 28)); let y = ((i * 131 + frameCount * 34) % (H + 120)) - 120; if (up) y = H - y - 90; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 90); ctx.stroke(); }
   }
-  if (riftMode === 'flip' || riftMode === 'flipfast') { ctx.strokeStyle = `rgba(${D.col},${end ? 0.3 : 0.75})`; ctx.lineWidth = 4; ctx.strokeRect(3, 3, W - 6, H - 6); }
   // kalan süre: HUD altında ince çubuk
   ctx.globalCompositeOperation = 'source-over';
   const fr = riftT / D.dur; ctx.fillStyle = `rgba(${D.col},0.25)`; ctx.fillRect(40, HUD_H + 6, W - 80, 4);
@@ -5825,7 +5842,7 @@ function markSeen(key) { seenIntro[key] = 1; try { localStorage.setItem('ss_seen
 // Ekranda yeni bir şey var mı? (oyuncunun tepki verecek vakti olacak yükseklikteyken)
 function checkFirstSeen() {
   const vis = y => y > HUD_H + 30 && y < H * 0.62;
-  const want = (key, x, y) => { if (!seenIntro[key] && !introCard) { if (currentLevel === 16 && !key.startsWith('rift_')) [x, y] = riftPoint(x, y); introCard = { key, x, y, t: 0 }; Sound.sfx.click(); } };
+  const want = (key, x, y) => { if (!seenIntro[key] && !introCard) { if (currentLevel === 16) [x, y] = riftPoint(x, y); introCard = { key, x, y, t: 0 }; Sound.sfx.click(); } };
   if (riftSeen) { want(riftSeen.key, riftSeen.x, riftSeen.y); riftSeen = null; }
   for (const p of powerups) if (FIRST_SEEN[p.type] && vis(p.y)) want(p.type, p.x, p.y);
   for (const c of crystals) if (vis(c.y)) want('crystal', c.x, c.y);
@@ -7685,15 +7702,18 @@ function render() {
   if (state === 'map') { drawMap(); return; }
 
   riftAngTick();
-  const riftWorld = beginRiftWorld(); // L16 ters dönme: oyun alanı döner, HUD dönmez
-  if (!drawZoneBackdrop(currentZone)) {
+  if (riftAng) drawRiftBackdrop(); // L16 ters dönme: arka plan ayrı döner (kenarsız)
+  const riftWorld = beginRiftWorld(); // oyun alanı döner, HUD dönmez
+  if (riftWorld) { /* arka plan çizildi */ } else if (!drawZoneBackdrop(currentZone)) {
     // Görsel yüklenmediyse eski çizim arkaplanları
     if (currentZone === 2) drawZone2Background();
     else if (currentZone === 3) drawZone3Background();
     else if (currentZone === 4) drawZone4Background();
     else { ctx.fillStyle = '#000010'; ctx.fillRect(0, 0, W, H); drawStars(); }
   }
+  if (riftAng) ctx.globalAlpha = 1 - riftSpin(); // dönerken şerit çizgileri söner
   drawLanes();
+  ctx.globalAlpha = 1;
   drawShards();
   drawExplosions();
 
