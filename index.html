@@ -471,12 +471,18 @@ function endCinematic() {
 const ZONE_TRANSITION_MESSAGES = [
   "The advance fleet has been destroyed. But the main fleet retreated into the asteroid belt. You have no choice but to follow.",
   "The Rock Titan falls. Inside its wreckage, you find an ancient emblem. It belongs to Astra's lost colony.",
-  "The command center is down. Only their leader remains. They're waiting for you near the black hole.",
+  [ // 2026-11-11 (kullanıcı onayı, STORY.md Revelation panelleri): Astra'da insanlar hayatta, ama silahlı grup bütün koloni değil
+    "The command center is down. Its records tell the truth: Astra was never dead. Thousands of its people survived.",
+    "Not everyone chose revenge. The ships you fought belong to a rebellion among the survivors. Their leader is waiting near the black hole.",
+  ],
 ];
-let zoneTransIdx = 0;
+let zoneTransIdx = 0, zoneTransPage = 0; // bir geçişte birden çok mesaj olabilir (dokununca sıradaki)
+const zoneMsg = () => { const m = ZONE_TRANSITION_MESSAGES[zoneTransIdx]; return Array.isArray(m) ? m[zoneTransPage] : m; };
 let zoneTransAlpha = 0;
 let zoneTransPhase = 'fadein'; // 'fadein' | 'show'
 function exitZoneTransition() {
+  const m = ZONE_TRANSITION_MESSAGES[zoneTransIdx];
+  if (Array.isArray(m) && zoneTransPage < m.length - 1) { zoneTransPage++; zoneTransAlpha = 0; zoneTransPhase = 'fadein'; return; } // sıradaki mesaj
   menuIdx = Math.min(MENU_CARDS.length - 1, zoneTransIdx + 1); // yeni açılan bölge kartı
   state = 'menu';
 }
@@ -1075,7 +1081,7 @@ canvas.addEventListener('click', e => {
       if (levelCompleteType === 'clear') { state = 'map'; return; }
       const zone = Math.ceil(currentLevel / 5);
       if (zone >= 1 && zone <= 3) {
-        zoneTransIdx = zone - 1;
+        zoneTransIdx = zone - 1; zoneTransPage = 0;
         zoneTransAlpha = 0;
         zoneTransPhase = 'fadein';
         state = 'zonetransition';
@@ -2880,7 +2886,8 @@ function drawDrifters() {
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 40, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#d6ecf7'; ctx.beginPath(); ctx.roundRect(-13, -22, 26, 44, 13); ctx.fill();
       ctx.fillStyle = '#3f7fa8'; ctx.beginPath(); ctx.roundRect(-8, -14, 16, 14, 7); ctx.fill();
-      ctx.fillStyle = Math.floor(frameCount / 20) % 2 ? '#7dffb0' : '#2f8a5c'; ctx.beginPath(); ctx.arc(0, 11, 3.5, 0, Math.PI * 2); ctx.fill();
+      drawAstraEmblem(0, 8, 6, 1, '#2f5f86'); // eski Astra sivil işareti: L10'da Titan'da aynısı çıkar
+      ctx.fillStyle = Math.floor(frameCount / 20) % 2 ? '#7dffb0' : '#2f8a5c'; ctx.beginPath(); ctx.arc(0, 17, 2.5, 0, Math.PI * 2); ctx.fill();
     } else {
       const p = 0.5 + 0.5 * Math.sin(frameCount * 0.2);
       const g = ctx.createRadialGradient(0, 0, 8, 0, 0, 46);
@@ -3805,11 +3812,12 @@ function drawTitanBombs() {
     }
   }
 }
-function drawAstraEmblem(x, y, r, alpha) {
-  ctx.save(); ctx.translate(x, y); ctx.globalAlpha = alpha;
-  ctx.strokeStyle = '#a8dcff'; ctx.lineWidth = Math.max(1.5, r * 0.09);
+// Astra amblemi (2026-11-11: L9 kapsülleri + L10 Titan + 2→3 geçişi aynı işaret; kodla çizildi, kullanıcı görsel verecek)
+function drawAstraEmblem(x, y, r, alpha, col = '#a8dcff') {
+  ctx.save(); ctx.translate(x, y); ctx.globalAlpha *= alpha;
+  ctx.strokeStyle = col; ctx.lineWidth = Math.max(1.2, r * 0.09);
   ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke();
-  ctx.fillStyle = '#a8dcff'; ctx.beginPath();
+  ctx.fillStyle = col; ctx.beginPath();
   for (let i = 0; i < 8; i++) { const a = -Math.PI / 2 + i * Math.PI / 4, q = i % 2 ? r * 0.26 : r * 0.78; ctx.lineTo(Math.cos(a) * q, Math.sin(a) * q); }
   ctx.closePath(); ctx.fill();
   ctx.restore();
@@ -4841,7 +4849,7 @@ function drawZoneTransition() {
   ctx.fillStyle = '#fff';
   const lineH = STORY_LINE_H;
   const cy = H * 0.53;
-  const textH = wrapText(ZONE_TRANSITION_MESSAGES[zoneTransIdx], W - 80).length * lineH + 30;
+  const textH = wrapText(zoneMsg(), W - 80).length * lineH + 30;
   const pad = 26;
   const top = cy - textH / 2 - pad, bot = cy + textH / 2 + pad;
   const grd = ctx.createLinearGradient(40, 0, W - 40, 0);
@@ -4851,7 +4859,7 @@ function drawZoneTransition() {
   ctx.beginPath(); ctx.moveTo(40, bot); ctx.lineTo(W - 40, bot); ctx.stroke();
   ctx.globalAlpha = a;
   ctx.shadowColor = 'rgba(200,220,255,0.3)'; ctx.shadowBlur = 6;
-  drawWrapped(ZONE_TRANSITION_MESSAGES[zoneTransIdx], W / 2, cy, W - 80, lineH);
+  drawWrapped(zoneMsg(), W / 2, cy, W - 80, lineH);
   if (zoneTransIdx === 1) { // Astra amblemi + bozuk kayıttan son cümle
     drawAstraEmblem(W / 2, bot + 122, 44, a);
     ctx.globalAlpha = a * 0.85; ctx.fillStyle = '#a8dcff';
