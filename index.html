@@ -4063,16 +4063,16 @@ function drawUnmakeOverlay() { // HUD parazit + doğum / kırılma flaşı
 // `delay` kare önceki yerinde kızıl bir yankı (echo) gemin uçar, boss ona ateş eder (az önce bulunduğun şeride dönme).
 // F3: kaçış alışkanlığını öğrenir (escape sayacı) ve kaçacağın şeride önceden ateş eder. Vurmak için boss'un şeridinde ol.
 const ECHO = { // creep: ufkun inişi (px/kare) · push: isabet başına geri itme · base / deep: ufkun sınırları (H oranı) · delay: yankı gecikmesi · every: ateş aralığı · move: boss'un şerit değiştirme aralığı · predict: tahmin atışı aralığı (0: yok)
-  1: { creep: 0.32, push: 3.2, base: 0.06, deep: 0.30, delay: 84, every: 28, vy: 4.8, move: 160, predict: 0 },
-  2: { creep: 0.42, push: 3.0, base: 0.18, deep: 0.42, delay: 64, every: 24, vy: 5.2, move: 130, predict: 0 },
-  3: { creep: 0.5,  push: 2.8, base: 0.30, deep: 0.52, delay: 52, every: 24, vy: 5.6, move: 110, predict: 70 },
+  1: { creep: 0.32, push: 2.0, base: 0.13, deep: 0.33, delay: 84, every: 28, vy: 4.8, move: 160, predict: 0 },
+  2: { creep: 0.42, push: 1.9, base: 0.23, deep: 0.43, delay: 64, every: 24, vy: 5.2, move: 130, predict: 0 },
+  3: { creep: 0.5,  push: 1.8, base: 0.33, deep: 0.52, delay: 52, every: 24, vy: 5.6, move: 110, predict: 70 },
 };
 const ECHO_HP = 120, ECHO_SZ = 104, ECHO_PAUSE = 80, ECHO_HIST = 200;
 let hzTop = 0, echoHist = [], echoEsc = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], echoLastLane = 1;
 function echoX(delay) { const i = echoHist.length - 1 - delay; return i >= 0 ? echoHist[i] : (echoHist[0] ?? LANE_CENTERS[1]); }
 function updateEcho() {
   const b = boss, ph = b.phase || 1, E = ECHO[ph];
-  if (b.form !== 'echo') { b.form = 'echo'; b.lane = 1; b.lastPh = 1; b.moveT = E.move; b.fireT = 70; b.predT = 0; b.pause = 50; b.shielded = false; hzTop = Math.max(hzTop, H * E.base); }
+  if (b.form !== 'echo') { b.form = 'echo'; b.lane = 1; b.lastPh = 1; b.moveT = E.move; b.fireT = 70; b.predT = 0; b.pause = 50; b.shielded = false; hzTop = 0; b.drop = 1; Sound.sfx.rumble(); stormShake = 16; }
   if (stormShake > 0) stormShake--;
   // senin uçuşun kaydı (yankı + kaçış alışkanlığı)
   echoHist.push(player.x); if (echoHist.length > ECHO_HIST) echoHist.shift();
@@ -4085,9 +4085,10 @@ function updateEcho() {
     else { showToast('HE KNOWS WHERE YOU WILL GO', '#ff6a8a', 130); duelSignal = DUEL_SIGNAL; }
   }
   // ufuk: iner, isabetler geri iter (bullet hit'te), faz sınırları içinde kalır
-  hzTop = Math.min(H * E.deep, Math.max(H * E.base, hzTop + (b.pause > 0 ? 0 : E.creep)));
+  if (b.drop) { hzTop += (H * E.base - hzTop) * 0.05; if (H * E.base - hzTop < 2) b.drop = 0; } // doğuşta karanlık ekranın tepesinden iner
+  else hzTop = Math.min(H * E.deep, Math.max(H * E.base, hzTop + (b.pause > 0 ? 0 : E.creep)));
   b.x += (LANE_CENTERS[b.lane] - b.x) * 0.1;
-  b.y += (hzTop + 56 - b.y) * 0.12;
+  b.y += (horizonEdge(b.x, frameCount) + 34 - b.y) * 0.12; // karanlığın kenarından çıkar
   if (b.pause > 0) { b.pause--; if (duelSignal > 0) duelSignal--; return; }
   if (--b.moveT <= 0) { // başka şeride süzülür (vurmak için peşinden git)
     const o = [0, 1, 2].filter(l => l !== b.lane); b.lane = o[Math.floor(Math.random() * 2)]; b.moveT = E.move * (0.8 + Math.random() * 0.4);
@@ -4106,26 +4107,28 @@ function updateEcho() {
   if (b.nose > 0) b.nose--;
 }
 function echoHit() { // isabet: ufku geri iter
-  const E = ECHO[boss.phase || 1];
+  const E = ECHO[boss.phase || 1]; if (boss.drop) return;
   hzTop = Math.max(H * E.base, hzTop - E.push);
 }
-function drawHorizonTop() { // ekranın üstünü yutan karanlık + kenarında parlayan madde akışı
-  const y = hzTop, t = frameCount;
+function horizonEdge(x, t) { const c = (x - W / 2) / (W / 2); return hzTop + 26 * (1 - c * c) + Math.sin(x * 0.03 + t * 0.06) * 5 + Math.sin(x * 0.011 - t * 0.03) * 7; } // ortası sarkık, dalgalı kenar
+function drawHorizonTop() { // ekranın üstünü yutan zifiri karanlık + kenarında parlayan madde akışı (2026-11-11: telefonda fark edilmiyordu, güçlendirildi)
+  const t = frameCount, y = hzTop;
   ctx.save();
-  ctx.fillStyle = '#020005'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(W, 0);
-  for (let x = W; x >= 0; x -= 10) ctx.lineTo(x, y + Math.sin(x * 0.03 + t * 0.06) * 5 + Math.sin(x * 0.011 - t * 0.03) * 7);
-  ctx.closePath(); ctx.fill();
-  const g = ctx.createLinearGradient(0, y - 6, 0, y + 70);
-  g.addColorStop(0, 'rgba(2,0,5,0.9)'); g.addColorStop(1, 'rgba(2,0,5,0)'); ctx.fillStyle = g; ctx.fillRect(0, y - 6, W, 76);
+  const edge = () => { ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(W, -10); for (let x = W; x >= 0; x -= 8) ctx.lineTo(x, horizonEdge(x, t)); ctx.closePath(); };
+  edge(); ctx.fillStyle = '#000'; ctx.fill(); // zifiri karanlık
+  const g = ctx.createLinearGradient(0, y, 0, y + 150); // kenarın altı da kararır
+  g.addColorStop(0, 'rgba(0,0,0,0.75)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(0, y, W, 150);
   ctx.globalCompositeOperation = 'lighter';
-  const gl = ctx.createLinearGradient(0, y - 4, 0, y + 34); // ufkun altında sıcak madde parıltısı
-  gl.addColorStop(0, `rgba(255,120,60,${0.34 + 0.08 * Math.sin(t * 0.08)})`); gl.addColorStop(1, 'rgba(255,60,90,0)'); ctx.fillStyle = gl; ctx.fillRect(0, y - 4, W, 38);
-  ctx.strokeStyle = `rgba(255,190,120,${0.75 + 0.2 * Math.sin(t * 0.1)})`; ctx.lineWidth = 3; ctx.beginPath();
-  for (let x = 0; x <= W; x += 10) { const yy = y + Math.sin(x * 0.03 + t * 0.06) * 5 + Math.sin(x * 0.011 - t * 0.03) * 7; x ? ctx.lineTo(x, yy) : ctx.moveTo(x, yy); }
-  ctx.stroke();
-  for (let i = 0; i < 16; i++) { // karanlığa çekilen ışık çizgileri
-    const x = (i * 53 + t * (1 + i % 3)) % W, len = 20 + (i % 4) * 14, yy = y + 30 + ((i * 37 + t * 2) % 120);
-    ctx.strokeStyle = `rgba(255,170,120,${0.12 + 0.04 * (i % 3)})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x, yy - len); ctx.stroke();
+  const lineAt = (off, col, lw) => { ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); for (let x = 0; x <= W; x += 8) { const yy = horizonEdge(x, t) + off; x ? ctx.lineTo(x, yy) : ctx.moveTo(x, yy); } ctx.stroke(); };
+  const pulse = 0.5 + 0.5 * Math.sin(t * 0.09);
+  lineAt(4, `rgba(255,90,40,${0.22 + 0.1 * pulse})`, 26);   // geniş sıcak parıltı
+  lineAt(2, `rgba(255,150,70,${0.45 + 0.15 * pulse})`, 10);
+  lineAt(0, 'rgba(255,240,210,0.95)', 3);                    // parlak çekirdek çizgi
+  lineAt(-14, `rgba(200,150,255,${0.25 + 0.15 * pulse})`, 1.5); // ışığın büküldüğü ince halka (karanlığın içinde)
+  for (let i = 0; i < 22; i++) { // aşağıdan karanlığa çekilen ışık çizgileri
+    const x = (i * 53 + t * (1 + i % 3) * 0.6) % W, len = 24 + (i % 4) * 16, yy = horizonEdge(x, t) + 20 + ((i * 37 + t * 3) % 160);
+    const gg = ctx.createLinearGradient(0, yy, 0, yy - len); gg.addColorStop(0, 'rgba(255,170,120,0)'); gg.addColorStop(1, `rgba(255,190,140,${0.35 + 0.1 * (i % 3)})`);
+    ctx.strokeStyle = gg; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x, yy - len); ctx.stroke();
   }
   ctx.restore();
 }
