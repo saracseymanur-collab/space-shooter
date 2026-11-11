@@ -40,6 +40,8 @@ function laneDanger(l, horizon, blind) { // isabet edecek mermi/kaya/lazer: kesi
     if (!b.ret || b.y < player.y - 10 || Math.abs(b.x - lx) > 30) continue;
     const t = (b.y - player.y) / b.speed; if (t <= horizon * 1.5) d += 1e5 / (1 + Math.max(0, t));
   }
+  if (typeof duelVec !== 'undefined' && duelVec && duelVec.lane === l && duelVec.t >= VEC_TRACK) d += 1e6; // L20 Last Vector kilitlendi
+  if (typeof boss !== 'undefined' && boss && boss.zone === 4 && (boss.dState === 'charge' || boss.dState === 'burst') && nearestLane(boss.x) === l && boss.dState === 'burst') d += 2e5; // seri şeridi
   if (typeof severOn !== 'undefined' && currentLevel === 19 && severOn() && !severReach(l)) d += 1e6; // L19: açık perdenin öbür yanı
   if (typeof ringRows !== 'undefined') for (const r of ringRows) { // L17 enkaz halkası: boşluğun varacağı şerit (sabit hızla kaydığı için öngörülebilir)
     if (r.hit || r.end === l) continue;
