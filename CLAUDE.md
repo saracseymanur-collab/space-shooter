@@ -9,7 +9,7 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 - Yeni asset eklenince `sw.js` içindeki `CACHE` sürümünü artır ve dosyayı `ASSETS` listesine ekle. **Var olan bir görseli değiştirirken dosya adını da değiştir** (ör. `-v2`): telefon eski dosyayı HTTP önbelleğinden alıp yeni önbelleğe yazabiliyor (2026-11-04 boss kalkanında oldu; sw kurulumu artık `cache: 'reload'` kullanıyor).
 - Her değişiklikten sonra: script'i ayıklayıp `node --check` ile sözdizimi kontrolü, tarayıcıda görsel kontrol.
 - Önizleme: tarayıcı sunucusu ~/Desktop'u okuyamıyor (macOS izni) → oyunu scratchpad'e `rsync` edip `python3 -m http.server` ile oradan sun. Tarayıcı paneli gizliyken rAF yavaşlar; testlerde `update()`'i elle çağır. **Önizleme tarayıcısı eski sayfayı önbellekten açabiliyor → her seferinde `index.html?v=<yeni>` ile aç.** Bot dosyasını (`SOURCES/TOOLS/bot.js`) önizleme klasörüne kopyalamayı unutma.
-- Doğrudan boss testi: `?boss=true` (L5; 5 dalga atlanır, ilerleme kaydedilmez), `?boss=10` (Rock Titan, 9 bombayla başlar), `?boss=15` (Command Center).
+- Doğrudan boss testi: `?boss=true` (L5; 5 dalga atlanır, ilerleme kaydedilmez), `?boss=10` (Rock Titan, 9 bombayla başlar), `?boss=15` (Command Center), `?boss=20` (Mirror Duel).
 - Commit mesajı sonuna: `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`
 
 ## Kullanıcı tercihleri (önemli)
