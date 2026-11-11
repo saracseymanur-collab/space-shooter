@@ -427,9 +427,9 @@ const INTRO_PANELS = [ // hikâye V1.0 (SOURCES/STORY/STORY.md): düşman kim be
   "Thousands went to build a new home. For a while, they succeeded.",
   "Then came the Dark Wave. Astra went silent. No one answered.",
   "A few search ships were sent. None made it through. Too far. Too costly. So they stopped looking.",
-  "Years passed. Astra was declared lost. Until one final signal appeared.",
-  "A rescue fleet was sent. You were among them. But someone was waiting.",
-  "It was a trap. Your fleet was destroyed. You alone survived.",
+  "Years passed. Astra was declared lost. Until one faint signal reached home: \"Is anyone out there?\"", // 2026-11-11: gerçek yardım çağrısı (Astra'daki barışçıl kolonistler)
+  "A rescue fleet was sent. You were among them. But someone else had heard the call too.", // isyancılar sinyali ele geçirdi
+  "They turned it into a trap. Your fleet was destroyed. You alone survived.",
   "The enemy is heading for your home. No reinforcements. No way back. Only you can stop them.",
 ];
 const ENDING_PANELS = [
@@ -461,7 +461,7 @@ function cinePrev() {
   introPanelIdx--; introAlpha = 0; introPhase = 'fadein';
 }
 function endCinematic() {
-  if (cinePanels === ENDING_PANELS) menuIdx = MENU_CARDS.length - 1;
+  if (isEndingPanels(cinePanels)) menuIdx = MENU_CARDS.length - 1;
   cinePanels = INTRO_PANELS;
   introPanelIdx = 0; introAlpha = 0; introPhase = 'fadein';
   state = 'menu';
@@ -472,8 +472,8 @@ const ZONE_TRANSITION_MESSAGES = [
   "The advance fleet has been destroyed. But the main fleet retreated into the asteroid belt. You have no choice but to follow.",
   "The Rock Titan falls. Inside its wreckage, you find an ancient emblem. It belongs to Astra's lost colony.",
   [ // 2026-11-11 (kullanıcı onayı, STORY.md Revelation panelleri): Astra'da insanlar hayatta, ama silahlı grup bütün koloni değil
-    "The command center is down. Its records tell the truth: Astra was never dead. Thousands of its people survived.",
-    "Not everyone chose revenge. The ships you fought belong to a rebellion among the survivors. Their leader is waiting near the black hole.",
+    "The command center is down. Its records tell the truth: Astra was never dead. Thousands survived, and their call for help was real.",
+    "Not everyone chose revenge. A rebellion among the survivors heard that call first and turned it into a trap. Their leader is waiting near the black hole.",
   ],
 ];
 let zoneTransIdx = 0, zoneTransPage = 0; // bir geçişte birden çok mesaj olabilir (dokununca sıradaki)
@@ -1094,6 +1094,10 @@ canvas.addEventListener('click', e => {
 
   if (state === 'zonetransition' && zoneTransPhase === 'show') {
     exitZoneTransition(); return;
+  }
+  if (state === 'finalchoice') { // final: ANSWER / IGNORE
+    if (finalChoice && finalChoice.t > 30) { if (inBtn(FINAL_BTNS.answer, mx, my)) pickFinal('answer'); else if (inBtn(FINAL_BTNS.ignore, mx, my)) pickFinal('ignore'); }
+    return;
   }
 
   if (state === 'play' && introCard) {
@@ -1972,6 +1976,7 @@ function spawnBoss(wave) {
 }
 
 function bossDefeated() {
+  if (currentLevel === LEVEL_COUNT && !(finalChoice && finalChoice.done)) { startFinalChoice(); return; } // final: patlamaz, çağrı gelir
   for (let i = 0; i < 8; i++)
     spawnExplosion(boss.x + (Math.random() - 0.5) * 130, boss.y + (Math.random() - 0.5) * 80, true);
   levelStates[currentLevel - 1] = 'completed';
@@ -3559,6 +3564,93 @@ function drawReturnShot(b) { // dönen mermi: turuncu-kırmızı, yukarı akan i
   ctx.fillStyle = 'rgba(255,110,50,0.5)'; ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 }
+// --- FİNAL SEÇİMİ (2026-11-11, STORY.md 12-14): Void Leader'ın canı bitince patlamaz; oyun donar, INCOMING TRANSMISSION.
+// ANSWER → Reunion (ENDING_A_PANELS), IGNORE → son atış + Silence (ENDING_B_PANELS). Boss henüz eski Void Leader (değişecek).
+const ENDING_A_PANELS = [
+  "You accept the transmission. A familiar voice breaks through the static.",
+  "\"You... I know that voice.\" \"Is it really you?\"",
+  "Your brother. Lost on Astra. Presumed dead. Alive all these years.",
+  "\"We waited for them.\" \"For years. No one came.\"",
+  "\"I thought you were gone.\" \"But I'm here now.\"",
+  "For the first time, the Void Leader lowers his weapons. He gives one final order. \"Stand down.\"",
+  "The rebellion ends. Together, you send a message home. Astra's survivors are finally found.",
+  "\"Come home.\"",
+  "You came to save one planet. Maybe you saved two.",
+  "THE END",
+];
+const ENDING_B_PANELS = [
+  "You ignore the transmission. One final shot. The Void Leader is gone.",
+  "The enemy fleet falls silent. Without their leader, the remaining rebels surrender.",
+  "In the wreckage, you find a recording. A final message, never delivered.",
+  "\"See you among the stars.\" A familiar childhood promise. Then one last line: \"Little brother.\"",
+  "The truth hits harder than any weapon. Your brother was alive. Until now.",
+  "You send the truth back home. Astra's survivors are finally found.",
+  "\"Come home.\" But one person never will.",
+  "You came to save one planet. Maybe you saved two.",
+  "THE END",
+];
+const isEndingPanels = p => p === ENDING_PANELS || p === ENDING_A_PANELS || p === ENDING_B_PANELS;
+let finalChoice = null; // { t, pick: null | 'answer' | 'ignore', ft }
+const FINAL_BTNS = { answer: { x: W / 2 - 138, y: H * 0.62, w: 128, h: 52 }, ignore: { x: W / 2 + 10, y: H * 0.62, w: 128, h: 52 } };
+function startFinalChoice() {
+  finalChoice = { t: 0, pick: null, ft: 0 };
+  state = 'finalchoice';
+  eBullets = []; lasers = []; bullets = []; enemies = []; bolts = [];
+  if (boss) { boss.flash = 0; boss.shielded = true; }
+  Sound.sfx.bigBoom();
+}
+function pickFinal(pick) {
+  if (!finalChoice || finalChoice.pick) return;
+  finalChoice.pick = pick; finalChoice.ft = 0; Sound.sfx.click();
+  if (pick === 'ignore') Sound.sfx.blast();
+}
+function updateFinalChoice() {
+  const F = finalChoice; F.t++;
+  if (boss && frameCount % 18 === 0 && !F.pick) spawnExplosion(boss.x + (Math.random() - 0.5) * 120, boss.y + (Math.random() - 0.5) * 60, false); // hasarlı gemi kıvılcımları
+  if (F.pick) {
+    F.ft++;
+    if (F.pick === 'ignore' && boss && F.ft < 80 && F.ft % 6 === 0) { spawnExplosion(boss.x + (Math.random() - 0.5) * 160, boss.y + (Math.random() - 0.5) * 90, true); if (F.ft % 18 === 0) Sound.sfx.shipBoom(3); }
+    if (F.ft >= (F.pick === 'ignore' ? 100 : 50)) {
+      const panels = F.pick === 'answer' ? ENDING_A_PANELS : ENDING_B_PANELS;
+      F.done = true; bossDefeated(); finalChoice = null; // ilerlemeyi kaydet
+      startCinematic(panels);
+      return;
+    }
+  }
+  updateShards();
+  explosions = explosions.filter(p => { p.x += p.vx; p.y += p.vy; p.vx *= 0.96; p.vy *= 0.96; p.life -= p.decay; return p.life > 0; });
+}
+function drawFinalChoice() {
+  const F = finalChoice; if (!F) return;
+  const a = Math.min(1, F.t / 30) * (F.pick ? Math.max(0, 1 - F.ft / 25) : 1);
+  ctx.save();
+  ctx.fillStyle = `rgba(0,0,8,${0.62 * Math.min(1, F.t / 30)})`; ctx.fillRect(0, 0, W, H);
+  if (F.pick === 'ignore' && F.ft > 20) { ctx.fillStyle = `rgba(255,240,220,${Math.max(0, 0.5 - (F.ft - 20) / 120)})`; ctx.fillRect(0, 0, W, H); }
+  ctx.globalAlpha = a; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const bx = 24, by = H * 0.3, bw = W - 48, bh = H * 0.42;
+  ctx.fillStyle = 'rgba(8,14,30,0.92)'; chamferPath(bx, by, bw, bh, 14); ctx.fill();
+  ctx.strokeStyle = '#ff7a2f'; ctx.lineWidth = 1.6; ctx.stroke();
+  const blink = Math.floor(frameCount / 18) % 2;
+  ctx.fillStyle = blink ? '#ff7a2f' : '#ffb27a';
+  drawSpaced('INCOMING TRANSMISSION', W / 2, by + 40, 16, 700, UI_FONT, 3, bw - 30);
+  // parazitli sinyal çizgisi
+  ctx.strokeStyle = 'rgba(255,170,110,0.6)'; ctx.lineWidth = 1.5; ctx.beginPath();
+  for (let x = bx + 30; x <= bx + bw - 30; x += 4) { const yy = by + 72 + Math.sin(x * 0.2 + frameCount * 0.3) * (2 + Math.random() * 4); x === bx + 30 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy); }
+  ctx.stroke();
+  ctx.font = STORY_FONT; ctx.fillStyle = '#d8e4f4';
+  ctx.fillText('Signal origin: Enemy flagship.', W / 2, by + 108);
+  ctx.fillStyle = '#ff8c8c';
+  drawWrapped('Warning: Enemy transmissions have been used as traps before.', W / 2, by + 152, bw - 50, STORY_LINE_H);
+  ctx.fillStyle = '#fff'; ctx.font = `700 18px ${UI_FONT}`;
+  ctx.fillText('Do you answer?', W / 2, by + 206);
+  [['answer', 'ANSWER', '#3fd3ff'], ['ignore', 'IGNORE', '#ff4d66']].forEach(([k, label, c]) => {
+    const R = FINAL_BTNS[k], sel = F.pick === k;
+    ctx.fillStyle = sel ? c : 'rgba(10,20,40,0.9)'; chamferPath(R.x, R.y, R.w, R.h, 10); ctx.fill();
+    ctx.strokeStyle = c; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = sel ? '#06101e' : c; drawSpaced(label, R.x + R.w / 2, R.y + R.h / 2, 15, 700, UI_FONT, 3);
+  });
+  ctx.restore();
+}
 // --- Boss: Ana Çekirdek ---
 const CORE_Y = H * 0.24, CORE_R = 46, CORE_GUN = 0.5; // boşluktan geçen mermi
 let ccSeen = null;
@@ -4896,7 +4988,7 @@ function drawIntro() {
   ctx.textBaseline = 'middle';
 
   // Sabit çerçeve: etiket, iki çizgi ve noktalar her panelde aynı yerde durur (sadece metin değişir)
-  const isEnding = cinePanels === ENDING_PANELS;
+  const isEnding = isEndingPanels(cinePanels);
   const col = isEnding ? '#ffd040' : '#3fd3ff';
   const top = Math.round(H * (hasImg ? 0.6 : 0.33)), bot = Math.round(H * (hasImg ? 0.86 : 0.67)); // görsel varsa metin altta
   const grd = ctx.createLinearGradient(40, 0, W - 40, 0);
@@ -6811,10 +6903,10 @@ function update() {
 
   // Müzik: o anki ekrana göre bölge, yoğunluk ve ses seviyesi
   {
-    const mz = state === 'menu' ? menuIdx + 1 : state === 'zonetransition' ? zoneTransIdx + 2 : state === 'intro' ? (cinePanels === ENDING_PANELS ? 4 : 1) : currentZone;
+    const mz = state === 'menu' ? menuIdx + 1 : state === 'zonetransition' ? zoneTransIdx + 2 : state === 'intro' ? (isEndingPanels(cinePanels) ? 4 : 1) : currentZone;
     const lastWave = !boss && currentLevel % 5 !== 0 && getWave() >= currentLevel * 5;
     const intense = state === 'play' && !briefing && !introCard && (!!boss || lastWave) && currentLevel !== 7;
-    const inLevel = state === 'play' || state === 'paused' || state === 'gameover' || state === 'levelcomplete';
+    const inLevel = state === 'play' || state === 'paused' || state === 'gameover' || state === 'levelcomplete' || state === 'finalchoice';
     const track = state === 'menu' || state === 'map' ? 'menu' : inLevel && boss ? 'boss' : 'zone';
     Sound.setMusic(mz, intense, state === 'paused' ? 0.45 : state === 'play' && !briefing ? (currentLevel === 7 ? 0.35 : 1) : 0.75, track, inLevel ? (currentLevel - 1) % 5 : 0);
   }
@@ -6892,6 +6984,7 @@ function update() {
     }
     return;
   }
+  if (state === 'finalchoice') { updateFinalChoice(); return; }
   if (state !== 'play') return;
   if (briefing) return; // talimat kartı açık: oyun donmuş
   if (countdown > 0) { // 3-2-1: oyun hâlâ donuk
@@ -8342,7 +8435,7 @@ function render() {
   drawAlarmFx();
 
   if (horizonOn() && state !== 'levelcomplete') drawHorizon();
-  if ((state === 'play' || state === 'paused' || state === 'gameover') && !player.dead) {
+  if ((state === 'play' || state === 'paused' || state === 'gameover' || state === 'finalchoice') && !player.dead) {
     drawShip(player.x, player.y);
   }
   if (currentLevel === 7 && state !== 'levelcomplete') drawStealthShadows(); // gölgeye giren gemi kararır
@@ -8363,6 +8456,7 @@ function render() {
   if (state === 'paused') { drawHUD(); drawPause(); return; }
 
   drawHUD();
+  if (state === 'finalchoice') drawFinalChoice();
   if (state === 'play') drawFeedbackOverlays();
   if (state === 'play' && currentLevel === 14 && !briefing) drawArchiveBar();
   if (state === 'play' && archiveCard) drawArchiveCard();

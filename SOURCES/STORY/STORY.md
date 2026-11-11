@@ -173,6 +173,8 @@ Böylece keşif filosuyla isyancıların karşılaşması tesadüf değildir.
 
 **Pusu, önceden planlanmış bir operasyondur.**
 
+**Karar (2026-11-11, kullanıcı):** İlk sinyal masum insanların bir şekilde ulaştırdığı gerçek bir yardım çağrısıdır; isyancılar bunu fark edip lehlerine kullanır. Oyunda: girişte (Panel 04-06) sinyalin "Is anyone out there?" olduğu ve başkalarının da duyduğu söylenir; 3→4 geçişinde (2 mesaj) çağrının gerçek olduğu ve isyancıların onu tuzağa çevirdiği açığa çıkar; finaldeki INCOMING TRANSMISSION uyarısı bu ilk tuzağa bağlanır.
+
 ---
 
 # 4. THE HERO — ANA KARAKTER
@@ -277,7 +279,7 @@ Years passed.
 
 Astra was declared lost.
 
-Until one final signal appeared.
+Until one faint signal reached home: "Is anyone out there?"
 
 ### PANEL 05
 
@@ -285,11 +287,11 @@ A rescue fleet was sent.
 
 You were among them.
 
-But someone was waiting.
+But someone else had heard the call too.
 
 ### PANEL 06
 
-It was a trap.
+They turned it into a trap.
 
 Your fleet was destroyed.
 
