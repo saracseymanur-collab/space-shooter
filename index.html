@@ -1144,7 +1144,7 @@ function startLevel(level) {
   playFrames     = (level - 1) * LEVEL_SEC * 60;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; shards = []; powerups = [];
-  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; ccSeen = null; gates = []; gateT = 0; dashT = 0; dashTrail = 0; gateSeen = null; corridorY = 0; streamLane = 1; streamX = 0; streamNext = -1; streamT = 0; streamPre = 0; archive = 0; archiveCard = null; archiveDone = false; streamBits = []; inStream = false; streamChain = false; warpT = 0; warpWarn = 0; warpTrails = []; warpSeen = null; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1; stormClouds = []; stormCloudT = 0; stormShake = 0; rifts = []; riftMode = null; riftT = 0; riftNext = 90; riftIdx = 0; riftScaleCur = 1; riftAng = 0; riftAngTgt = 0; riftFlip = false; riftFx = 0; riftSeen = null; mirrorSeen = null; ringRows = []; ringT = 0; ringSeen = null; tidalSeen = null; sever = null; severT = 90; severLast = -1; severBump = 0; severSeen = null; twistDir = Math.random() < 0.5 ? -1 : 1; twistT = 0; twistD = 0; twistAmp = 0; twistGhost = 0; twistPin = 0; twistPrev = null; photonSeen = null; photonN = 0; duelVec = null; duelSignal = 0; unmakeT = 0; unmakeBits = []; unmakeArms = []; unmakeFold = null; unmakeAmp = 0; unmakeGhost = 0; unmakeGlitch = 0; unmakeFlash = 0; unmakeShell = []; hzTop = 0; echoHist = []; echoEsc = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]; echoLastLane = 1;
+  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; ccSeen = null; gates = []; gateT = 0; dashT = 0; dashTrail = 0; gateSeen = null; corridorY = 0; streamLane = 1; streamX = 0; streamNext = -1; streamT = 0; streamPre = 0; archive = 0; archiveCard = null; archiveDone = false; streamBits = []; inStream = false; streamChain = false; warpT = 0; warpWarn = 0; warpTrails = []; warpSeen = null; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1; stormClouds = []; stormCloudT = 0; stormShake = 0; rifts = []; riftMode = null; riftT = 0; riftNext = 90; riftIdx = 0; riftScaleCur = 1; riftAng = 0; riftAngTgt = 0; riftFlip = false; riftFx = 0; riftSeen = null; mirrorSeen = null; ringRows = []; ringT = 0; ringSeen = null; tidalSeen = null; sever = null; severT = 90; severLast = -1; severBump = 0; severSeen = null; twistDir = Math.random() < 0.5 ? -1 : 1; twistT = 0; twistD = 0; twistAmp = 0; twistGhost = 0; twistPin = 0; twistPrev = null; photonSeen = null; photonN = 0; duelVec = null; duelSignal = 0; unmakeT = 0; unmakeBits = []; unmakeArms = []; unmakeFold = null; unmakeAmp = 0; unmakeGhost = 0; unmakeGlitch = 0; unmakeFlash = 0; unmakeShell = []; hzTop = 0; echoDark = 0; echoHist = []; echoEsc = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]; echoLastLane = 1;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
   countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
@@ -4088,7 +4088,7 @@ function updateEcho() {
   if (b.drop) { hzTop += (H * E.base - hzTop) * 0.05; if (H * E.base - hzTop < 2) b.drop = 0; } // doğuşta karanlık ekranın tepesinden iner
   else hzTop = Math.min(H * E.deep, Math.max(H * E.base, hzTop + (b.pause > 0 ? 0 : E.creep)));
   b.x += (LANE_CENTERS[b.lane] - b.x) * 0.1;
-  b.y += (horizonEdge(b.x, frameCount) + 34 - b.y) * 0.12; // karanlığın kenarından çıkar
+  b.y += (hzTop + 56 - b.y) * 0.12; // ufuk indikçe boss yaklaşır (karanlıkta: sadece ateşinden görünür)
   if (b.pause > 0) { b.pause--; if (duelSignal > 0) duelSignal--; return; }
   if (--b.moveT <= 0) { // başka şeride süzülür (vurmak için peşinden git)
     const o = [0, 1, 2].filter(l => l !== b.lane); b.lane = o[Math.floor(Math.random() * 2)]; b.moveT = E.move * (0.8 + Math.random() * 0.4);
@@ -4131,6 +4131,50 @@ function drawHorizonTop() { // ekranın üstünü yutan zifiri karanlık + kenar
     ctx.strokeStyle = gg; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x, yy - len); ctx.stroke();
   }
   ctx.restore();
+}
+// 2026-11-12 kullanıcı: "tamamen ortam karanlık olsun, ateşlerden anlarız nerede olduğunu, ateşlerin etrafı hafif aydınlık olur".
+// Tüm sahne karanlığa gömülür; mermiler (senin ve boss'un), patlamalar, boss'un ateşlenen burnu ve vurulduğu an etraflarını aydınlatır.
+// Boss karanlıkta görünmez: yerini ateşinden ve mermilerinin geldiği yerden bulursun.
+const ECHO_DARK = { 1: 0.9, 2: 0.94, 3: 0.97 };
+let echoDark = 0, darkCv = null, darkCx = null, lightSpr = null;
+function getLightSprite() {
+  if (lightSpr) return lightSpr;
+  const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
+  const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.35, 'rgba(255,255,255,0.75)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128); return (lightSpr = c);
+}
+const tintSpr = {};
+function getTintLight(col) { // renkli ışık halesi (lighter ile)
+  if (tintSpr[col]) return tintSpr[col];
+  const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
+  const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, col.replace('A', '0.55')); g.addColorStop(0.4, col.replace('A', '0.18')); g.addColorStop(1, col.replace('A', '0'));
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128); return (tintSpr[col] = c);
+}
+function drawEchoDark() {
+  const b = boss, tgt = (state === 'play' || state === 'paused') ? ECHO_DARK[b.phase || 1] : 0;
+  echoDark += (tgt - echoDark) * (tgt > echoDark ? 0.03 : 0.05);
+  if (echoDark < 0.01) return;
+  if (!darkCv) { darkCv = document.createElement('canvas'); darkCv.width = W; darkCv.height = H; darkCx = darkCv.getContext('2d'); }
+  const d = darkCx, L = getLightSprite(), lights = [];
+  const add = (x, y, r, a, col) => lights.push([x, y, r, a, col]);
+  bullets.forEach(q => add(q.x, q.y, 58, 0.85, 'rgba(140,220,255,A)'));
+  eBullets.forEach(q => add(q.x, q.y, q.big ? 96 : 70, 0.95, q.predict ? 'rgba(255,70,120,A)' : 'rgba(255,110,70,A)'));
+  explosions.forEach(p => { if (p.life > 0.25) add(p.x, p.y, 10 + p.r * 9, p.life * 0.6, null); });
+  if (b.nose > 0) add(b.x, b.y + 30, 70 + b.nose * 6, Math.min(1, b.nose / 8), 'rgba(255,90,60,A)'); // ateşlerken boss bir an görünür
+  if (b.flash > 0) add(b.x, b.y, 80, 0.7, 'rgba(255,200,140,A)'); // vurulduğu an
+  if (!player.dead) add(player.x, player.y + 10, 70, 0.45, null); // geminin motor ışığı: çevren çok hafif seçilir
+  d.globalCompositeOperation = 'source-over'; d.clearRect(0, 0, W, H);
+  d.fillStyle = `rgba(0,0,0,${echoDark})`; d.fillRect(0, 0, W, H);
+  d.globalCompositeOperation = 'destination-out';
+  lights.forEach(([x, y, r, a]) => { d.globalAlpha = a; d.drawImage(L, x - r, y - r, r * 2, r * 2); });
+  d.globalAlpha = 1;
+  ctx.drawImage(darkCv, 0, 0, W, H);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; // ateşin rengi etrafa vurur
+  lights.forEach(([x, y, r, a, col]) => { if (!col) return; const s = r * 0.8; ctx.globalAlpha = a * echoDark; ctx.drawImage(getTintLight(col), x - s, y - s, s * 2, s * 2); });
+  ctx.restore();
+  bullets.forEach(drawBullet); eBullets.forEach(drawEBullet); // ateşler karanlığın üstünde net
 }
 function drawEchoGhost() { // senin kızıl yankın: boss ona ateş eder
   const b = boss; if (!b || b.form !== 'echo' || player.dead) return;
@@ -8932,7 +8976,6 @@ function render() {
   if (photonOn() && state !== 'levelcomplete') drawPhotonRing();
   drawRecoilFx('under');
   if (currentLevel === 20 && !boss && unmakeT > 0 && state !== 'levelcomplete') drawUnmakeIntro();
-  if (currentLevel === 20 && boss && boss.form === 'echo') drawHorizonTop(); // ekranın üstünü yutan karanlık
   if (boss) drawBoss(boss);
   drawRecoilFx('top');
   if (stormClouds.length) drawStormClouds();
@@ -8950,6 +8993,7 @@ function render() {
   drawAlarmFx();
 
   if (horizonOn() && state !== 'levelcomplete') drawHorizon();
+  if (currentLevel === 20 && boss && boss.form === 'echo') drawEchoDark(); // final: tüm ortam karanlık, ateşler aydınlatır
   if (currentLevel === 20 && boss && state === 'play') drawEchoGhost(); // senin kızıl yankın
   if ((state === 'play' || state === 'paused' || state === 'gameover' || state === 'finalchoice') && !player.dead) {
     drawShip(player.x, player.y);
