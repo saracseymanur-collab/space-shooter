@@ -4090,19 +4090,15 @@ function updateEcho() {
   b.x += (LANE_CENTERS[b.lane] - b.x) * 0.1;
   b.y += (hzTop + 56 - b.y) * 0.12; // ufuk indikçe boss yaklaşır (karanlıkta: sadece ateşinden görünür)
   if (b.pause > 0) { b.pause--; if (duelSignal > 0) duelSignal--; return; }
-  if (--b.moveT <= 0) { // başka şeride süzülür (vurmak için peşinden git)
-    const o = [0, 1, 2].filter(l => l !== b.lane); b.lane = o[Math.floor(Math.random() * 2)]; b.moveT = E.move * (0.8 + Math.random() * 0.4);
-  }
-  if (--b.fireT <= 0) { // yankına ateş: az önce bulunduğun şerit
-    b.fireT = E.every; const l = nearestLane(echoX(E.delay)); b.nose = 8;
-    const vx = (LANE_CENTERS[l] - b.x) / ((player.y - b.y - 40) / E.vy);
-    pushShot({ x: b.x, y: b.y + 40, vx, vy: E.vy, hp: 3, lane: l, fromBoss: true, big: false, echo: true });
+  if (--b.fireT <= 0) { // yankına ateş: az önce bulunduğun şeride geçer, oradan düz aşağı (2026-11-12 kullanıcı: "ateşler düz insin")
+    const l = nearestLane(echoX(E.delay)); b.lane = l;
+    if (Math.abs(b.x - LANE_CENTERS[l]) < 10) { b.fireT = E.every; b.nose = 8; pushShot({ x: b.x, y: b.y + 40, vx: 0, vy: E.vy, hp: 3, lane: l, fromBoss: true, big: false, echo: true }); }
+    else b.fireT = 1; // şeride varınca ateşler
   }
   if (E.predict && ++b.predT >= E.predict) { // F3: kaçış alışkanlığın: bulunduğun şeritten en sık kaçtığın şeride önceden atış
     b.predT = 0; const row = echoEsc[pl], opts = [0, 1, 2].filter(l => l !== pl).sort((x, y) => row[y] - row[x]);
     const l = row[opts[0]] === row[opts[1]] ? opts[Math.floor(Math.random() * 2)] : opts[0];
-    const vx = (LANE_CENTERS[l] - b.x) / ((player.y - b.y - 40) / E.vy);
-    if (pushShot({ x: b.x, y: b.y + 40, vx, vy: E.vy * 0.9, hp: 3, lane: l, fromBoss: true, big: true, predict: true })) { b.nose = 12; Sound.sfx.laserWarn(); }
+    if (pushShot({ x: LANE_CENTERS[l], y: b.y + 40, vx: 0, vy: E.vy * 0.9, hp: 3, lane: l, fromBoss: true, big: true, predict: true })) { b.nose = 12; Sound.sfx.laserWarn(); }
   }
   if (b.nose > 0) b.nose--;
 }
