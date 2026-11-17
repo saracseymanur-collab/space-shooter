@@ -146,6 +146,30 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 - Oyun / mağaza adı adayı (2026-11-11, kullanıcı: "güzel bir aday, bu kısma bakacağız"): **Astra: The Last Signal**. Mağaza hazırlığında karar verilecek.
 - MAĞAZA HAZIRLIĞI NOTLARI (2026-11-11, kullanıcı, inceleme raporundan): 1) menüdeki DEV ve RESET düğmeleri yayın sürümünden kaldırılacak (`?boss=` parametreleri de, bkz. hafıza store-release-plan) 2) sarsıntı ve yanıp sönmeyi azaltan bir ayar (hurtFx, stormShake, stormFlash, rift dönüşü, L19 dalgalanma) 3) deneme: açılışı kısaltıp oyuncuyu daha hızlı ilk bölüme sokmak (ör. kısa sinematik → doğrudan L1, harita ilk zaferden sonra).
 
+## KULLANICI NOTLARI (2026-11-18, "not al, sonra tamamlarız")
+1. Giriş "A rescue fleet was sent" paneli: görselde düşman gemileri var ama metinde düşman yok (saldırı bir sonraki panelde) → görsel değişecek.
+2. L3 (RAMMERS) çok zor geçti → tekrar bakılacak.
+3. L5 boss (Void Vanguard) görselinde göz olmalı mı? Yeniden değerlendirilecek.
+4. Tüm boss bilgilendirme kartlarındaki görseller + boss'ların kendi görselleri değerlendirilecek (derme çatma stil notu geçerli).
+5. L6 sonundaki SOMETHING IS OUT THERE görseli (kodla çizilmiş maden silüeti) değişecek. Hikâyeye katkısı konuşulacak (şu an sadece yazı + silüet; anlamı L7'de üsse sızınca ortaya çıkıyor, açıkça söylenmiyor).
+6. L9 kapsüller: kurtarmanın ödülü yok; mayınlar (patlayıcılar) vurmamak için daha caydırıcı. Kapsüller daha detaylı konuşulacak.
+7. L10 Rock Titan: boss biraz hantal, görseli değişecek; bölüm genel olarak kısa ve kolay.
+8. Sektör 2, sektör 1'e göre daha kolay ve sıkıcı → genel bakılacak.
+9. Nebula'ya geçiş: neden nebulaya gittiğimizin açıklaması YOK (kontrol edildi: 2→3 metni sadece "Titan düştü, enkazda Astra amblemi" diyor). Geçiş metnine sebep eklenecek (ör. amblem / iz / sinyal nebulayı gösteriyor).
+10. L12 ION STORM: şimşeğin düşeceği yer ilk başta tam anlaşılmıyor; arka plan karışık, iyonlar arka planla karışıyor.
+11. L12 ya da L13: bulutların kenarları kırpık görünüyor (muhtemelen L12 `getStormPuff` / `getStormCloudSprite` tuvali bulut için küçük) → bulut çizimlerine bakılacak.
+12. Gemi tepki süresi: şerit değiştirme yeterince hızlı mı, konuşulacak. Şu an `slideFactor` 0.35/kare (GAME_SPEED 1.2 ile şeride ~%90 varış ≈ 75 ms); kaydırma algılama eşiği de bir etken olabilir.
+13. L14 PERSONAL MESSAGE (`ARCHIVE_MSG`, Claude taslağı) Türkçesi ve hikâyeye uygunluğu konuşulacak. Türkçesi: "...bu mesaj bir gün sana ulaşırsa, / koloni bize vaat edildiği gibi değil. / Geri dönmemize izin vermeyecekler. / Işığı benim için açık bırak. / ...yıldızlarda görüşürüz." Sorun: "vaat edildiği gibi değil" hikâyede olmayan bir şey ima ediyor (koloninin kendisi bir yalandı); "izin vermeyecekler" isyancıların sivilleri tutması olarak okunabilir (L9 kapsülleriyle uyumlu). Kim yazdı (ağabey?) ve ne zaman netleşmeli.
+14. L10 / L15 bomba görseli: kullanıcı yeni görsel verecek (yerde, sayaçta, uçarken).
+15. L15 boss (Ana Çekirdek): boşluk yeterince açık görünürken bomba BLOCKED oluyor. Görsel boşluk ile `coreGapLane` hizası (0.42) uyuşmuyor olabilir; boşluk küçülmeli mi, halka daha mı hızlı dönmeli, yoksa hiza kuralı mı düzeltilmeli bakılacak.
+16. L16 TIME RIFT: yarık görselleri tekrar ele alınacak.
+17. Yayınlama maliyetleri (App Store / Google Play hesap ücretleri vb.) ve reklamdan para kazanma şekilleri (normal + ödüllü reklam, bkz. Reklam planı) konuşulacak.
+
+### Claude cevapları (2026-11-18, sırası gelince konuşulacak)
+- (1) Panel metni: "A rescue fleet was sent. You were among them. But someone else had heard the call too." Düşman açıkça yok, pusu sonraki panelde. Öneri: bu panelde filo yola çıkarken, en fazla uzakta belli belirsiz bir gölge; düşman gemileri sonraki panele.
+- (5) SOMETHING IS OUT THERE: L6 sonunda hız düşer, kodla çizilmiş maden silüeti + yazı; amaç L7'ye köprü (STORY.md: Asteroid Belt = Void Rebellion'ın gizli maden ve üretim üssü; L7'de üsse sızılır, L8 içeride matkaplar). Katkısı zayıf: oyuncu "orada ne var" öğrenmiyor. Seçenekler: a) net söyle (A HIDDEN BASE / THEY ARE MINING THE BELT + ışıkları yanan çalışan maden üssü görseli) b) gizemi koru (kayalar arasında ışıklar/sinyal, L7'de çözülür). Claude önerisi: a.
+
+
 ## Sıralı iş listesi (2026-11-07, kullanıcı "sırayla yapalım" dedi)
 L10 dalgaları kullanıcıya artık iyi geliyor (2026-11-08): 1. iş kapandı, dalgalara dokunma. Yeni sorun: boss kısmında "çok sıkışma" oluyor, bakılacak.
 Sektör 2: 1) L10 dalga zorluğu (bitti) 2) kalbi başka bölümlere yay (bitti) 3) L7 zorluk + görsel (görsel yapıldı, zorluk şimdilik kalsın) 4) L8 zorluk + görsel (görsel + uyarı + hız yapıldı, telefonda denenecek), tünel / kazıcı kodunu sil 5) L9 zorluk, CARGO RUN kararı.
