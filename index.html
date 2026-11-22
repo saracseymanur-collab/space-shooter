@@ -52,12 +52,12 @@ enemyImgs[3].src = 'ASSETS/enemy3.png';
 
 const bossImg = new Image();
 bossImg.src = 'ASSETS/bosses/vanguard-v2.png'; // 2026-11-22: kullanıcının derme çatma Vanguard'ı (600×600; eski: ASSETS/boss.png, 1536×1024)
-const BOSS_W = 165, BOSS_H = 165, BOSS_DY = 14; // kare görsel eskisinden (190×127) uzun: biraz küçük ve aşağıda çizilir
+const BOSS_W = 145, BOSS_H = 145, BOSS_DY = 12; // kare görsel eskisinden (190×127) uzun: biraz küçük ve aşağıda çizilir
 const coreImg = new Image(); coreImg.src = 'ASSETS/bosses/core-v1.png'; // L15 Ana Çekirdek (600×607, reaktör ortada)
 const brotherImg = new Image(); brotherImg.src = 'ASSETS/bosses/brother-v1.png'; // L20 ağabeyin gemisi (400×434, burun aşağı)
 const bossShieldImg = new Image();
 bossShieldImg.src = 'ASSETS/shields/boss-shield-v2.png'; // sektör 1 boss kalkanı (512×352, siyah zeminden ayıklandı; v1: SOURCES/SHIELD)
-const BOSS_SHIELD_W = 220, BOSS_SHIELD_H = 151;
+const BOSS_SHIELD_PAD = 22, BOSS_SHIELD_W = BOSS_W + 2 * BOSS_SHIELD_PAD, BOSS_SHIELD_H = BOSS_H + 2 * BOSS_SHIELD_PAD; // 2026-11-22: kalkan yeni Vanguard'ın şeklinden üretilir (getShieldBase)
 
 // Düşman görsel boyutları — gerçek en/boy oranına göre (sıkı kırpılmış assetler)
 // Şerit 130px: en büyük düşman şeridin ~%85'i (zikzakta komşu şeride taşmaz), küçükler okunur kalır
@@ -1764,14 +1764,41 @@ function updateBossMood(b) {
 }
 // kalkanın renklendirilmiş kopyaları (bir kez hazırlanır; her karede filtre yok → iPhone'da takılmaz)
 const bossShieldTints = {};
+let shieldBase = null;
+function getShieldBase() { // boss gövdesinin bulanık silüetinden yumuşak kenarlı baloncuk: içi altıgen dokulu yarı saydam, kenarı parlak
+  if (shieldBase) return shieldBase;
+  if (!bossImg.complete || !bossImg.naturalWidth || !bossShieldImg.complete || !bossShieldImg.naturalWidth) return null;
+  const k = 2, size = BOSS_SHIELD_W * k, pad = BOSS_SHIELD_PAD * k, bw = BOSS_W * k, N = 18;
+  const sm = document.createElement('canvas'); sm.width = sm.height = N; const sg = sm.getContext('2d'); // küçük çizip büyütünce bulanıklaşır
+  sg.drawImage(bossImg, pad * N / size, pad * N / size, bw * N / size, bw * N / size);
+  const big = document.createElement('canvas'); big.width = big.height = size; const bg = big.getContext('2d');
+  bg.imageSmoothingEnabled = true; bg.imageSmoothingQuality = 'high'; bg.drawImage(sm, 0, 0, size, size);
+  let field; try { field = bg.getImageData(0, 0, size, size); } catch (e) { return null; }
+  const c = document.createElement('canvas'); c.width = c.height = size; const g = c.getContext('2d');
+  const out = g.createImageData(size, size), A = field.data, O = out.data, lo = 10, hi = 34;
+  for (let i = 0; i < A.length; i += 4) {
+    const a = A[i + 3];
+    if (a < lo) continue;
+    if (a < hi) { const e = 1 - Math.abs((a - (lo + hi) / 2) / ((hi - lo) / 2)); O[i] = 230; O[i + 1] = 180; O[i + 2] = 255; O[i + 3] = 90 + 165 * e; } // kenar bandı
+    else { O[i] = 150; O[i + 1] = 80; O[i + 2] = 240; O[i + 3] = 62; } // iç: yarı saydam
+  }
+  g.putImageData(out, 0, 0);
+  const tex = document.createElement('canvas'); tex.width = tex.height = size; const tg = tex.getContext('2d'); // altıgen doku, sadece iç bölgede
+  const sw = bossShieldImg.naturalWidth, sh = bossShieldImg.naturalHeight;
+  tg.drawImage(bossShieldImg, sw * 0.3, sh * 0.3, sw * 0.4, sh * 0.4, 0, 0, size, size);
+  tg.globalCompositeOperation = 'destination-in'; tg.drawImage(c, 0, 0);
+  g.globalAlpha = 0.9; g.drawImage(tex, 0, 0); g.globalAlpha = 1;
+  return (shieldBase = c);
+}
 function getTintedShield(col) {
-  if (!col) return bossShieldImg;
+  const base = getShieldBase() || bossShieldImg;
+  if (!col) return base;
   if (!bossShieldTints[col]) {
-    const c = document.createElement('canvas'); c.width = bossShieldImg.naturalWidth; c.height = bossShieldImg.naturalHeight;
+    const c = document.createElement('canvas'); c.width = base.naturalWidth || base.width; c.height = base.naturalHeight || base.height;
     const g = c.getContext('2d');
-    g.drawImage(bossShieldImg, 0, 0);
+    g.drawImage(base, 0, 0);
     g.globalCompositeOperation = 'color'; g.fillStyle = col; g.fillRect(0, 0, c.width, c.height); // parlaklık aynı, renk yeni
-    g.globalCompositeOperation = 'destination-in'; g.drawImage(bossShieldImg, 0, 0); // şeffaflığı geri koy
+    g.globalCompositeOperation = 'destination-in'; g.drawImage(base, 0, 0); // şeffaflığı geri koy
     bossShieldTints[col] = c;
   }
   return bossShieldTints[col];
@@ -1810,7 +1837,7 @@ function drawRecoilFx(layer) {
       const fade = st === 'slam' ? b.rT / 18 : 1, sc = b.special ? 1.45 : 1, w = BOSS_SHIELD_W * sc, h = BOSS_SHIELD_H * sc, img = getTintedShield(BOSS_MOODS.red.tint);
       for (let i = 1; i <= 4; i++) {
         const y = b.y - i * 48; if (y < b.diveY0) break;
-        ctx.globalAlpha = 0.32 * (1 - i / 5) * fade; ctx.drawImage(img, b.x - w / 2, y - h / 2, w, h);
+        ctx.globalAlpha = 0.32 * (1 - i / 5) * fade; ctx.drawImage(img, b.x - w / 2, y - h / 2 + BOSS_DY * sc, w, h);
       }
       ctx.globalAlpha = 1;
     }
@@ -1835,7 +1862,7 @@ function drawRecoilFx(layer) {
   } else if (layer === 'top') {
     if (b.shieldK > 0.01) { // enerji kalkanı görseli: geminin üstüne, aynı merkezde; rengi ruh haline göre
       const k = b.shieldK, hit = b.shieldHit > 0, sc = (b.special ? 1.45 : 1) * (0.8 + 0.2 * k); // boss ile aynı ölçek
-      const w = BOSS_SHIELD_W * sc, h = BOSS_SHIELD_H * sc, x0 = b.x - w / 2, y0 = b.y - h / 2;
+      const w = BOSS_SHIELD_W * sc, h = BOSS_SHIELD_H * sc, x0 = b.x - w / 2, y0 = b.y - h / 2 + BOSS_DY * (b.special ? 1.45 : 1);
       if (bossShieldImg.complete && bossShieldImg.naturalWidth > 0) {
         const base = k * (0.85 + 0.15 * Math.sin(frameCount * 0.12)); // hafif nabız
         const mw = b.moodW || { violet: 1 }, tot = Object.values(mw).reduce((a, v) => a + v, 0) || 1;
@@ -4072,7 +4099,7 @@ const ECHO = { // creep: ufkun inişi (px/kare) · push: isabet başına geri it
   2: { creep: 0.42, push: 1.9, base: 0.23, deep: 0.43, delay: 64, every: 24, vy: 5.2, move: 130, predict: 0 },
   3: { creep: 0.5,  push: 1.8, base: 0.33, deep: 0.52, delay: 52, every: 24, vy: 5.6, move: 110, predict: 70 },
 };
-const ECHO_HP = 120, ECHO_SZ = 104, ECHO_PAUSE = 80, ECHO_HIST = 200;
+const ECHO_HP = 120, ECHO_SZ = 90, ECHO_PAUSE = 80, ECHO_HIST = 200;
 let hzTop = 0, echoHist = [], echoEsc = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], echoLastLane = 1;
 function echoX(delay) { const i = echoHist.length - 1 - delay; return i >= 0 ? echoHist[i] : (echoHist[0] ?? LANE_CENTERS[1]); }
 function updateEcho() {
@@ -4210,7 +4237,7 @@ function drawEchoBoss(b) {
   ctx.restore();
 }
 // --- Boss: Ana Çekirdek ---
-const CORE_Y = H * 0.24, CORE_R = 46, CORE_GUN = 0.5, CORE_IMG_W = 250; // boşluktan geçen mermi
+const CORE_Y = H * 0.24, CORE_R = 46, CORE_GUN = 0.5, CORE_IMG_W = 215; // boşluktan geçen mermi
 let ccSeen = null;
 const CORE_GAP_TOL = 0.42, CORE_LANE_ANG = 0.9; // boşluk hizası (şerit) · bir şeridin halkadaki açısı (rad)
 function coreGapLane(pos) { const r = Math.round(pos); return Math.abs(pos - r) < CORE_GAP_TOL ? r : -1; } // 2026-11-10: 0.32 → 0.42, denk getirmek daha rahat
@@ -6685,6 +6712,14 @@ function drawBriefVisual(kind, cx, cy, zc) {
     case 'gate': { // koridor: yanıp sönen lazer kapısı, gemi atılarak geçer
       const c = frameCount % 120, on = c < 60, gy = cy - 10;
       ctx.save();
+      { // 2026-11-22: kapının ardında, koridorun sonunda nabız gibi atan mavi reaktör ışığı (boss'un izi)
+        const q = 0.5 + 0.5 * Math.sin(frameCount * 0.08), ry = cy - 40;
+        ctx.globalCompositeOperation = 'lighter';
+        const rg2 = ctx.createRadialGradient(cx, ry, 2, cx, ry, 36); rg2.addColorStop(0, `rgba(190,245,255,${0.35 + 0.35 * q})`); rg2.addColorStop(0.35, `rgba(80,200,255,${0.18 + 0.15 * q})`); rg2.addColorStop(1, 'rgba(40,120,255,0)');
+        ctx.fillStyle = rg2; ctx.beginPath(); ctx.arc(cx, ry, 36, 0, Math.PI * 2); ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+        if (coreImg.complete && coreImg.naturalWidth) { ctx.globalAlpha = 0.12 + 0.06 * q; ctx.drawImage(coreImg, cx - 24, ry - 24, 48, 48 * coreImg.naturalHeight / coreImg.naturalWidth); ctx.globalAlpha = 1; }
+      }
       ctx.fillStyle = '#3a4560'; ctx.fillRect(cx - 110, gy - 8, 16, 16); ctx.fillRect(cx + 94, gy - 8, 16, 16);
       if (on) { ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(255,60,90,0.6)'; ctx.fillRect(cx - 94, gy - 6, 188, 12); ctx.fillStyle = '#ffe1e6'; ctx.fillRect(cx - 94, gy - 1.5, 188, 3); }
       else { ctx.strokeStyle = 'rgba(160,190,230,0.4)'; ctx.setLineDash([5, 8]); ctx.beginPath(); ctx.moveTo(cx - 94, gy); ctx.lineTo(cx + 94, gy); ctx.stroke(); ctx.setLineDash([]); }
@@ -6722,7 +6757,17 @@ function drawBriefVisual(kind, cx, cy, zc) {
         ctx.beginPath(); c.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke();
       });
       ctx.fillStyle = `rgba(255,200,130,${quake ? 1 : pulse})`; ctx.beginPath(); ctx.arc(0, -4, quake ? 7 : 5, 0, Math.PI * 2); ctx.fill();
-      ctx.shadowBlur = 0; ctx.restore();
+      ctx.shadowBlur = 0;
+      const ca = quake ? 1 - f / 40 : f < 60 ? (1 - (f - 26) / 34) * 0.6 : 0; // 2026-11-22: sarsıntıda çatlağın ardında Titan'ın turuncu çekirdeği bir an görünür
+      if (ca > 0) {
+        ctx.globalCompositeOperation = 'lighter';
+        const cg = ctx.createRadialGradient(0, -4, 2, 0, -4, 30); cg.addColorStop(0, `rgba(255,190,90,${0.8 * ca})`); cg.addColorStop(0.45, `rgba(255,120,30,${0.45 * ca})`); cg.addColorStop(1, 'rgba(255,90,20,0)');
+        ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(0, -4, 30, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = `rgba(255,170,80,${0.7 * ca})`; ctx.lineWidth = 2;
+        for (let q = 0; q < 8; q++) { const a = q * Math.PI / 4 + 0.2; ctx.beginPath(); ctx.arc(0, -4, 15, a, a + 0.5); ctx.stroke(); } // çekirdeğin parçalı halkası
+        ctx.globalCompositeOperation = 'source-over';
+      }
+      ctx.restore();
       break;
     }
     case 'boss': {
@@ -6917,6 +6962,11 @@ function drawBriefVisual(kind, cx, cy, zc) {
     case 'photon': { // mermi tepeden çıkar, karşı şeritten alttan döner
       const ph = (t % 2.4) / 2.4, lx = cx - 70, rx = cx + 70, sy = cy + 4;
       ctx.save();
+      if (brotherImg.complete && brotherImg.naturalWidth) { // 2026-11-22: karanlıkta çok soluk, senin gemine benzeyen kızıl silüet (final boss'un ilk izi)
+        const q = 0.5 + 0.5 * Math.sin(frameCount * 0.03), bw2 = 54, bh2 = bw2 * brotherImg.naturalHeight / brotherImg.naturalWidth;
+        ctx.globalAlpha = 0.06 + 0.1 * q; ctx.drawImage(brotherImg, rx - bw2 / 2, cy - 62, bw2, bh2);
+        ctx.globalAlpha = 0.25 + 0.35 * q; ctx.fillStyle = '#ff3355'; ctx.beginPath(); ctx.arc(rx, cy - 62 + bh2 * 0.72, 2.2, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+      }
       ctx.strokeStyle = 'rgba(255,200,140,0.35)'; ctx.setLineDash([4, 6]); ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(lx, sy - 20); ctx.lineTo(lx, cy - 60); ctx.quadraticCurveTo(lx + 60, cy - 100, lx + 80, cy - 20); ctx.quadraticCurveTo(lx + 60, cy + 90, lx, cy + 60); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(lx, cy + 60); ctx.lineTo(lx, sy + 16); ctx.stroke(); ctx.setLineDash([]);
