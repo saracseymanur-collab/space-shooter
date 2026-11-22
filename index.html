@@ -56,8 +56,8 @@ const BOSS_W = 145, BOSS_H = 145, BOSS_DY = 12; // kare görsel eskisinden (190�
 const coreImg = new Image(); coreImg.src = 'ASSETS/bosses/core-v1.png'; // L15 Ana Çekirdek (600×607, reaktör ortada)
 const brotherImg = new Image(); brotherImg.src = 'ASSETS/bosses/brother-v1.png'; // L20 ağabeyin gemisi (400×434, burun aşağı)
 const bossShieldImg = new Image();
-bossShieldImg.src = 'ASSETS/shields/boss-shield-v3.png'; // 2026-11-22: kullanıcının yeni Vanguard'a göre kalkanı (eski: boss-shield-v2.png) // sektör 1 boss kalkanı (512×352, siyah zeminden ayıklandı; v1: SOURCES/SHIELD)
-const BOSS_SHIELD_PAD = 22, BOSS_SHIELD_W = BOSS_W * 1.2, BOSS_SHIELD_H = BOSS_SHIELD_W; // kalkan görseli gövdeyi biraz payla sarar (getShieldBase artık yedek)
+bossShieldImg.src = 'ASSETS/shields/boss-shield-v4.png'; // 2026-11-22: kullanıcının gövdeyi birebir saran kalkanı (Vanguard ile aynı kırpım; önceki: v3, v2) // sektör 1 boss kalkanı (512×352, siyah zeminden ayıklandı; v1: SOURCES/SHIELD)
+const BOSS_SHIELD_PAD = 22, BOSS_SHIELD_W = BOSS_W * 1.04, BOSS_SHIELD_H = BOSS_SHIELD_W; // kalkan görseli gövdeyi biraz payla sarar (getShieldBase artık yedek)
 
 // Düşman görsel boyutları — gerçek en/boy oranına göre (sıkı kırpılmış assetler)
 // Şerit 130px: en büyük düşman şeridin ~%85'i (zikzakta komşu şeride taşmaz), küçükler okunur kalır
