@@ -50,7 +50,7 @@ enemyImgs[1].src = 'ASSETS/enemy1-v2.png'; // 2026-11-22: derme çatma (eski: en
 enemyImgs[2].src = 'ASSETS/enemy2-v2.png';
 enemyImgs[3].src = 'ASSETS/enemy3-v2.png';
 // 2026-11-22 (kullanıcı): her renkte birkaç farklı görünüm; gemi doğunca biri rastgele seçilir (e.iv). İlk görsel = enemyImgs (boyanan varyantlar onu kullanır)
-const ENEMY_VARIANT_SRC = { 1: ['ASSETS/enemy1-v3.png', 'ASSETS/enemy1-v4.png'], 2: [], 3: [] };
+const ENEMY_VARIANT_SRC = { 1: ['ASSETS/enemy1-v3.png', 'ASSETS/enemy1-v4.png'], 2: ['ASSETS/enemy2-v3.png', 'ASSETS/enemy2-v4.png'], 3: [] };
 const enemyVarImgs = { 1: [enemyImgs[1]], 2: [enemyImgs[2]], 3: [enemyImgs[3]] };
 Object.entries(ENEMY_VARIANT_SRC).forEach(([t, L]) => L.forEach(src => { const im = new Image(); im.src = src; enemyVarImgs[t].push(im); }));
 function enemyImg(e) { // geminin kendi görünümü (yüklenmediyse ilk görsel)
@@ -5816,9 +5816,9 @@ function drawEnemy(e) {
     ctx.restore(); return;
   }
   const sz   = ENEMY_SIZES[e.maxHp] ?? { w: 80, h: 60 };
-  const dw   = sz.w; let dh = sz.h;
+  let dw = sz.w, dh = sz.h;
   const img  = enemyImg(e), ik = enemyImgKey(e);
-  if (e.iv && img && img.naturalWidth) dh = dw * img.naturalHeight / img.naturalWidth; // farklı görünümler kendi en/boy oranıyla (genişlik aynı)
+  if (e.iv && img && img.naturalWidth) { const ar = img.naturalWidth / img.naturalHeight; dw = Math.sqrt(sz.w * sz.h * ar); dh = dw / ar; } // farklı görünümler kendi oranıyla, alanı ilk görselle aynı (kare görünüm daha büyük durmasın)
 
   ctx.save();
   if (currentLevel === 13 && !e.runner) { // hayalet filo: hep hafif titrer, ışınlanmadan önce güçlü
