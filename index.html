@@ -70,7 +70,8 @@ const bossImg = new Image();
 bossImg.src = 'ASSETS/bosses/vanguard-v3.png'; // 2026-11-22: daha kırık dökük Vanguard (v2 ile aynı silüet ve kırpım, kalkan v5 oturuyor; önceki: v2, ASSETS/boss.png)
 const BOSS_W = 145, BOSS_H = 145, BOSS_DY = 12; // kare görsel eskisinden (190×127) uzun: biraz küçük ve aşağıda çizilir
 const coreImg = new Image(); coreImg.src = 'ASSETS/bosses/core-v1.png'; // L15 Ana Çekirdek (600×607, reaktör ortada)
-const titanImg = new Image(); titanImg.src = 'ASSETS/bosses/titan-armored-v1.png'; // L10 Rock Titan (zırhlı; zırhsız hali kullanıcıdan bekleniyor)
+const titanImg = new Image(); titanImg.src = 'ASSETS/bosses/titan-armored-v1.png'; // L10 Rock Titan, F1 zırhlı
+const titanShedImg = new Image(); titanShedImg.src = 'ASSETS/bosses/titan-shed-v2.png'; // F2-F3 zırhı dökülmüş, göğsünde Astra amblemi (aynı çerçeve, %96 örtüşür)
 const miniTitanImg = new Image(); miniTitanImg.src = 'ASSETS/bosses/titan-mini-v1.png';
 const TITAN_IMG_W = 180, TITAN_CORE_FY = 0.375, MINI_TITAN_W = 66; // çekirdek görselde yukarıdan %37.5
 const brotherImg = new Image(); brotherImg.src = 'ASSETS/bosses/brother-v1.png'; // L20 ağabeyin gemisi (400×434, burun aşağı)
@@ -4561,9 +4562,10 @@ function drawTitan(b) {
   ctx.save(); ctx.translate(b.x, b.y);
   if (b.flash > 0 && b.flash % 6 < 3) ctx.globalAlpha = 0.55;
   if (b.dying) ctx.translate((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8);
-  if (titanImg.complete && titanImg.naturalWidth) { // 2026-11-22: kullanıcının görseli; çekirdek (0, 4) noktasına oturur
-    const w = TITAN_IMG_W, h = w * titanImg.naturalHeight / titanImg.naturalWidth;
-    ctx.drawImage(titanImg, -w / 2, 4 - h * TITAN_CORE_FY, w, h);
+  const tImg = (b.phase || 1) >= 2 && titanShedImg.complete && titanShedImg.naturalWidth ? titanShedImg : titanImg;
+  if (tImg.complete && tImg.naturalWidth) { // 2026-11-22: kullanıcının görselleri (F1 zırhlı, sonra zırhsız); çekirdek (0, 4) noktasına oturur
+    const w = TITAN_IMG_W, h = w * tImg.naturalHeight / tImg.naturalWidth;
+    ctx.drawImage(tImg, -w / 2, 4 - h * TITAN_CORE_FY, w, h);
     const q = 0.5 + 0.5 * Math.sin(frameCount * 0.3);
     if (open) { // çekirdek açık: parlayan nabız
       ctx.globalCompositeOperation = 'lighter';
@@ -4572,7 +4574,7 @@ function drawTitan(b) {
     } else { ctx.fillStyle = 'rgba(20,12,10,0.6)'; ctx.beginPath(); ctx.arc(0, 4, 14, 0, Math.PI * 2); ctx.fill(); } // kapalı: çekirdek söner
   } else drawTitanBody(1.15, 4 - (b.phase || 1), open, spin);
   ctx.restore();
-  if ((b.phase || 1) === 3 || b.dying) drawAstraEmblem(b.x, b.y - 36, 13, b.dying ? 0.95 : 0.3); // zırhın altındaki soluk sembol
+  if (!(titanShedImg.complete && titanShedImg.naturalWidth) && ((b.phase || 1) === 3 || b.dying)) drawAstraEmblem(b.x, b.y - 36, 13, b.dying ? 0.95 : 0.3); // (görsel yoksa) zırhın altındaki soluk sembol; zırhsız görselde amblem var
 }
 function drawMiniTitan(e) {
   ctx.save(); ctx.translate(e.x, e.y);
@@ -9252,7 +9254,7 @@ function loop(timestamp) {
 // Resim yüklenemezse (anlık ağ hatası) birkaç kez yeniden dene — yoksa tarayıcı onu kalıcı bozuk sayıyor
 // ve gemi gibi görseller sayfa yenilenene kadar görünmüyordu.
 (function retryBrokenImages() {
-  const all = [spaceshipImg, ...enemyImgs, ...Object.values(enemyVarImgs).flat().slice(3), bossImg, coreImg, brotherImg, titanImg, miniTitanImg, bossShieldImg, shipShieldImg, ...bgImgs, eShotImg, ...Object.values(powerupImgs), ...cardImgs,
+  const all = [spaceshipImg, ...enemyImgs, ...Object.values(enemyVarImgs).flat().slice(3), bossImg, coreImg, brotherImg, titanImg, titanShedImg, miniTitanImg, bossShieldImg, shipShieldImg, ...bgImgs, eShotImg, ...Object.values(powerupImgs), ...cardImgs,
     ...Object.values(rockImgs).flat()].filter(Boolean);
   const retry = im => {
     im._tries = (im._tries || 0) + 1;
