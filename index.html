@@ -669,7 +669,7 @@ function baseLevelConfig() {
     };
     case 3: return { // Rammer: kalkanlı (vurulamaz); şeridini işaretler, sonra çok hızlı aşağı dalar → kaç (çarparsa can gider)
       // yeni temel (hızlı iniş + şeritte üst üste) + L2'nin bölünen düşmanları ara sıra
-      interval: 71, doubleChance: 0.32,
+      interval: 78, // 2026-11-22: 71 → 78, ~%10 az gemi (kullanıcı: çok zor; Rammer'dan kaçarken gemiler kaçıyor), Rammer oranı aynı doubleChance: 0.32,
       speed: () => 3.1 + Math.random() * 0.4,
       hp: () => Math.random() < 0.45 ? 2 : 1,
       stack: 150, splitter: 0.08, rammer: 0.3,
