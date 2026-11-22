@@ -2281,8 +2281,14 @@ function addSlalomFiller(x) {
   a.size = 15; a.y = -a.size - 28; a.speed = slalomSpd; a.sl = true; a.rotSpeed = 0.012;
 }
 // Bölüm sonu silüeti: kuşağın derinindeki gizli maden (kullanıcı görsel üretene kadar kodla çizilir)
+const mineBaseImg = new Image(); mineBaseImg.src = 'ASSETS/story/mine-base-v1.png'; // 2026-11-22: kullanıcının maden üssü görseli (alt kenarı saydama söndürüldü)
 function drawMineSilhouette() {
   const k = Math.min(1, slalomOutro / 90), e = 1 - (1 - k) * (1 - k), y = -90 + e * 210;
+  if (mineBaseImg.complete && mineBaseImg.naturalWidth) { // tepeden süzülerek iner
+    const w = W + 40, h = w * mineBaseImg.naturalHeight / mineBaseImg.naturalWidth, top = -h + e * (h + 60);
+    ctx.save(); ctx.globalAlpha = Math.min(1, slalomOutro / 40); ctx.drawImage(mineBaseImg, -20, top, w, h); ctx.restore();
+    return;
+  }
   const pts = [[0, 44], [40, 12], [70, 36], [100, -34], [118, -34], [126, 22], [165, 48], [188, -66], [204, -66], [212, 30], [250, 52], [284, -12], [300, -12], [320, 38], [360, 20], [390, 46]];
   ctx.save();
   ctx.globalAlpha = Math.min(1, slalomOutro / 40);
