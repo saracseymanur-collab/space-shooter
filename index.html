@@ -49,6 +49,16 @@ const enemyImgs = [null, new Image(), new Image(), new Image()];
 enemyImgs[1].src = 'ASSETS/enemy1-v2.png'; // 2026-11-22: derme çatma (eski: enemy1.png)
 enemyImgs[2].src = 'ASSETS/enemy2-v2.png';
 enemyImgs[3].src = 'ASSETS/enemy3-v2.png';
+// 2026-11-22 (kullanıcı): her renkte birkaç farklı görünüm; gemi doğunca biri rastgele seçilir (e.iv). İlk görsel = enemyImgs (boyanan varyantlar onu kullanır)
+const ENEMY_VARIANT_SRC = { 1: ['ASSETS/enemy1-v3.png'], 2: [], 3: [] };
+const enemyVarImgs = { 1: [enemyImgs[1]], 2: [enemyImgs[2]], 3: [enemyImgs[3]] };
+Object.entries(ENEMY_VARIANT_SRC).forEach(([t, L]) => L.forEach(src => { const im = new Image(); im.src = src; enemyVarImgs[t].push(im); }));
+function enemyImg(e) { // geminin kendi görünümü (yüklenmediyse ilk görsel)
+  const L = enemyVarImgs[e.maxHp]; if (!L) return enemyImgs[e.maxHp];
+  if (e.iv == null) e.iv = Math.floor(Math.random() * L.length);
+  const im = L[e.iv % L.length]; return im.complete && im.naturalWidth ? im : enemyImgs[e.maxHp];
+}
+const enemyImgKey = e => e.iv ? e.maxHp + 'v' + e.iv : e.maxHp; // neon / beyaz kopya önbellek anahtarı
 
 const bossImg = new Image();
 bossImg.src = 'ASSETS/bosses/vanguard-v3.png'; // 2026-11-22: daha kırık dökük Vanguard (v2 ile aynı silüet ve kırpım, kalkan v5 oturuyor; önceki: v2, ASSETS/boss.png)
@@ -2058,7 +2068,7 @@ function spawnShipDeath(e) {
   dropTitanBomb(e);
   const tier = e.runner ? 1 : e.maxHp, sz = ENEMY_SIZES[tier] ?? { w: 80, h: 60 };
   const col = e.runner ? '#ffffff' : e.splitter ? '#ff8a2a' : e.spreader ? SPREAD_COL : e.seg ? SNAKE_COL : e.rammer ? RAM_COL : (e.sweeper || e.burster) ? SWEEP_COL : ENEMY_GLOW[tier] || '#ff8a40';
-  const spr = e.runner ? getRunnerSprite() : e.splitter ? getSplitterSprite() : e.spreader ? getSpreaderSprite() : e.seg ? getSnakeSprite() : e.rammer ? getRammerSprite() : e.burster ? getSweeperSprite() : getNeonSprite(enemyImgs[tier], tier);
+  const spr = e.runner ? getRunnerSprite() : e.splitter ? getSplitterSprite() : e.spreader ? getSpreaderSprite() : e.seg ? getSnakeSprite() : e.rammer ? getRammerSprite() : e.burster ? getSweeperSprite() : (e.runner ? getNeonSprite(enemyImgs[tier], tier) : getNeonSprite(enemyImg(e), enemyImgKey(e)));
   if (e.guarding) { e.guarding.guardedBy = null; e.guarding.shieldHit = 12; e.guarding = null; } // bağ koptu
   if (e.runner && e.drop) powerups.push({ type: e.drop, x: e.x, y: e.y, speed: 1.8, bobTimer: 0 });
   if (e.mirror) { // yansıma camdan kırılır
@@ -5807,7 +5817,7 @@ function drawEnemy(e) {
   }
   const sz   = ENEMY_SIZES[e.maxHp] ?? { w: 80, h: 60 };
   const dw   = sz.w, dh = sz.h;
-  const img  = enemyImgs[e.maxHp];
+  const img  = enemyImg(e), ik = enemyImgKey(e);
 
   ctx.save();
   if (currentLevel === 13 && !e.runner) { // hayalet filo: hep hafif titrer, ışınlanmadan önce güçlü
@@ -5822,7 +5832,7 @@ function drawEnemy(e) {
   ctx.globalAlpha = baseAlpha;
 
   // Hayalet: titreyen açık mor dış hat (görünmezken de takip edilebilir)
-  const outline = e.phantom ? getPhantomOutline(img, e.maxHp) : null;
+  const outline = e.phantom ? getPhantomOutline(img, ik) : null;
   if (outline) {
     const fl = 0.5 + 0.5 * Math.sin(frameCount * 0.45 + e.x);
     ctx.save();
@@ -5868,7 +5878,7 @@ function drawEnemy(e) {
       ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 9; // renkli parıltı yok: canlı renk yeterli, siyah gölge zeminden ayırır
       if (e.flk == null) e.flk = Math.floor(Math.random() * 211); const flick = (frameCount + e.flk) % 211 < 3 || ((frameCount + e.flk) % 211 > 6 && (frameCount + e.flk) % 211 < 8); // bozuk elektrik: arada bir kısa titreme
       if (flick) ctx.globalAlpha *= 0.55;
-      ctx.drawImage((e.splitter && getSplitterSprite()) || (e.spreader && getSpreaderSprite()) || (e.rammer && getRammerSprite()) || ((e.sweeper || e.burster) && getSweeperSprite()) || getNeonSprite(img, e.maxHp) || img, -dw / 2, -dh / 2, dw, dh);
+      ctx.drawImage((e.splitter && getSplitterSprite()) || (e.spreader && getSpreaderSprite()) || (e.rammer && getRammerSprite()) || ((e.sweeper || e.burster) && getSweeperSprite()) || getNeonSprite(img, ik) || img, -dw / 2, -dh / 2, dw, dh);
       if (flick) ctx.globalAlpha /= 0.55;
       if (e.splitter) { // ortada parlayan çatlak: "ikiye ayrılacak"
         ctx.shadowBlur = 0; ctx.strokeStyle = `rgba(255,240,220,${0.55 + 0.35 * Math.sin(frameCount * 0.3)})`; ctx.lineWidth = 2;
@@ -5876,7 +5886,7 @@ function drawEnemy(e) {
       }
       ctx.shadowBlur = 0;
       if (e.flash > 8) { // isabet: çok kısa beyaz parlama
-        const wsp = getWhiteSprite(img, e.maxHp);
+        const wsp = getWhiteSprite(img, ik);
         if (wsp) { ctx.globalAlpha = baseAlpha * (e.flash - 8) / 6; ctx.drawImage(wsp, -dw / 2, -dh / 2, dw, dh); ctx.globalAlpha = baseAlpha; }
       }
     }
@@ -5948,7 +5958,7 @@ function drawEnemy(e) {
   }
   if (e.armored || e.guardedBy || (e.gunner && e.gState !== 'enter') || (e.hunter && e.hState === 'track') || e.rammer || e.sweeper) {
     if (e.gunner && e.gState === 'cool') { // kalkansız: gövde beyaz nabızla parlar → "şimdi vur"
-      const wsp = getWhiteSprite(img, e.maxHp);
+      const wsp = getWhiteSprite(img, ik);
       if (wsp) { ctx.globalAlpha = 0.18 + 0.22 * (0.5 + 0.5 * Math.sin(frameCount * 0.3)); ctx.drawImage(wsp, -dw / 2, -dh / 2, dw, dh); ctx.globalAlpha = baseAlpha; }
     } else if (!e.guardedBy && bossShieldImg.complete && bossShieldImg.naturalWidth) { // boss kalkanının kırmızı küçük hali (vurulunca parlar)
       const sw = dw * 1.25, sh = sw * bossShieldImg.naturalHeight / bossShieldImg.naturalWidth, img2 = getTintedShield(BOSS_MOODS.red.tint);
@@ -9222,7 +9232,7 @@ function loop(timestamp) {
 // Resim yüklenemezse (anlık ağ hatası) birkaç kez yeniden dene — yoksa tarayıcı onu kalıcı bozuk sayıyor
 // ve gemi gibi görseller sayfa yenilenene kadar görünmüyordu.
 (function retryBrokenImages() {
-  const all = [spaceshipImg, ...enemyImgs, bossImg, coreImg, brotherImg, bossShieldImg, ...bgImgs, eShotImg, ...Object.values(powerupImgs), ...cardImgs,
+  const all = [spaceshipImg, ...enemyImgs, ...Object.values(enemyVarImgs).flat().slice(3), bossImg, coreImg, brotherImg, bossShieldImg, ...bgImgs, eShotImg, ...Object.values(powerupImgs), ...cardImgs,
     ...Object.values(rockImgs).flat()].filter(Boolean);
   const retry = im => {
     im._tries = (im._tries || 0) + 1;
