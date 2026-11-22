@@ -165,6 +165,7 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 16. L16 TIME RIFT: yarık görselleri tekrar ele alınacak.
 17. Yayınlama maliyetleri (App Store / Google Play hesap ücretleri vb.) ve reklamdan para kazanma şekilleri (normal + ödüllü reklam, bkz. Reklam planı) konuşulacak.
 18. Oyundaki tüm seslere (efektler + müzik, `Sound` modülü) tekrar bakılacak.
+19. Dil seçenekleri (2026-11-22, kullanıcı): oyunun en başında dil seçimi, oyun farklı dillerde oynanabilsin. Tüm metinler (giriş panelleri, kartlar, ilk görüş kartları, bildirimler, menü, sonlar) tek bir çeviri tablosuna taşınmalı; hangi diller olacağı konuşulacak (hedef ABD, İngilizce varsayılan).
 
 ### YAPILDI (2026-11-22, yayında, telefonda denenecek)
 - (9) 2→3 geçişi iki sayfa: amblem sayfası + "Its last orders came from deep inside the nebula. Whoever commands this war is hiding there." (amblem ve "...see you among the stars." sadece ilk sayfada).
