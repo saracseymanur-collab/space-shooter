@@ -6599,13 +6599,25 @@ function drawBriefVisual(kind, cx, cy, zc) {
       briefEnemy(2, cx + Math.sin(t * 2) * 40, cy, 0.55);
       break;
     }
-    case 'eyes': { // karanlıkta yanıp sönen iki kırmızı göz: boss'u göstermeden merak uyandırır
-      const blink = (frameCount % 150) < 6 ? 0.1 : 1, glow = 0.6 + 0.4 * Math.sin(frameCount * 0.06);
-      const g = ctx.createRadialGradient(cx, cy, 4, cx, cy, 90); g.addColorStop(0, 'rgba(0,0,0,0.65)'); g.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(cx, cy, 120, 46, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = `rgba(255,34,68,${glow})`; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 18;
-      [-22, 22].forEach(dx => { ctx.beginPath(); ctx.ellipse(cx + dx, cy, 9, 4.5 * blink, dx < 0 ? 0.25 : -0.25, 0, Math.PI * 2); ctx.fill(); });
-      ctx.shadowBlur = 0;
+    case 'eyes': { // 2026-11-22 (kullanıcı seçti): göz yerine karanlıkta boss'un kendi ışıkları; silüet çok soluk, sürpriz korunur
+      const s = 0.13, ox = 768, oy = 470; // boss.png (1536×1024) üzerindeki ışık konumları, kart ölçeğinde
+      const P = (x, y) => [cx + (x - ox) * s, cy + (y - oy) * s];
+      const g = ctx.createRadialGradient(cx, cy, 4, cx, cy, 130); g.addColorStop(0, 'rgba(0,0,0,0.75)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(cx, cy, 140, 60, 0, 0, Math.PI * 2); ctx.fill();
+      if (bossImg.complete && bossImg.naturalWidth) { // karanlıkta zar zor seçilen gövde, yavaşça belirip kaybolur
+        ctx.globalAlpha = 0.07 + 0.05 * (0.5 + 0.5 * Math.sin(frameCount * 0.025));
+        ctx.drawImage(bossImg, cx - ox * s, cy - oy * s, 1536 * s, 1024 * s); ctx.globalAlpha = 1;
+      }
+      const blink = (frameCount % 170) < 7 ? 0.15 : 1, glow = (0.6 + 0.4 * Math.sin(frameCount * 0.06)) * blink;
+      ctx.globalCompositeOperation = 'lighter';
+      const light = (x, y, r, a) => { const [px, py] = P(x, y), lg = ctx.createRadialGradient(px, py, 0, px, py, r * 3);
+        lg.addColorStop(0, `rgba(255,120,230,${a})`); lg.addColorStop(0.35, `rgba(255,40,190,${a * 0.5})`); lg.addColorStop(1, 'rgba(255,40,190,0)');
+        ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(px, py, r * 3, 0, Math.PI * 2); ctx.fill(); };
+      light(470, 130, 7, glow); light(1066, 130, 7, glow);               // iki top küresi
+      light(690, 285, 3.2, glow * 0.8); light(846, 285, 3.2, glow * 0.8); light(768, 392, 3, glow * 0.8); // kokpit
+      [[425, 345], [460, 345], [497, 345], [1035, 345], [1072, 345], [1110, 345], [545, 605], [600, 605], [935, 605], [990, 605]]
+        .forEach(([x, y], i) => light(x, y, 1.8, glow * (0.35 + 0.25 * Math.sin(frameCount * 0.1 + i)))); // namlu uçları
+      ctx.globalCompositeOperation = 'source-over';
       break;
     }
     case 'ring': { // kayan boşluklu enkaz sırası iner, gemi boşluğa geçer
