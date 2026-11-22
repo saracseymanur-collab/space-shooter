@@ -463,7 +463,7 @@ const ENDING_PANELS = [
   "You came to save one planet. Maybe you saved two.",
   "THE END",
 ];
-const INTRO_IMG_FILES = ['intro-1', 'intro-2', 'intro-3', null, 'intro-4', 'intro-5', 'intro-6', 'intro-7']; // null: görseli henüz yok (arama gemileri paneli, kullanıcı üretecek)
+const INTRO_IMG_FILES = ['intro-1', 'intro-2', 'intro-3', 'intro-search-v1', 'intro-4', 'intro-5-v2', 'intro-6', 'intro-7-v2']; // 2026-11-22: panel 4 görseli + panel 6/8 derme çatma düşmanlarla yenilendi // null: görseli henüz yok (arama gemileri paneli, kullanıcı üretecek)
 const INTRO_IMGS = INTRO_IMG_FILES.map(f => { if (!f) return null; const im = new Image(); im.src = `ASSETS/story/${f}.jpg`; return im; }); // panel görselleri (852×1846; orijinaller SOURCES/STORY/intro)
 let cinePanels = INTRO_PANELS; // intro ve final sinematiği aynı ekranı kullanır
 let introPanelIdx = 0;
