@@ -470,7 +470,10 @@ function endCinematic() {
 // --- Zone Transition ---
 const ZONE_TRANSITION_MESSAGES = [
   "The advance fleet has been destroyed. But the main fleet retreated into the asteroid belt. You have no choice but to follow.",
-  "The Rock Titan falls. Inside its wreckage, you find an ancient emblem. It belongs to Astra's lost colony.",
+  [ // 2026-11-22 (kullanıcı: nebulaya neden gittiğimiz anlatılmıyordu): ikinci sayfa sebebi verir (STORY.md: komuta merkezi nebulada gizli)
+    "The Rock Titan falls. Inside its wreckage, you find an ancient emblem. It belongs to Astra's lost colony.",
+    "Its last orders came from deep inside the nebula. Whoever commands this war is hiding there.",
+  ],
   [ // 2026-11-11 (kullanıcı onayı, STORY.md Revelation panelleri): Astra'da insanlar hayatta, ama silahlı grup bütün koloni değil
     "The command center is down. Its records tell the truth: Astra was never dead. Thousands survived, and their call for help was real.",
     "Not everyone chose revenge. A rebellion among the survivors heard that call first and turned it into a trap. Their leader is waiting near the black hole.",
@@ -4201,7 +4204,8 @@ function drawEchoBoss(b) {
 // --- Boss: Ana Çekirdek ---
 const CORE_Y = H * 0.24, CORE_R = 46, CORE_GUN = 0.5; // boşluktan geçen mermi
 let ccSeen = null;
-function coreGapLane(pos) { const r = Math.round(pos); return Math.abs(pos - r) < 0.42 ? r : -1; } // 2026-11-10: 0.32 → 0.42, denk getirmek daha rahat
+const CORE_GAP_TOL = 0.42, CORE_LANE_ANG = 0.9; // boşluk hizası (şerit) · bir şeridin halkadaki açısı (rad)
+function coreGapLane(pos) { const r = Math.round(pos); return Math.abs(pos - r) < CORE_GAP_TOL ? r : -1; } // 2026-11-10: 0.32 → 0.42, denk getirmek daha rahat
 function coreOpenFor(lane) { // kalkan boşluğu (iki halkada ikisi de) bu şeride bakıyor mu
   const b = boss;
   if (!b || b.zone !== 3 || b.dying || bossWarn > 0 || b.cState !== 'fight') return false;
@@ -4251,8 +4255,9 @@ function updateCenter() {
   if (!ccSeen && !seenIntro.coreGap && coreGapLane(b.gap1) === playerLaneNow() && (!b.twoRings || coreGapLane(b.gap2) === playerLaneNow())) ccSeen = { x: b.x, y: b.y, key: 'coreGap' };
 }
 function drawCoreRing(b, r, pos, col, w) {
-  const tx = W / 2 + (pos - 1) * (LANE_CENTERS[1] - LANE_CENTERS[0]);
-  const a0 = Math.atan2(player.y - b.y, tx - b.x), half = 0.42;
+  // 2026-11-22 (kullanıcı: boşluk açık görünürken bomba BLOCKED): eskiden boşluk ~1.5 şerit genişliğinde görünüyordu, kural yarım
+  // şerit sayıyordu. Şimdi her şerit halkada CORE_LANE_ANG kadar ayrı yöne bakar, boşluk tam kuralın genişliğinde: açık göründüğü an açıktır.
+  const a0 = Math.PI / 2 - (pos - 1) * CORE_LANE_ANG, half = CORE_GAP_TOL * CORE_LANE_ANG;
   ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = 'butt';
   ctx.beginPath(); ctx.arc(b.x, b.y, r, a0 + half, a0 - half + Math.PI * 2); ctx.stroke();
   // segment çizgileri
@@ -4688,10 +4693,11 @@ let stormShake = 0, rainDrops = [];
 let bolts = [], stormT = 0, stormFlash = 0, stormLast = -1, stormClouds = [], stormCloudT = 0;
 const STORM_CLOUD_SPD = 1.5;
 const stormPuffSprites = [];
+const STORM_PUFF_PAD = 50, STORM_PUFF_W = 240 + 2 * STORM_PUFF_PAD, STORM_PUFF_H = 170 + 2 * STORM_PUFF_PAD;
 function getStormPuff(i) { // ortadaki fırtına bulutu: koyu, yoğun çekirdek (gemiyi örter), yumuşak kenar
   if (stormPuffSprites[i]) return stormPuffSprites[i];
-  const c = document.createElement('canvas'); c.width = 240; c.height = 170;
-  const g = c.getContext('2d');
+  const c = document.createElement('canvas'); c.width = STORM_PUFF_W; c.height = STORM_PUFF_H; // 2026-11-22: kabarıklar 240×170 tuvalden taşıp kırpılıyordu → kenarlara pay
+  const g = c.getContext('2d'); g.translate(STORM_PUFF_PAD, STORM_PUFF_PAD);
   let seed = 11 + i * 37; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
   for (let k = 0; k < 16; k++) {
     const x = 50 + rnd() * 140, y = 55 + rnd() * 60, r = 34 + rnd() * 30;
@@ -4718,7 +4724,7 @@ function updateStormClouds(S, ending) {
 }
 function drawStormClouds() { // düşmanların üstünde, düşman mermilerinin ve oyuncunun altında
   stormClouds.forEach(c => {
-    const im = getStormPuff(c.spr), w = 240 * c.sc, h = 170 * c.sc;
+    const im = getStormPuff(c.spr), w = STORM_PUFF_W * c.sc, h = STORM_PUFF_H * c.sc;
     ctx.save(); ctx.translate(c.x, c.y); if (c.flip) ctx.scale(-1, 1);
     ctx.drawImage(im, -w / 2, -h / 2, w, h);
     ctx.restore();
@@ -4805,7 +4811,7 @@ function boltPath(x, top, bot, seed) { // kırık şimşek çizgisi: birkaç kar
 }
 function strokePts(pts) { ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.stroke(); }
 function drawStormDark() { // fırtınanın karanlığı + çapraz yağmur (gemilerin altında)
-  ctx.fillStyle = 'rgba(4,2,14,0.55)'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = 'rgba(4,2,14,0.64)'; ctx.fillRect(0, 0, W, H); // 2026-11-22: 0.55 → 0.64, uyarılar arka planla karışıyordu
   ctx.save(); ctx.strokeStyle = 'rgba(170,190,255,0.32)'; ctx.lineWidth = 1.2;
   ctx.beginPath();
   for (let i = 0; i < 46; i++) {
@@ -4860,11 +4866,22 @@ function drawStorm() {
       }
       ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(x, top + 40, 90, 0, Math.PI * 2); ctx.fill();
       const reach = top + 40 + (H - top - 40) * p;
-      ctx.fillStyle = 'rgba(210,240,255,0.9)';
-      for (let k = 0; k < 7; k++) {
+      for (let k = 0; k < 10; k++) { // 2026-11-22: kıvılcımlar daha çok, iri ve haleli (arka planla karışmasın)
         const yy = top + 40 + ((B.t * 9 + k * 97 + B.seed * 7) % Math.max(1, reach - top - 40));
         const xx = x + Math.sin(yy * 0.07 + k * 2 + B.seed) * LANE_W * 0.22;
-        ctx.fillRect(xx - 1.5, yy - 4, 3, 8);
+        ctx.fillStyle = 'rgba(120,190,255,0.35)'; ctx.beginPath(); ctx.arc(xx, yy, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(235,248,255,1)'; ctx.fillRect(xx - 2, yy - 6, 4, 12);
+      }
+      if (!B.track) { // çarpacağı yer: geminin hizasında yerde çıtırdayan halka, çakışa yaklaştıkça parlar
+        const gy = player.y + 6, rx = LANE_W * 0.36, a = (0.25 + 0.6 * p) * fl;
+        ctx.strokeStyle = `rgba(160,215,255,${a})`; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.ellipse(x, gy, rx, rx * 0.32, 0, 0, Math.PI * 2); ctx.stroke();
+        const eg = ctx.createRadialGradient(x, gy, 2, x, gy, rx);
+        eg.addColorStop(0, `rgba(190,230,255,${0.35 * a})`); eg.addColorStop(1, 'rgba(120,170,255,0)');
+        ctx.fillStyle = eg; ctx.beginPath(); ctx.ellipse(x, gy, rx, rx * 0.32, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = `rgba(230,245,255,${a})`; ctx.lineWidth = 1.5;
+        for (let k = 0; k < 4; k++) { const an = (B.seed + k * 1.7 + Math.floor(B.t / 3) * 0.9) % (Math.PI * 2);
+          ctx.beginPath(); ctx.moveTo(x + Math.cos(an) * rx * 0.5, gy + Math.sin(an) * rx * 0.16); ctx.lineTo(x + Math.cos(an) * rx * 1.05, gy + Math.sin(an) * rx * 0.34 + (k % 2 ? -6 : 6)); ctx.stroke(); }
       }
       if (p > 0.55 && Math.floor(B.t / 4) % 2) { // çakmadan hemen önce bulutta küçük çatlak
         ctx.strokeStyle = 'rgba(220,245,255,0.8)'; ctx.lineWidth = 1.5;
@@ -5499,7 +5516,7 @@ function drawZoneTransition() {
   ctx.globalAlpha = a;
   ctx.shadowColor = 'rgba(200,220,255,0.3)'; ctx.shadowBlur = 6;
   drawWrapped(zoneMsg(), W / 2, cy, W - 80, lineH);
-  if (zoneTransIdx === 1) { // Astra amblemi + bozuk kayıttan son cümle
+  if (zoneTransIdx === 1 && zoneTransPage === 0) { // Astra amblemi + bozuk kayıttan son cümle (ilk sayfada)
     drawAstraEmblem(W / 2, bot + 122, 44, a);
     ctx.globalAlpha = a * 0.85; ctx.fillStyle = '#a8dcff';
     ctx.font = 'italic ' + STORY_FONT;

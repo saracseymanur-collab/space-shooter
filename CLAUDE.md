@@ -165,6 +165,12 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 16. L16 TIME RIFT: yarık görselleri tekrar ele alınacak.
 17. Yayınlama maliyetleri (App Store / Google Play hesap ücretleri vb.) ve reklamdan para kazanma şekilleri (normal + ödüllü reklam, bkz. Reklam planı) konuşulacak.
 
+### YAPILDI (2026-11-22, yayında, telefonda denenecek)
+- (9) 2→3 geçişi iki sayfa: amblem sayfası + "Its last orders came from deep inside the nebula. Whoever commands this war is hiding there." (amblem ve "...see you among the stars." sadece ilk sayfada).
+- (10) L12 şimşek uyarısı: karartma 0.55 → 0.64, kıvılcımlar daha çok / iri / haleli, takip etmeyen şimşekte geminin hizasında yerde çıtırdayan halka (çarpacağı yer).
+- (11) L12 bulut kırpılması: `getStormPuff` tuvaline 50 px pay (`STORM_PUFF_PAD`), kenarlar artık yumuşak.
+- (15) L15 boşluk: çizim kurala uyduruldu. Eskiden boşluk ~1.5 şerit genişliğinde görünüyordu, kural yarım şerit sayıyordu. Şimdi her şerit halkada `CORE_LANE_ANG` 0.9 rad ayrı yöne bakar, boşluk yarı açısı `CORE_GAP_TOL` × açı: açık göründüğü an açık. Kural (0.42) değişmedi.
+
 ### Claude cevapları (2026-11-18, sırası gelince konuşulacak)
 - (1) Panel metni: "A rescue fleet was sent. You were among them. But someone else had heard the call too." Düşman açıkça yok, pusu sonraki panelde. Öneri: bu panelde filo yola çıkarken, en fazla uzakta belli belirsiz bir gölge; düşman gemileri sonraki panele.
 - (5) SOMETHING IS OUT THERE: L6 sonunda hız düşer, kodla çizilmiş maden silüeti + yazı; amaç L7'ye köprü (STORY.md: Asteroid Belt = Void Rebellion'ın gizli maden ve üretim üssü; L7'de üsse sızılır, L8 içeride matkaplar). Katkısı zayıf: oyuncu "orada ne var" öğrenmiyor. Seçenekler: a) net söyle (A HIDDEN BASE / THEY ARE MINING THE BELT + ışıkları yanan çalışan maden üssü görseli) b) gizemi koru (kayalar arasında ışıklar/sinyal, L7'de çözülür). Claude önerisi: a.
