@@ -1149,7 +1149,7 @@ function startLevel(level) {
   playFrames     = (level - 1) * LEVEL_SEC * 60;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; shards = []; powerups = [];
-  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; ccSeen = null; gates = []; gateT = 0; dashT = 0; dashTrail = 0; gateSeen = null; corridorY = 0; streamLane = 1; streamX = 0; streamNext = -1; streamT = 0; streamPre = 0; archive = 0; archiveCard = null; archiveDone = false; streamBits = []; inStream = false; streamChain = false; warpT = 0; warpWarn = 0; warpTrails = []; warpSeen = null; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1; stormClouds = []; stormCloudT = 0; stormShake = 0; rifts = []; riftMode = null; riftT = 0; riftNext = 90; riftIdx = 0; riftScaleCur = 1; riftAng = 0; riftAngTgt = 0; riftFlip = false; riftFx = 0; riftSeen = null; mirrorSeen = null; ringRows = []; ringT = 0; ringSeen = null; tidalSeen = null; sever = null; severT = 90; severLast = -1; severBump = 0; severSeen = null; twistDir = Math.random() < 0.5 ? -1 : 1; twistT = 0; twistD = 0; twistAmp = 0; twistGhost = 0; twistPin = 0; twistPrev = null; photonSeen = null; photonN = 0; duelVec = null; duelSignal = 0; unmakeT = 0; unmakeBits = []; unmakeArms = []; unmakeFold = null; unmakeAmp = 0; unmakeGhost = 0; unmakeGlitch = 0; unmakeFlash = 0; unmakeShell = []; hzTop = 0; echoDark = 0; echoHist = []; echoEsc = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]; echoLastLane = 1;
+  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; ccSeen = null; gates = []; gateT = 0; dashT = 0; dashTrail = 0; gateSeen = null; corridorY = 0; streamLane = 1; streamX = 0; streamNext = -1; streamT = 0; streamPre = 0; archive = 0; archiveCard = null; archiveDone = false; streamBits = []; inStream = false; streamChain = false; warpT = 0; warpWarn = 0; warpTrails = []; warpSeen = null; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1; stormClouds = []; stormCloudT = 0; stormShake = 0; rifts = []; riftMode = null; riftT = 0; riftNext = 90; riftIdx = 0; riftScaleCur = 1; riftAng = 0; riftAngTgt = 0; riftFlip = false; riftFx = 0; riftSeen = null; mirrorSeen = null; ringRows = []; ringT = 0; ringSeen = null; tidalSeen = null; sever = null; severT = 90; severLast = -1; severBump = 0; severSeen = null; twistDir = Math.random() < 0.5 ? -1 : 1; twistT = 0; twistD = 0; twistAmp = 0; twistGhost = 0; twistPin = 0; twistPrev = null; photonSeen = null; photonN = 0; duelVec = null; duelSignal = 0; unmakeT = 0; unmakeBits = []; unmakeArms = []; unmakeFold = null; unmakeAmp = 0; unmakeGhost = 0; unmakeGlitch = 0; unmakeFlash = 0; unmakeShell = []; hzTop = 0; echoDark = 0; wreckFx = []; echoHist = []; echoEsc = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]; echoLastLane = 1;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
   countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
@@ -5866,7 +5866,10 @@ function drawEnemy(e) {
       }
     } else {
       ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 9; // renkli parıltı yok: canlı renk yeterli, siyah gölge zeminden ayırır
+      if (e.flk == null) e.flk = Math.floor(Math.random() * 211); const flick = (frameCount + e.flk) % 211 < 3 || ((frameCount + e.flk) % 211 > 6 && (frameCount + e.flk) % 211 < 8); // bozuk elektrik: arada bir kısa titreme
+      if (flick) ctx.globalAlpha *= 0.55;
       ctx.drawImage((e.splitter && getSplitterSprite()) || (e.spreader && getSpreaderSprite()) || (e.rammer && getRammerSprite()) || ((e.sweeper || e.burster) && getSweeperSprite()) || getNeonSprite(img, e.maxHp) || img, -dw / 2, -dh / 2, dw, dh);
+      if (flick) ctx.globalAlpha /= 0.55;
       if (e.splitter) { // ortada parlayan çatlak: "ikiye ayrılacak"
         ctx.shadowBlur = 0; ctx.strokeStyle = `rgba(255,240,220,${0.55 + 0.35 * Math.sin(frameCount * 0.3)})`; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(0, -dh * 0.42); ctx.lineTo(-3, -dh * 0.15); ctx.lineTo(3, dh * 0.05); ctx.lineTo(-2, dh * 0.3); ctx.lineTo(0, dh * 0.45); ctx.stroke();
@@ -6350,6 +6353,66 @@ function drawFloatTexts() {
 }
 
 // --- Draw: Explosions ---
+// --- Derme çatma hissi (2026-11-22, kullanıcı: boss'lar ve düşmanlar yıkık dökük görünsün): duman, kıvılcım, kopan metal parçaları ---
+let wreckFx = [];
+const WRECK_MAX = 220;
+const puffSprites = {};
+function getPuffSprite(shade) { // yumuşak kenarlı duman bulutu (bir kez çizilir; 4 ton)
+  const k = Math.min(3, Math.max(0, Math.floor((shade - 45) / 35)));
+  if (puffSprites[k]) return puffSprites[k];
+  const v = [55, 85, 115, 140][k], c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  const rg = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  rg.addColorStop(0, `rgba(${v},${v},${v + 8},0.9)`); rg.addColorStop(0.5, `rgba(${v},${v},${v + 8},0.45)`); rg.addColorStop(1, `rgba(${v},${v},${v + 8},0)`);
+  g.fillStyle = rg; g.fillRect(0, 0, 64, 64); return (puffSprites[k] = c);
+}
+function wreckSmoke(x, y, s = 1, top = false) { if (wreckFx.length < WRECK_MAX) wreckFx.push({ t: 'smoke', top, x, y, vx: (Math.random() - 0.5) * 0.4, vy: -0.25 - Math.random() * 0.3, r: 3 * s, gr: 0.18 * s, life: 1, decay: 0.022 + Math.random() * 0.012, shade: 95 + Math.floor(Math.random() * 45) }); }
+function wreckSparks(x, y, n = 5, up = false) {
+  for (let i = 0; i < n && wreckFx.length < WRECK_MAX; i++) { const a = (up ? -Math.PI / 2 : Math.PI / 2) + (Math.random() - 0.5) * 2.4, sp = 2 + Math.random() * 3.5;
+    wreckFx.push({ t: 'spark', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1, decay: 0.05 + Math.random() * 0.04 }); }
+}
+function wreckBit(x, y) { if (wreckFx.length < WRECK_MAX) wreckFx.push({ t: 'bit', x, y, vx: (Math.random() - 0.5) * 3, vy: -1 - Math.random() * 1.5, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 0.4, w: 3 + Math.random() * 4, h: 2 + Math.random() * 3, life: 1, decay: 0.014 + Math.random() * 0.01 }); }
+const BOSS_WRECK_R = { 1: 52, 2: 70, 3: 62 }; // gövdede rastgele nokta yarıçapı (bölgeye göre); L20 karanlıkta: ortam kıvılcımı yok (yerini ele vermesin)
+function updateWreck() {
+  if (state === 'play' && !briefing) {
+    enemies.forEach(e => { // hasar almış gemi duman çıkarır, canı azaldıkça daha çok; ara ara kablo çıtırdar
+      if (e.y < HUD_H || e.y > H || e.runner || e.rammer || (radarOn() && !(e.seen > 0.05))) return; // L11: görünmeyen gemi dumanla ele verilmesin
+      const dmg = e.maxHp > 0 ? 1 - e.hp / e.maxHp : 0;
+      if (dmg > 0 && Math.random() < 0.15 + 0.35 * dmg) wreckSmoke(e.x + (Math.random() - 0.5) * 16, e.y - 20, 1.1 + dmg);
+      if (Math.random() < 0.006 + 0.02 * dmg) wreckSparks(e.x + (Math.random() - 0.5) * 30, e.y + (Math.random() - 0.5) * 16, 3);
+    });
+    const b = boss;
+    if (b && bossWarn <= 0 && BOSS_WRECK_R[b.zone] && !b.cloak) { // boss: açıkta kablolardan kıvılcım, hasarla artan duman
+      const R = BOSS_WRECK_R[b.zone], dmg = 1 - Math.max(0, b.hp) / b.maxHp, px = () => b.x + (Math.random() - 0.5) * R * 1.6, py = () => b.y + (Math.random() - 0.5) * R;
+      if (Math.random() < 0.08 + 0.5 * dmg) { wreckSmoke(px(), py(), 1.4 + dmg, true); const q = wreckFx[wreckFx.length - 1]; if (q) { q.shade = 45 + Math.floor(Math.random() * 35); q.decay *= 0.75; } } // boss dumanı gövdenin üstünde, koyu ve uzun ömürlü
+      if (Math.random() < 0.03 + 0.08 * dmg) wreckSparks(px(), py(), 4 + Math.floor(Math.random() * 3));
+    }
+  }
+  wreckFx = wreckFx.filter(p => {
+    p.x += p.vx; p.y += p.vy; p.life -= p.decay;
+    if (p.t === 'smoke') { p.r += p.gr; p.vx *= 0.98; }
+    else if (p.t === 'spark') { p.vy += 0.18; p.vx *= 0.95; }
+    else { p.vy += 0.12; p.rot += p.vr; }
+    return p.life > 0 && p.y < H + 20;
+  });
+}
+function drawWreck(kind) { // kind: 'under' duman + parçalar (gemilerin altında), 'over' kıvılcımlar
+  if (!wreckFx.length) return;
+  ctx.save();
+  if (kind === 'under') {
+    wreckFx.forEach(p => {
+      if (p.t === 'smoke' && !p.top) { const r = p.r * 1.8; ctx.globalAlpha = 0.6 * p.life; ctx.drawImage(getPuffSprite(p.shade), p.x - r, p.y - r, r * 2, r * 2); ctx.globalAlpha = 1; }
+      else if (p.t === 'bit') { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.globalAlpha = Math.min(1, p.life * 2);
+        ctx.fillStyle = '#4b4652'; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.fillStyle = '#9a8f86'; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, 1); ctx.restore(); }
+    });
+  } else {
+    wreckFx.forEach(p => { if (p.t === 'smoke' && p.top) { const r = p.r * 1.8; ctx.globalAlpha = 0.65 * p.life; ctx.drawImage(getPuffSprite(p.shade), p.x - r, p.y - r, r * 2, r * 2); } }); ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+    wreckFx.forEach(p => { if (p.t !== 'spark') return;
+      ctx.strokeStyle = `rgba(255,${190 + Math.floor(60 * p.life)},120,${p.life})`; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx * 1.8, p.y - p.vy * 1.8); ctx.stroke(); });
+  }
+  ctx.restore();
+}
 function drawExplosions() {
   // shadowBlur per-particle yerine toplu: önce büyük glow circle'lar, sonra core circle'lar
   ctx.save();
@@ -7890,6 +7953,7 @@ function update() {
         boss.flash = 8;
         Sound.sfx.hit();
         spawnExplosion(b.x, b.y, false);
+        if (boss.zone !== 4) { wreckSparks(b.x, b.y, 4, true); if (Math.random() < 0.35) wreckBit(b.x, b.y); }
         if (boss.hp <= 0) {
           if (boss.zone === 3) { boss.dying = 120; boss.shielded = true; eBullets = []; bolts = []; Sound.sfx.bigBoom(); }
           else if (boss.zone === 2) { boss.dying = 110; boss.shielded = true; lasers = []; eBullets = []; asteroids = []; Sound.sfx.bigBoom(); } // Titan yavaşça çöker
@@ -8393,6 +8457,7 @@ function update() {
                 spawnPowerup(e.x, e.y);
         } else {
           spawnExplosion(e.x, e.y, false);
+          wreckSparks(b.x, e.y + 10, 5, true); if (Math.random() < 0.5) wreckBit(b.x, e.y + 8);
           Sound.sfx.hit();
         }
       }
@@ -8417,6 +8482,7 @@ function update() {
   if (pendingEnemies.length) { enemies.push(...pendingEnemies); pendingEnemies = []; }
   // Explosions
   updateShards();
+  updateWreck();
   explosions = explosions.filter(p => {
     p.x += p.vx; p.y += p.vy;
     p.vx *= 0.96; p.vy *= 0.96;
@@ -9050,6 +9116,7 @@ function render() {
   ctx.globalAlpha = 1;
   drawShards();
   drawExplosions();
+  drawWreck('under');
 
   if (currentLevel === 7 && state !== 'levelcomplete') drawStealth();
   if (currentLevel === 8) drawTunnel();
@@ -9109,6 +9176,7 @@ function render() {
   if (currentLevel === 20 && (state === 'play' || state === 'paused') && unmakeAmp > 0.3) { twistAmp = unmakeAmp; twistGhost = unmakeGhost; twistPost(); } // L20 final: her şey dalgalanır
 
 
+  drawWreck('over');
   drawFloatTexts();
   if (state === 'play' && tutorial) drawTutorial();
 
