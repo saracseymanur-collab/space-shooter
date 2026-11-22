@@ -53,18 +53,25 @@ enemyImgs[3].src = 'ASSETS/enemy3-v2.png';
 const ENEMY_VARIANT_SRC = { 1: ['ASSETS/enemy1-v3.png', 'ASSETS/enemy1-v4.png'], 2: ['ASSETS/enemy2-v3.png', 'ASSETS/enemy2-v4.png'], 3: ['ASSETS/enemy3-v3.png', 'ASSETS/enemy3-v4.png'] };
 const enemyVarImgs = { 1: [enemyImgs[1]], 2: [enemyImgs[2]], 3: [enemyImgs[3]] };
 Object.entries(ENEMY_VARIANT_SRC).forEach(([t, L]) => L.forEach(src => { const im = new Image(); im.src = src; enemyVarImgs[t].push(im); }));
+const enemyPainted = e => e.runner || e.splitter || e.spreader || e.rammer || e.sweeper || e.burster || e.seg; // ilk görselden boyanan özel gemiler
+function enemyVarSize(e, sz) { // geminin çizim boyutu: ek görünümler kendi oranıyla, alanı ilk görselle aynı
+  const img = enemyImg(e);
+  if (!e.iv || enemyPainted(e) || !img || !img.naturalWidth) return sz;
+  const ar = img.naturalWidth / img.naturalHeight, w = Math.sqrt(sz.w * sz.h * ar); return { w, h: w / ar };
+}
 function enemyImg(e) { // geminin kendi görünümü (yüklenmediyse ilk görsel)
-  const L = enemyVarImgs[e.maxHp]; if (!L) return enemyImgs[e.maxHp];
+  const L = enemyVarImgs[e.maxHp]; if (!L || enemyPainted(e)) return enemyImgs[e.maxHp];
   if (e.iv == null) e.iv = Math.floor(Math.random() * L.length);
   const im = L[e.iv % L.length]; return im.complete && im.naturalWidth ? im : enemyImgs[e.maxHp];
 }
-const enemyImgKey = e => e.iv ? e.maxHp + 'v' + e.iv : e.maxHp; // neon / beyaz kopya önbellek anahtarı
+const enemyImgKey = e => e.iv && !enemyPainted(e) ? e.maxHp + 'v' + e.iv : e.maxHp; // neon / beyaz kopya önbellek anahtarı
 
 const bossImg = new Image();
 bossImg.src = 'ASSETS/bosses/vanguard-v3.png'; // 2026-11-22: daha kırık dökük Vanguard (v2 ile aynı silüet ve kırpım, kalkan v5 oturuyor; önceki: v2, ASSETS/boss.png)
 const BOSS_W = 145, BOSS_H = 145, BOSS_DY = 12; // kare görsel eskisinden (190×127) uzun: biraz küçük ve aşağıda çizilir
 const coreImg = new Image(); coreImg.src = 'ASSETS/bosses/core-v1.png'; // L15 Ana Çekirdek (600×607, reaktör ortada)
 const brotherImg = new Image(); brotherImg.src = 'ASSETS/bosses/brother-v1.png'; // L20 ağabeyin gemisi (400×434, burun aşağı)
+const shipShieldImg = new Image(); shipShieldImg.src = 'ASSETS/shields/boss-shield-v2.png'; // küçük kalkanlı gemiler (Rammer vb.): eski yuvarlak kalkan; boss kalkanı artık Vanguard şeklinde
 const bossShieldImg = new Image();
 bossShieldImg.src = 'ASSETS/shields/boss-shield-v5.png'; // 2026-11-22: kullanıcının kenarı petekli kalkanı (Vanguard ile aynı kırpım; siyah orta saydama çevrildi; önceki: v4, v3, v2) // sektör 1 boss kalkanı (512×352, siyah zeminden ayıklandı; v1: SOURCES/SHIELD)
 const BOSS_SHIELD_PAD = 22, BOSS_SHIELD_W = BOSS_W * 1.04, BOSS_SHIELD_H = BOSS_SHIELD_W; // kalkan görseli gövdeyi biraz payla sarar (getShieldBase artık yedek)
@@ -1800,18 +1807,18 @@ function getShieldBase() { // boss gövdesinin bulanık silüetinden yumuşak ke
   g.globalAlpha = 0.9; g.drawImage(tex, 0, 0); g.globalAlpha = 1;
   return (shieldBase = c);
 }
-function getTintedShield(col) {
-  const base = bossShieldImg; // (getShieldBase: kodla üretilen eski geçici kalkan, kullanılmıyor)
+function getTintedShield(col, base = bossShieldImg) {
+  const key = (base === bossShieldImg ? '' : 'ship:') + col; // (getShieldBase: kodla üretilen eski geçici kalkan, kullanılmıyor)
   if (!col || !base.naturalWidth) return base; // yüklenmeden boş kopya önbelleğe yazılmasın
-  if (!bossShieldTints[col]) {
+  if (!bossShieldTints[key]) {
     const c = document.createElement('canvas'); c.width = base.naturalWidth || base.width; c.height = base.naturalHeight || base.height;
     const g = c.getContext('2d');
     g.drawImage(base, 0, 0);
     g.globalCompositeOperation = 'color'; g.fillStyle = col; g.fillRect(0, 0, c.width, c.height); // parlaklık aynı, renk yeni
     g.globalCompositeOperation = 'destination-in'; g.drawImage(base, 0, 0); // şeffaflığı geri koy
-    bossShieldTints[col] = c;
+    bossShieldTints[key] = c;
   }
-  return bossShieldTints[col];
+  return bossShieldTints[key];
 }
 function drawFireball(x, y, r, a) { // titreyen ateş topu: kırmızı dış hale → turuncu → sarı-beyaz çekirdek
   const fl = 1 + 0.12 * Math.sin(frameCount * 0.9) + 0.06 * Math.sin(frameCount * 2.3);
@@ -2066,7 +2073,7 @@ function spawnExplosion(x, y, big) {
 // gemi renginde şok halkası + kısa parlama + aynı renkte kıvılcımlar
 function spawnShipDeath(e) {
   dropTitanBomb(e);
-  const tier = e.runner ? 1 : e.maxHp, sz = ENEMY_SIZES[tier] ?? { w: 80, h: 60 };
+  const tier = e.runner ? 1 : e.maxHp, sz = enemyVarSize(e, ENEMY_SIZES[tier] ?? { w: 80, h: 60 });
   const col = e.runner ? '#ffffff' : e.splitter ? '#ff8a2a' : e.spreader ? SPREAD_COL : e.seg ? SNAKE_COL : e.rammer ? RAM_COL : (e.sweeper || e.burster) ? SWEEP_COL : ENEMY_GLOW[tier] || '#ff8a40';
   const spr = e.runner ? getRunnerSprite() : e.splitter ? getSplitterSprite() : e.spreader ? getSpreaderSprite() : e.seg ? getSnakeSprite() : e.rammer ? getRammerSprite() : e.burster ? getSweeperSprite() : (e.runner ? getNeonSprite(enemyImgs[tier], tier) : getNeonSprite(enemyImg(e), enemyImgKey(e)));
   if (e.guarding) { e.guarding.guardedBy = null; e.guarding.shieldHit = 12; e.guarding = null; } // bağ koptu
@@ -5816,9 +5823,8 @@ function drawEnemy(e) {
     ctx.restore(); return;
   }
   const sz   = ENEMY_SIZES[e.maxHp] ?? { w: 80, h: 60 };
-  let dw = sz.w, dh = sz.h;
+  const vs = enemyVarSize(e, sz), dw = vs.w, dh = vs.h; // farklı görünümler kendi oranıyla, alanı ilk görselle aynı; boyanan özel gemiler ilk görselin oranıyla
   const img  = enemyImg(e), ik = enemyImgKey(e);
-  if (e.iv && img && img.naturalWidth) { const ar = img.naturalWidth / img.naturalHeight; dw = Math.sqrt(sz.w * sz.h * ar); dh = dw / ar; } // farklı görünümler kendi oranıyla, alanı ilk görselle aynı (kare görünüm daha büyük durmasın)
 
   ctx.save();
   if (currentLevel === 13 && !e.runner) { // hayalet filo: hep hafif titrer, ışınlanmadan önce güçlü
@@ -5935,7 +5941,7 @@ function drawEnemy(e) {
     if (spr) for (let i = 1; i <= 3; i++) {
       if (e.y - i * 30 < e.dashY0) break;
       ctx.globalAlpha = baseAlpha * 0.35 * (1 - i / 4); ctx.drawImage(spr, -dw / 2, -dh / 2 - i * 30, dw, dh);
-      if (bossShieldImg.naturalWidth) { const sw = dw * 1.25, sh = sw * bossShieldImg.naturalHeight / bossShieldImg.naturalWidth; ctx.drawImage(getTintedShield(BOSS_MOODS.red.tint), -sw / 2, -sh / 2 - i * 30, sw, sh); }
+      if (shipShieldImg.naturalWidth) { const sw = dw * 1.25, sh = sw * shipShieldImg.naturalHeight / shipShieldImg.naturalWidth; ctx.drawImage(getTintedShield(BOSS_MOODS.red.tint, shipShieldImg), -sw / 2, -sh / 2 - i * 30, sw, sh); }
     }
     ctx.globalAlpha = baseAlpha;
   }
@@ -5961,8 +5967,8 @@ function drawEnemy(e) {
     if (e.gunner && e.gState === 'cool') { // kalkansız: gövde beyaz nabızla parlar → "şimdi vur"
       const wsp = getWhiteSprite(img, ik);
       if (wsp) { ctx.globalAlpha = 0.18 + 0.22 * (0.5 + 0.5 * Math.sin(frameCount * 0.3)); ctx.drawImage(wsp, -dw / 2, -dh / 2, dw, dh); ctx.globalAlpha = baseAlpha; }
-    } else if (!e.guardedBy && bossShieldImg.complete && bossShieldImg.naturalWidth) { // boss kalkanının kırmızı küçük hali (vurulunca parlar)
-      const sw = dw * 1.25, sh = sw * bossShieldImg.naturalHeight / bossShieldImg.naturalWidth, img2 = getTintedShield(BOSS_MOODS.red.tint);
+    } else if (!e.guardedBy && shipShieldImg.complete && shipShieldImg.naturalWidth) { // eski yuvarlak boss kalkanının kırmızı küçük hali (vurulunca parlar)
+      const sw = dw * 1.25, sh = sw * shipShieldImg.naturalHeight / shipShieldImg.naturalWidth, img2 = getTintedShield(BOSS_MOODS.red.tint, shipShieldImg);
       ctx.globalAlpha = baseAlpha * (0.85 + 0.15 * Math.sin(frameCount * 0.12 + e.x)); ctx.drawImage(img2, -sw / 2, -sh / 2, sw, sh);
       let glow = e.shieldHit > 0 ? 0.6 : 0;
       if (e.rammer && e.rState === 'aim') glow = Math.max(glow, 0.25 + 0.35 * (0.5 + 0.5 * Math.sin(frameCount * 0.6))); // dalış öncesi nabız
@@ -9233,7 +9239,7 @@ function loop(timestamp) {
 // Resim yüklenemezse (anlık ağ hatası) birkaç kez yeniden dene — yoksa tarayıcı onu kalıcı bozuk sayıyor
 // ve gemi gibi görseller sayfa yenilenene kadar görünmüyordu.
 (function retryBrokenImages() {
-  const all = [spaceshipImg, ...enemyImgs, ...Object.values(enemyVarImgs).flat().slice(3), bossImg, coreImg, brotherImg, bossShieldImg, ...bgImgs, eShotImg, ...Object.values(powerupImgs), ...cardImgs,
+  const all = [spaceshipImg, ...enemyImgs, ...Object.values(enemyVarImgs).flat().slice(3), bossImg, coreImg, brotherImg, bossShieldImg, shipShieldImg, ...bgImgs, eShotImg, ...Object.values(powerupImgs), ...cardImgs,
     ...Object.values(rockImgs).flat()].filter(Boolean);
   const retry = im => {
     im._tries = (im._tries || 0) + 1;
