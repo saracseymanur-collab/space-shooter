@@ -7835,7 +7835,10 @@ function update() {
   if (slowMoT > 0) slowMoT--;
   if (currentLevel !== _zoneLastLevel && !boss && currentWave > currentLevel * 5 && enemies.length === 0 && slowMoT <= 0 && !asteroids.some(a => a.sl) && !stealthScans.length && !haulers.length && !drifters.length && slalomSpd > 0 && slalomOutro < SLALOM_OUTRO) {
     if (slalomOutro === 0 && survivors > 0) addFloat(W / 2, H * 0.42, survivors + ' SURVIVORS', '#9fe8ff', true);
-    if (slalomOutro++ === 0) showToast(currentLevel === 9 ? 'SOMETHING WOKE UP' : currentLevel === 7 ? 'THE GATES CLOSE BEHIND YOU' : 'SOMETHING IS OUT THERE', currentLevel === 9 ? '#ff4d66' : '#ffb347', SLALOM_OUTRO);
+    const l6 = currentLevel !== 9 && currentLevel !== 7; // L6: önce merak, üs görününce ne olduğu (2026-11-22, kullanıcı seçti)
+    if (slalomOutro === 0) showToast(currentLevel === 9 ? 'SOMETHING WOKE UP' : currentLevel === 7 ? 'THE GATES CLOSE BEHIND YOU' : 'SOMETHING IS OUT THERE', currentLevel === 9 ? '#ff4d66' : '#ffb347', l6 ? 78 : SLALOM_OUTRO);
+    if (l6 && slalomOutro === 80) showToast('THEY ARE MINING THE BELT', '#ffb347', SLALOM_OUTRO - 80);
+    slalomOutro++;
     if (currentLevel === 9) hurtFx = Math.max(hurtFx, 10); // yer sarsılır: Rock Titan uyanıyor
   } else if (currentLevel === 14 && !archiveDone && !boss && currentWave > currentLevel * 5 && enemies.length === 0 && slowMoT <= 0) {
     if (!archiveCard) { archiveCard = { t: 0 }; Sound.sfx.wave(); } // önce çözülen mesaj, sonra LEVEL CLEAR

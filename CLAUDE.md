@@ -192,6 +192,7 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 
 ### Claude cevapları (2026-11-18, sırası gelince konuşulacak)
 - (1) Panel metni: "A rescue fleet was sent. You were among them. But someone else had heard the call too." Düşman açıkça yok, pusu sonraki panelde. Öneri: bu panelde filo yola çıkarken, en fazla uzakta belli belirsiz bir gölge; düşman gemileri sonraki panele.
+- (5) YAPILDI (2026-11-22, kullanıcı seçti): L6 sonu iki yazı: SOMETHING IS OUT THERE (78 kare) → üs görününce THEY ARE MINING THE BELT. Kullanıcı maden üssü görselini üretecek (prompt verildi: asteroide oyulmuş derme çatma maden üssü, 1536×768, alt kenar saydama söner); gelince `drawMineSilhouette` yerine bağlanacak.
 - (5) SOMETHING IS OUT THERE: L6 sonunda hız düşer, kodla çizilmiş maden silüeti + yazı; amaç L7'ye köprü (STORY.md: Asteroid Belt = Void Rebellion'ın gizli maden ve üretim üssü; L7'de üsse sızılır, L8 içeride matkaplar). Katkısı zayıf: oyuncu "orada ne var" öğrenmiyor. Seçenekler: a) net söyle (A HIDDEN BASE / THEY ARE MINING THE BELT + ışıkları yanan çalışan maden üssü görseli) b) gizemi koru (kayalar arasında ışıklar/sinyal, L7'de çözülür). Claude önerisi: a.
 
 
