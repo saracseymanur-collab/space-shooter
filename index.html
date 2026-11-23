@@ -4384,7 +4384,7 @@ function drawCenter(b) {
 }
 // L10 Rock Titan. Faz 1 Kaya Fırlatma · Faz 2 Matkap Dalışı · Faz 3 Göçük. Çekirdek sadece açıkken hasar alır.
 const TITAN_Y = H * 0.23, TITAN_DIVE_Y = H * 0.5;
-function titanThrow(lanes) { lanes.forEach(l => lasers.push({ lane: l, t: 0, warn: 44, fire: 30, hit: true, meteor: true, y0: boss.y + 50 })); }
+function titanThrow(lanes) { lanes.forEach(l => lasers.push({ lane: l, t: 0, warn: 38, fire: 30, hit: true, meteor: true, y0: boss.y + 50 })); }
 function updateTitan() {
   const b = boss;
   if (b.dying > 0) {
@@ -4397,16 +4397,17 @@ function updateTitan() {
   if (bossWarn > 0) { b.shielded = true; b.y += (TITAN_Y - b.y) * 0.04; return; }
   const ph = b.phase, pick = l => l[Math.floor(Math.random() * l.length)];
   if (ph !== b.lastPh) { // zırh dökülür
-    b.lastPh = ph; b.tState = 'shed'; b.tT = 70; b.flash = 24; hurtFx = 16; eBullets = []; lasers = [];
+    b.lastPh = ph; b.tState = 'shed'; b.tT = 56; b.flash = 24; hurtFx = 16; eBullets = []; lasers = [];
     for (let i = 0; i < 6; i++) spawnExplosion(b.x + (Math.random() - 0.5) * 170, b.y + (Math.random() - 0.5) * 110, true);
     Sound.sfx.rockCrack(30);
     showToast(ph === 2 ? 'ITS ARMOR IS BREAKING' : 'THE CEILING IS COMING DOWN', '#ff8a3c', 90);
   }
-  b.x += (LANE_CENTERS[b.lane] - b.x) * 0.14;
-  const home = () => { b.y += (TITAN_Y - b.y) * 0.1; };
+  // 2026-11-23 (kullanıcı: Titan hantal): daha çevik; kısa beklemeler, hızlı dalış, son fazda daha çok baskı
+  b.x += (LANE_CENTERS[b.lane] - b.x) * 0.2;
+  const home = () => { b.y += (TITAN_Y - b.y) * 0.14; };
   b.shielded = !(b.tState === 'open' || b.tState === 'stuck' || b.tState === 'strike');
   switch (b.tState) {
-    case 'shed': home(); if (--b.tT <= 0) { b.tState = 'idle'; b.tT = 16; } break;
+    case 'shed': home(); if (--b.tT <= 0) { b.tState = 'idle'; b.tT = 10; } break;
     case 'idle':
       home();
       if (--b.tT > 0) break;
@@ -4416,33 +4417,33 @@ function updateTitan() {
         e.mini = true; e.hp = e.maxHp = 2; e.sl = false; e.speed = 3.4; e.free = true;
       }
       if (ph === 1) {
-        b.lane = pick([0, 1, 2]); b.tState = 'aim'; b.tT = 44;
+        b.lane = pick([0, 1, 2]); b.tState = 'aim'; b.tT = 34;
         const l = playerLaneNow();
         titanThrow(Math.random() < 0.7 ? [l] : [l, pick([0, 1, 2].filter(n => n !== l))]);
       } else if (ph === 2) {
-        if (b.dives >= 2) { b.dives = 0; b.tState = 'aim'; b.tT = 44; const l = playerLaneNow(); titanThrow([l, pick([0, 1, 2].filter(n => n !== l))]); }
-        else { b.lane = playerLaneNow(); b.tState = 'mark'; b.tT = 34; }
+        if (b.dives >= 2) { b.dives = 0; b.tState = 'aim'; b.tT = 34; const l = playerLaneNow(); titanThrow([l, pick([0, 1, 2].filter(n => n !== l))]); }
+        else { b.lane = playerLaneNow(); b.tState = 'mark'; b.tT = 26; }
       } else { b.tState = 'rows'; b.tT = 10; b.rowN = 0; }
       break;
-    case 'aim': home(); if (--b.tT <= 0) { b.tState = 'open'; b.tT = ph === 1 ? 130 : 110; } break;
+    case 'aim': home(); if (--b.tT <= 0) { b.tState = 'open'; b.tT = ph === 1 ? 115 : 100; } break;
     case 'open': // çekirdek açıkken de kaya atar: dur vur, sonra kaç
       home();
-      if (ph === 1 && b.tT === 40 && !lasers.length) titanThrow([playerLaneNow()]);
-      if (--b.tT <= 0) { b.tState = 'idle'; b.tT = 14; }
+      if ((ph === 1 && b.tT === 40 || ph === 3 && (b.tT === 90 || b.tT === 40)) && !lasers.length) titanThrow([playerLaneNow()]); // F3: açıkken iki kez kaya
+      if (--b.tT <= 0) { b.tState = 'idle'; b.tT = 10; }
       break;
     case 'mark': if (--b.tT <= 0) b.tState = 'dive'; break;
     case 'dive':
-      b.y += 15;
+      b.y += 19;
       if (b.y >= TITAN_DIVE_Y) { b.y = TITAN_DIVE_Y; b.tState = 'strike'; b.tT = 14; hurtFx = Math.max(hurtFx, 12); Sound.sfx.rockCrack(30); }
       break;
     case 'strike': // matkap şeridi yarar
       if (!player.dead && Math.abs(player.x - LANE_CENTERS[b.lane]) < 60 && !(player.invuln > 0)) damagePlayer('Drilled by the Rock Titan!');
-      if (--b.tT <= 0) { b.tState = 'stuck'; b.tT = 105; }
+      if (--b.tT <= 0) { b.tState = 'stuck'; b.tT = 92; }
       break;
     case 'stuck': if (--b.tT <= 0) b.tState = 'rise'; break; // saplandı: çekirdek açık
     case 'rise':
       home();
-      if (b.y < TITAN_Y + 12) { b.dives++; b.tState = 'idle'; b.tT = 12; }
+      if (b.y < TITAN_Y + 12) { b.dives++; b.tState = 'idle'; b.tT = 8; }
       break;
     case 'rows': { // göçük: tek boşluklu kaya sıraları, Titan boşluğun üstünde durur
       home();
@@ -4454,7 +4455,7 @@ function updateTitan() {
         a.size = 28; a.y = b.y + 40; a.speed = fast ? 6.6 : 5.6; a.amb = true; a.rotSpeed = 0.02;
       });
       hurtFx = Math.max(hurtFx, 6);
-      b.rowN++; b.tT = fast ? 36 : 42;
+      b.rowN++; b.tT = fast ? 32 : 38; // 2026-11-23: göçük biraz daha sık (eski 36/42); 4 sıra bot pro'yu 2 → 3.6 can kaybettiriyordu, 3 kaldı
       if (b.rowN >= 3) b.tState = 'settle';
       break;
     }
