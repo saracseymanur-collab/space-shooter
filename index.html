@@ -4537,18 +4537,21 @@ function updateTitanBombs() {
     return false;
   });
 }
+const titanBombImg = new Image(); titanBombImg.src = 'ASSETS/powerups/titan-bomb-v1.png'; // 2026-11-23: kullanıcının derme çatma enerji hücresi (L10 / L15 bombası; genel bomba rozeti aynı)
+const titanBombReady = () => titanBombImg.complete && titanBombImg.naturalWidth > 0;
 function drawTitanBombs() {
   bombDrops.forEach(d => {
     ctx.fillStyle = 'rgba(255,179,71,0.3)'; ctx.beginPath(); ctx.arc(d.x, d.y, 26, 0, Math.PI * 2); ctx.fill();
-    if (powerupImgReady('bomb')) ctx.drawImage(powerupImgs.bomb, d.x - 20, d.y - 20, 40, 40);
+    if (titanBombReady()) ctx.drawImage(titanBombImg, d.x - 22, d.y - 22, 44, 44); else if (powerupImgReady('bomb')) ctx.drawImage(powerupImgs.bomb, d.x - 20, d.y - 20, 40, 40);
   });
   bombShots.forEach(q => {
-    ctx.fillStyle = '#ffb347'; ctx.beginPath(); ctx.arc(q.x, q.y, 12, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(q.x, q.y, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,179,71,0.35)'; ctx.beginPath(); ctx.arc(q.x, q.y + 14, 10, 0, Math.PI * 2); ctx.fill(); // turuncu iz
+    if (titanBombReady()) ctx.drawImage(titanBombImg, q.x - 15, q.y - 15, 30, 30);
+    else { ctx.fillStyle = '#ffb347'; ctx.beginPath(); ctx.arc(q.x, q.y, 12, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(q.x, q.y, 5, 0, Math.PI * 2); ctx.fill(); }
   });
   if ((currentLevel === 10 || currentLevel === 15) && state === 'play' && !briefing) { // bomba sayısı (üstte, düğme değil)
     const y = boss ? HUD_H + 42 : HUD_H + 18;
-    if (powerupImgReady('bomb')) ctx.drawImage(powerupImgs.bomb, W / 2 - 30, y - 13, 26, 26);
+    if (titanBombReady()) ctx.drawImage(titanBombImg, W / 2 - 32, y - 15, 30, 30); else if (powerupImgReady('bomb')) ctx.drawImage(powerupImgs.bomb, W / 2 - 30, y - 13, 26, 26);
     ctx.fillStyle = titanBombs ? '#ffb347' : 'rgba(255,179,71,0.45)'; ctx.textBaseline = 'middle';
     drawSpaced('× ' + titanBombs, W / 2 + 16, y, 14, 700, UI_FONT, 1);
     if (titanCoreOpen() && titanBombs > 0 && Math.floor(frameCount / 14) % 2) {
@@ -9294,7 +9297,7 @@ function loop(timestamp) {
 // Resim yüklenemezse (anlık ağ hatası) birkaç kez yeniden dene — yoksa tarayıcı onu kalıcı bozuk sayıyor
 // ve gemi gibi görseller sayfa yenilenene kadar görünmüyordu.
 (function retryBrokenImages() {
-  const all = [spaceshipImg, ...enemyImgs, ...Object.values(enemyVarImgs).flat().slice(3), bossImg, coreImg, brotherImg, titanImg, titanShedImg, miniTitanImg, bossShieldImg, shipShieldImg, ...bgImgs, eShotImg, ...Object.values(powerupImgs), ...cardImgs,
+  const all = [spaceshipImg, ...enemyImgs, ...Object.values(enemyVarImgs).flat().slice(3), titanBombImg, bossImg, coreImg, brotherImg, titanImg, titanShedImg, miniTitanImg, bossShieldImg, shipShieldImg, ...bgImgs, eShotImg, ...Object.values(powerupImgs), ...cardImgs,
     ...Object.values(rockImgs).flat()].filter(Boolean);
   const retry = im => {
     im._tries = (im._tries || 0) + 1;
