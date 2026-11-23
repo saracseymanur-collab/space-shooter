@@ -3172,18 +3172,41 @@ function beginRiftWorld() {
   ctx.translate(W / 2, H / 2); ctx.rotate(riftAng); const k = riftZoom(); ctx.scale(k, k); ctx.translate(-W / 2, -H / 2);
   return true;
 }
+const riftTearImg = new Image(); riftTearImg.src = 'ASSETS/story/rift-tear-v1.png'; // 2026-11-24: kullanıcının yırtık görseli (beyaz kenar, türe göre boyanır)
+const riftTears = {};
+function getRiftTear(col) { // yırtığın türe göre boyanmış + parlayan kopyası (bir kez)
+  if (riftTears[col] || !riftTearImg.complete || !riftTearImg.naturalWidth) return riftTears[col] || null;
+  const w = riftTearImg.naturalWidth, h = riftTearImg.naturalHeight, pad = 30;
+  const t = document.createElement('canvas'); t.width = w; t.height = h; const tg = t.getContext('2d');
+  tg.drawImage(riftTearImg, 0, 0); tg.globalCompositeOperation = 'color'; tg.fillStyle = `rgb(${col})`; tg.fillRect(0, 0, w, h);
+  tg.globalCompositeOperation = 'destination-in'; tg.drawImage(riftTearImg, 0, 0);
+  const c = document.createElement('canvas'); c.width = w + pad * 2; c.height = h + pad * 2; const g = c.getContext('2d');
+  g.shadowColor = `rgb(${col})`; g.shadowBlur = 22; g.drawImage(t, pad, pad); g.shadowBlur = 0; g.drawImage(t, pad, pad);
+  return (riftTears[col] = { c, pad, w, h });
+}
 function drawRifts() { // inen yarıklar (dönmemiş ekranda)
   rifts.forEach(r => {
     const D = RIFT[r.type], fl = riftFlipped(), y = fl ? H - r.y - RIFT_H : r.y, mid = y + RIFT_H / 2; // ters dönükken alttan yukarı gelir
     ctx.save();
-    const g = ctx.createLinearGradient(0, y, 0, y + RIFT_H);
-    g.addColorStop(0, `rgba(${D.col},0)`); g.addColorStop(0.5, `rgba(${D.col},0.38)`); g.addColorStop(1, `rgba(${D.col},0)`);
-    ctx.fillStyle = g; ctx.fillRect(0, y, W, RIFT_H);
+    const T = getRiftTear(D.col);
+    if (T) { // yırtık: ekranı boydan boya geçer, kenarları nabız gibi parlar, türe göre hafifçe titrer
+      const k = (W + 20) / T.w, dw = (T.w + T.pad * 2) * k, dh = (T.h + T.pad * 2) * k, jit = r.type === 'fast' ? (Math.random() - 0.5) * 3 : 0;
+      const sy = 1 + 0.06 * Math.sin(frameCount * (r.type === 'slow' ? 0.05 : 0.15));
+      ctx.translate(W / 2 + jit, mid); ctx.scale(1, sy); if (fl) ctx.scale(1, -1);
+      ctx.drawImage(T.c, -dw / 2, -dh / 2, dw, dh);
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.25 + 0.2 * Math.sin(frameCount * 0.12);
+      ctx.drawImage(T.c, -dw / 2, -dh / 2, dw, dh);
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.globalAlpha = 1;
+      for (let i = 0; i < 8; i++) { // yırtığa doğru çekilen kıvılcımlar
+        const p = ((frameCount * 0.02) + i / 8) % 1, sx = (i * 53) % W, side = i % 2 ? 1 : -1, py = mid + side * (40 - p * 34);
+        ctx.fillStyle = `rgba(${D.col},${0.8 * (1 - p)})`; ctx.fillRect(sx + p * 10, py, 2, 2);
+      }
+    } else {
+      const g = ctx.createLinearGradient(0, y, 0, y + RIFT_H);
+      g.addColorStop(0, `rgba(${D.col},0)`); g.addColorStop(0.5, `rgba(${D.col},0.38)`); g.addColorStop(1, `rgba(${D.col},0)`);
+      ctx.fillStyle = g; ctx.fillRect(0, y, W, RIFT_H);
+    }
     ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = `rgba(${D.col},0.8)`; ctx.lineWidth = 2;
-    ctx.beginPath(); // dalgalı orta çizgi
-    for (let x = 0; x <= W; x += 6) { const yy = mid + Math.sin(x * 0.045 + frameCount * (r.type === 'slow' ? 0.04 : 0.25)) * 6; x ? ctx.lineTo(x, yy) : ctx.moveTo(x, yy); }
-    ctx.stroke();
     if (r.type === 'slow') { // ağır genişleyen halkalar
       for (let i = 0; i < 3; i++) { const p = ((frameCount * 0.006) + i / 3) % 1; ctx.strokeStyle = `rgba(${D.col},${0.5 * (1 - p)})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(W / 2, mid, 30 + p * 170, 6 + p * 22, 0, 0, Math.PI * 2); ctx.stroke(); }
     } else if (r.type === 'fast') { // hızla akan çizgiler
@@ -9297,7 +9320,7 @@ function loop(timestamp) {
 // Resim yüklenemezse (anlık ağ hatası) birkaç kez yeniden dene — yoksa tarayıcı onu kalıcı bozuk sayıyor
 // ve gemi gibi görseller sayfa yenilenene kadar görünmüyordu.
 (function retryBrokenImages() {
-  const all = [spaceshipImg, ...enemyImgs, ...Object.values(enemyVarImgs).flat().slice(3), titanBombImg, bossImg, coreImg, brotherImg, titanImg, titanShedImg, miniTitanImg, bossShieldImg, shipShieldImg, ...bgImgs, eShotImg, ...Object.values(powerupImgs), ...cardImgs,
+  const all = [spaceshipImg, ...enemyImgs, ...Object.values(enemyVarImgs).flat().slice(3), titanBombImg, riftTearImg, bossImg, coreImg, brotherImg, titanImg, titanShedImg, miniTitanImg, bossShieldImg, shipShieldImg, ...bgImgs, eShotImg, ...Object.values(powerupImgs), ...cardImgs,
     ...Object.values(rockImgs).flat()].filter(Boolean);
   const retry = im => {
     im._tries = (im._tries || 0) + 1;
