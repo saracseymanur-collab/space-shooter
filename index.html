@@ -78,7 +78,7 @@ const brotherImg = new Image(); brotherImg.src = 'ASSETS/bosses/brother-v1.png';
 const shipShieldImg = new Image(); shipShieldImg.src = 'ASSETS/shields/boss-shield-v2.png'; // küçük kalkanlı gemiler (Rammer vb.): eski yuvarlak kalkan; boss kalkanı artık Vanguard şeklinde
 const bossShieldImg = new Image();
 bossShieldImg.src = 'ASSETS/shields/boss-shield-v5.png'; // 2026-11-22: kullanıcının kenarı petekli kalkanı (Vanguard ile aynı kırpım; siyah orta saydama çevrildi; önceki: v4, v3, v2) // sektör 1 boss kalkanı (512×352, siyah zeminden ayıklandı; v1: SOURCES/SHIELD)
-const BOSS_SHIELD_PAD = 22, BOSS_SHIELD_W = BOSS_W * 1.04, BOSS_SHIELD_H = BOSS_SHIELD_W; // kalkan görseli gövdeyi biraz payla sarar (getShieldBase artık yedek)
+const BOSS_SHIELD_PAD = 22, BOSS_SHIELD_W = BOSS_W * 1.04, BOSS_SHIELD_H = BOSS_SHIELD_W; // kalkan görseli gövdeyi biraz payla sarar
 
 // Düşman görsel boyutları — gerçek en/boy oranına göre (sıkı kırpılmış assetler)
 // Şerit 130px: en büyük düşman şeridin ~%85'i (zikzakta komşu şeride taşmaz), küçükler okunur kalır
@@ -431,7 +431,7 @@ const LANE_CENTERS = [LANE_W * 0.5, LANE_W * 1.5, LANE_W * 2.5];
 // --- Menu ---
 const MENU_CARDS = [
   { name: 'Deep Space',    sub: 'Clear the Enemy Patrols', locked: false, col1: '#001030', col2: '#002860' },
-  { name: 'Asteroid Belt', sub: 'Chase the Main Fleet',    locked: true,  col1: '#150e04', col2: '#241808' },
+  { name: 'Asteroid Belt', sub: 'Find Their Hidden Mine',    locked: true,  col1: '#150e04', col2: '#241808' },
   { name: 'Nebula',        sub: 'Find the Command Center', locked: true,  col1: '#160020', col2: '#240030' },
   { name: 'Black Hole',    sub: 'Face Their Leader',       locked: true,  col1: '#040404', col2: '#0c0c0c' },
 ];
@@ -454,14 +454,6 @@ const INTRO_PANELS = [ // hikâye V1.0 (SOURCES/STORY/STORY.md): düşman kim be
   "A rescue fleet was sent. You were among them. But someone else had heard the call too.", // isyancılar sinyali ele geçirdi
   "They turned it into a trap. Your fleet was destroyed. You alone survived.",
   "The enemy is heading for your home. No reinforcements. No way back. Only you can stop them.",
-];
-const ENDING_PANELS = [
-  "The Void Leader is gone — swallowed by the black hole it called home.",
-  "Without their leader, the Void Colony's fleet stops. Then, one by one, they lower their weapons.",
-  "They were never monsters. Only survivors — abandoned, changed, and afraid.",
-  "A new message is sent toward Astra. Not a warning this time. Two words: \"Come home.\"",
-  "You came to save one planet. Maybe you saved two.",
-  "THE END",
 ];
 const INTRO_IMG_FILES = ['intro-1', 'intro-2', 'intro-3', 'intro-search-v1', 'intro-4', 'intro-5-v2', 'intro-6', 'intro-7-v2']; // 2026-11-22: panel 4 görseli + panel 6/8 derme çatma düşmanlarla yenilendi // null: görseli henüz yok (arama gemileri paneli, kullanıcı üretecek)
 const INTRO_IMGS = INTRO_IMG_FILES.map(f => { if (!f) return null; const im = new Image(); im.src = `ASSETS/story/${f}.jpg`; return im; }); // panel görselleri (852×1846; orijinaller SOURCES/STORY/intro)
@@ -726,12 +718,10 @@ function baseLevelConfig() {
       return { interval: 999, doubleChance: 0, speed: () => 3, hp: () => 1, canShoot: false, zigzag: false, stealth: STEALTH_WAVES[lw - 1] };
     }
     case 8: { // Dev Matkaplar: duvardan uzanıp çekilen matkapların arasından geç (updateDrills).
-      // Diğer denemeler için drills yerine tunnel: TUNNEL_WAVES[lw - 1] ya da digger: DIGGER_WAVES[lw - 1] yaz
       const lw = Math.min(5, getWave() - (currentLevel - 1) * 5);
       return { interval: 999, doubleChance: 0, speed: () => 5, hp: () => 1, canShoot: false, zigzag: false, drills: DRILL_WAVES[lw - 1] };
     }
     case 9: { // Ateşi Kes: dokunuşla ateş aç/kapat; düşmanı vur, kapsülü ve patlayıcıyı vurma (updateConvoy).
-      // Yük gemisi denemesi için convoy yerine haulers: HAULER_WAVES[lw - 1] yaz
       const lw = Math.min(5, getWave() - (currentLevel - 1) * 5);
       return { interval: 999, doubleChance: 0, speed: () => 3, hp: () => 1, canShoot: false, zigzag: false, convoy: CONVOY_WAVES[lw - 1] };
     }
@@ -813,7 +803,6 @@ function baseLevelConfig() {
       };
     }
     case 19: { // TWISTED SPACE: akıntı gemiyi yana sürükler, her şey uzar, ekran dalgalanır
-      // Denenenler: EVENT HORIZON (horizon: HORIZON_WAVES[lw - 1]), TIDAL STRETCH (tidal: TIDAL_WAVES[lw - 1]), SEVERED SPACE (sever: SEVER_WAVES[lw - 1])
       const lw = Math.min(5, Math.max(1, getWave() - (currentLevel - 1) * 5));
       const Z = TWIST_WAVES[lw - 1];
       return {
@@ -1112,7 +1101,7 @@ canvas.addEventListener('click', e => {
         zoneTransPhase = 'fadein';
         state = 'zonetransition';
       } else {
-        startCinematic(ENDING_PANELS); // final boss → kapanış hikâyesi
+        startCinematic(ENDING_A_PANELS); // (yedek) final seçimi atlanırsa: kavuşma sonu
       }
       return;
     }
@@ -1170,7 +1159,7 @@ function startLevel(level) {
   playFrames     = (level - 1) * LEVEL_SEC * 60;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; shards = []; powerups = [];
-  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; tunnelSegs = []; tunnelLane = 1; tunnelSpd = 0; tunnelCargo = false; digY = 0; digSpd = 0; digT = 0; digLane = 1; digCargo = false; digHeat = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; haulers = []; haulerWait = 0; haulerGold = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; towSeen = false; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; ccSeen = null; gates = []; gateT = 0; dashT = 0; dashTrail = 0; gateSeen = null; corridorY = 0; streamLane = 1; streamX = 0; streamNext = -1; streamT = 0; streamPre = 0; archive = 0; archiveCard = null; archiveDone = false; streamBits = []; inStream = false; streamChain = false; warpT = 0; warpWarn = 0; warpTrails = []; warpSeen = null; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1; stormClouds = []; stormCloudT = 0; stormShake = 0; rifts = []; riftMode = null; riftT = 0; riftNext = 90; riftIdx = 0; riftScaleCur = 1; riftAng = 0; riftAngTgt = 0; riftFlip = false; riftFx = 0; riftSeen = null; mirrorSeen = null; ringRows = []; ringT = 0; ringSeen = null; tidalSeen = null; sever = null; severT = 90; severLast = -1; severBump = 0; severSeen = null; twistDir = Math.random() < 0.5 ? -1 : 1; twistT = 0; twistD = 0; twistAmp = 0; twistGhost = 0; twistPin = 0; twistPrev = null; photonSeen = null; photonN = 0; duelVec = null; duelSignal = 0; unmakeT = 0; unmakeBits = []; unmakeArms = []; unmakeFold = null; unmakeAmp = 0; unmakeGhost = 0; unmakeGlitch = 0; unmakeFlash = 0; unmakeShell = []; hzTop = 0; echoDark = 0; wreckFx = []; echoHist = []; echoEsc = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]; echoLastLane = 1;
+  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; towSeen = false; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; ccSeen = null; gates = []; gateT = 0; dashT = 0; dashTrail = 0; gateSeen = null; corridorY = 0; streamLane = 1; streamX = 0; streamNext = -1; streamT = 0; streamPre = 0; archive = 0; archiveCard = null; archiveDone = false; streamBits = []; inStream = false; streamChain = false; warpT = 0; warpWarn = 0; warpTrails = []; warpSeen = null; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1; stormClouds = []; stormCloudT = 0; stormShake = 0; rifts = []; riftMode = null; riftT = 0; riftNext = 90; riftIdx = 0; riftScaleCur = 1; riftAng = 0; riftAngTgt = 0; riftFlip = false; riftFx = 0; riftSeen = null; mirrorSeen = null; ringRows = []; ringT = 0; ringSeen = null; twistDir = Math.random() < 0.5 ? -1 : 1; twistT = 0; twistD = 0; twistAmp = 0; twistGhost = 0; twistPin = 0; twistPrev = null; photonSeen = null; photonN = 0; duelSignal = 0; unmakeT = 0; unmakeBits = []; unmakeAmp = 0; unmakeGhost = 0; unmakeGlitch = 0; unmakeFlash = 0; hzTop = 0; echoDark = 0; wreckFx = []; echoHist = []; echoEsc = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]; echoLastLane = 1;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
   countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
@@ -1181,7 +1170,7 @@ function startLevel(level) {
   // Zone 2 mechanics reset
   crystals = []; crystalMeter = 0; overdriveTimer = 0;
   meteorTimer = 0; floatTexts = [];
-  player.lane = 1; player.targetLane = 1; player.y = level === 20 ? PHOTON_Y : H - 160; hzKick = 0; hzFx = 0;
+  player.lane = 1; player.targetLane = 1; player.y = level === 20 ? PHOTON_Y : H - 160;
   player.x = LANE_CENTERS[1];
   player.dead = false; player.deathTimer = 0; player.flash = 0; player.invuln = 0;
   player.shieldTimer = 0; player.doubleTimer = 0; player.tripleTimer = 0;
@@ -1234,7 +1223,6 @@ function spawnEnemy(yOffset = 0) {
     splitter: false,
   });
   const ne = enemies[enemies.length - 1];
-  if (cfg && cfg.tidal && Math.random() < cfg.tidal.stretch && (lane !== 1 || Math.random() < cfg.tidal.mid)) { ne.tidal = { span: lane === 1 ? 3 : 2, w: 0, c: 0, fired: false }; ne.canShoot = false; ne.hp = ne.maxHp = 3; ne.armor = 1.5; } // L19: 3 can × zırh 1.5, sadece çekirdekten (zırh 2: pro 2.6, zırhsız: pro 0.3)
   if (cfg && cfg.mirror && lane !== 1) { ne.mirror = true; if (Math.random() < cfg.mirror.swap) ne.swapY = H * (0.26 + Math.random() * 0.18); }
   if (cfg && cfg.splitter && Math.random() < cfg.splitter) { ne.splitter = true; ne.hp = ne.maxHp = 2; ne.canShoot = false; }
   else if (cfg && cfg.mini && Math.random() < cfg.mini) { ne.mini = true; ne.hp = ne.maxHp = 3; ne.canShoot = false; ne.speed = 3; }
@@ -1582,7 +1570,6 @@ function damagePlayer(cause) {
   try { if (navigator.vibrate) navigator.vibrate(60); } catch(e) {} // Android: kısa titreşim
   lives--;
   player.flash = 50; player.invuln = 60;
-  if (horizonOn() && !cause.startsWith('Pulled')) horizonPush(40); // L19: vurulunca ufka savrulur
   if (lives <= 0) {
     deathCause = cause;
     player.dead = true;
@@ -1785,34 +1772,8 @@ function updateBossMood(b) {
 }
 // kalkanın renklendirilmiş kopyaları (bir kez hazırlanır; her karede filtre yok → iPhone'da takılmaz)
 const bossShieldTints = {};
-let shieldBase = null;
-function getShieldBase() { // boss gövdesinin bulanık silüetinden yumuşak kenarlı baloncuk: içi altıgen dokulu yarı saydam, kenarı parlak
-  if (shieldBase) return shieldBase;
-  if (!bossImg.complete || !bossImg.naturalWidth || !bossShieldImg.complete || !bossShieldImg.naturalWidth) return null;
-  const k = 2, size = BOSS_SHIELD_W * k, pad = BOSS_SHIELD_PAD * k, bw = BOSS_W * k, N = 18;
-  const sm = document.createElement('canvas'); sm.width = sm.height = N; const sg = sm.getContext('2d'); // küçük çizip büyütünce bulanıklaşır
-  sg.drawImage(bossImg, pad * N / size, pad * N / size, bw * N / size, bw * N / size);
-  const big = document.createElement('canvas'); big.width = big.height = size; const bg = big.getContext('2d');
-  bg.imageSmoothingEnabled = true; bg.imageSmoothingQuality = 'high'; bg.drawImage(sm, 0, 0, size, size);
-  let field; try { field = bg.getImageData(0, 0, size, size); } catch (e) { return null; }
-  const c = document.createElement('canvas'); c.width = c.height = size; const g = c.getContext('2d');
-  const out = g.createImageData(size, size), A = field.data, O = out.data, lo = 10, hi = 34;
-  for (let i = 0; i < A.length; i += 4) {
-    const a = A[i + 3];
-    if (a < lo) continue;
-    if (a < hi) { const e = 1 - Math.abs((a - (lo + hi) / 2) / ((hi - lo) / 2)); O[i] = 230; O[i + 1] = 180; O[i + 2] = 255; O[i + 3] = 90 + 165 * e; } // kenar bandı
-    else { O[i] = 150; O[i + 1] = 80; O[i + 2] = 240; O[i + 3] = 62; } // iç: yarı saydam
-  }
-  g.putImageData(out, 0, 0);
-  const tex = document.createElement('canvas'); tex.width = tex.height = size; const tg = tex.getContext('2d'); // altıgen doku, sadece iç bölgede
-  const sw = bossShieldImg.naturalWidth, sh = bossShieldImg.naturalHeight;
-  tg.drawImage(bossShieldImg, sw * 0.3, sh * 0.3, sw * 0.4, sh * 0.4, 0, 0, size, size);
-  tg.globalCompositeOperation = 'destination-in'; tg.drawImage(c, 0, 0);
-  g.globalAlpha = 0.9; g.drawImage(tex, 0, 0); g.globalAlpha = 1;
-  return (shieldBase = c);
-}
 function getTintedShield(col, base = bossShieldImg) {
-  const key = (base === bossShieldImg ? '' : 'ship:') + col; // (getShieldBase: kodla üretilen eski geçici kalkan, kullanılmıyor)
+  const key = (base === bossShieldImg ? '' : 'ship:') + col;
   if (!col || !base.naturalWidth) return base; // yüklenmeden boş kopya önbelleğe yazılmasın
   if (!bossShieldTints[key]) {
     const c = document.createElement('canvas'); c.width = base.naturalWidth || base.width; c.height = base.naturalHeight || base.height;
@@ -2227,10 +2188,7 @@ function hazardWindows() {
     if (t + d > 0) lanesHit(b.x + (b.vx || 0) * Math.max(0, t), 30).forEach(lane => out.push({ lane, t0: t - d, t1: t + d }));
   });
   lasers.forEach(L => out.push({ lane: L.lane, t0: L.warn - L.t, t1: L.warn - L.t + (L.meteor ? 60 : L.fire) }));
-  unmakeArms.forEach(A => out.push({ lane: A.lane, t0: A.warn - A.t, t1: A.warn - A.t + A.slam })); // L20 kütle kolu
-  if (duelVec && duelVec.t >= VEC_TRACK) out.push({ lane: duelVec.lane, t0: VEC_TRACK + VEC_LOCK - duelVec.t, t1: VEC_TRACK + VEC_LOCK + VEC_FIRE - duelVec.t }); // L20 Last Vector
   bolts.forEach(B => out.push({ lane: B.lane, t0: B.warn - B.t, t1: B.warn - B.t + B.fire }));
-  if (currentLevel === 19 && severOn()) [0, 1, 2].forEach(l => { if (!severReach(l)) out.push({ lane: l, t0: -999, t1: sever.dur - sever.t }); }); // L19: perdenin öbür yanı ulaşılmaz
   ringRows.forEach(r => { if (r.hit) return; const t = (py - r.y) / r.spd, d = (RING_H / 2 + 16) / r.spd; [0, 1, 2].forEach(l => { if (l !== r.end) out.push({ lane: l, t0: t - d, t1: t + d }); }); }); // L17 enkaz sırası
   return out;
 }
@@ -2485,164 +2443,7 @@ function drawAlarmFx() {
   ctx.fillStyle = `rgba(255,34,68,${alarmFx / 40 * 0.3})`; ctx.fillRect(0, 0, W, H);
 }
 
-// L8 Maden Tüneli. spd: akış hızı · run: düz yol boyu (px) · turn: iki şeridin de açık olduğu dönüş boyu (px)
-// fork: dönüşte yol eski şeritte de devam edebilir (hangi şeridin kapandığına bak) · jump: üç şeridin açıldığı uzun dönüş
-// ship / door: düz yolda gemi ve kırılır kaya olasılığı · cargo: bu dalgada kargo
-const TUNNEL_WAVES = [
-  { spd: 4.8, run: [240, 320], turn: 170, fork: 0,   jump: 0,   ship: 0.4,  door: 0.2 },
-  { spd: 5.4, run: [200, 280], turn: 150, fork: 0.2, jump: 0.1, ship: 0.5,  door: 0.3 },
-  { spd: 5.8, run: [180, 250], turn: 140, fork: 0.3, jump: 0.15, ship: 0.5, door: 0.3, cargo: true },
-  { spd: 5.2, run: [260, 340], turn: 150, fork: 0.5, jump: 0.2, ship: 0.3,  door: 0.5 },
-  { spd: 6.6, run: [150, 210], turn: 135, fork: 0.35, jump: 0.2, ship: 0.5, door: 0.3 },
-];
-let tunnelSegs = [], tunnelLane = 1, tunnelSpd = 0, tunnelCargo = false;
-function tunnelAt(y) { return tunnelSegs.find(g => y >= g.y && y < g.y + g.h); }
-function addTunnelSeg(open, h) {
-  const top = tunnelSegs.length ? tunnelSegs[tunnelSegs.length - 1].y : H;
-  const g = { y: top - h, h, open, seed: Math.floor(Math.random() * 1000) };
-  tunnelSegs.push(g);
-  return g;
-}
-function tunnelFill(g, w) { // düz yolun ortasına gemi / kırılır kaya
-  const lane = g.open[0], y = g.y + g.h * 0.4;
-  if (w.cargo && !tunnelCargo && spawnRunner()) {
-    const e = enemies[enemies.length - 1];
-    e.lane = lane; e.x = LANE_CENTERS[lane]; e.shiftTo = lane; e.y = y; e.speed = tunnelSpd; e.sl = true;
-    tunnelCargo = true; runnerDone = true;
-  } else if (Math.random() < w.ship) {
-    spawnSlalomScout(lane, y);
-    enemies[enemies.length - 1].speed = tunnelSpd;
-  } else if (Math.random() < w.door) {
-    const a = spawnAsteroid('normal', LANE_CENTERS[lane]);
-    a.size = 22; a.y = y; a.speed = tunnelSpd; a.sl = true; a.rotSpeed = 0.02; a.hp = a.maxHp = 2;
-  }
-}
-function updateTunnel(w, ending) {
-  if (!tunnelSpd) { tunnelSpd = w.spd; addTunnelSeg([0, 1, 2], 420); addTunnelSeg([0, 1, 2], 260); addTunnelSeg([1], 300); }
-  tunnelSpd += (w.spd - tunnelSpd) * 0.02;
-  tunnelSegs.forEach(g => { g.y += tunnelSpd; });
-  asteroids.forEach(a => { if (a.sl) a.speed = tunnelSpd; });
-  enemies.forEach(e => { if (e.sl) e.speed = tunnelSpd; });
-  tunnelSegs = tunnelSegs.filter(g => g.y < H + 20);
-  // Yol ekranın üstünde önceden üretilir
-  while (tunnelSegs.length && tunnelSegs[tunnelSegs.length - 1].y > -120) {
-    if (ending) { addTunnelSeg([0, 1, 2], 400); continue; }
-    const cur = tunnelLane, opts = [cur - 1, cur + 1].filter(l => l >= 0 && l <= 2);
-    const next = opts[Math.floor(Math.random() * opts.length)];
-    if (cur !== 1 && Math.random() < w.jump) { // uzun dönüş: karşı şeride kadar açılır
-      addTunnelSeg([0, 1, 2], w.turn * 1.3); tunnelLane = 2 - cur;
-    } else {
-      addTunnelSeg([cur, next].sort(), w.turn);
-      tunnelLane = Math.random() < w.fork ? cur : next; // çatal: iki şeritten biri kapanır
-    }
-    const g = addTunnelSeg([tunnelLane], w.run[0] + Math.random() * (w.run[1] - w.run[0]));
-    tunnelFill(g, w);
-  }
-  // Duvara çarpma: gövdenin iki ucu da açık yolda olmalı
-  if (player.dead) return;
-  const inWall = [player.y - 24, player.y + 12].some(y => {
-    const g = tunnelAt(y);
-    if (!g) return false;
-    const a = Math.min(...g.open) * LANE_W + 4, b = (Math.max(...g.open) + 1) * LANE_W - 4;
-    return player.x - 16 < a || player.x + 16 > b;
-  });
-  if (inWall && !(player.invuln > 0)) {
-    spawnExplosion(player.x, player.y - 20, true);
-    damagePlayer('Hit the tunnel wall!');
-    const g = tunnelAt(player.y - 60) || tunnelAt(player.y);
-    if (g) { const l = playerLaneNow(); player.targetLane = g.open.reduce((m, o) => Math.abs(o - l) < Math.abs(m - l) ? o : m, g.open[0]); } // yola geri itilir
-  }
-}
-// Duvarlar: kapalı şeritler koyu kaya, sana bakan ön kenarlar turuncu
-function drawTunnel() {
-  ctx.save();
-  tunnelSegs.forEach((g, i) => {
-    if (g.y > H || g.y + g.h < 0 || g.open.length === 3) return;
-    const below = tunnelSegs[i - 1];
-    for (let l = 0; l < 3; l++) {
-      if (g.open.includes(l)) continue;
-      const x = l * LANE_W;
-      ctx.fillStyle = '#17100f'; ctx.fillRect(x, g.y, LANE_W, g.h + 1);
-      ctx.fillStyle = '#231815';
-      for (let k = 0; k < 5; k++) { // kaya dokusu (kayarken sabit kalır)
-        const r = ((g.seed + l * 37 + k * 71) * 13) % 97 / 97, q = ((g.seed + l * 53 + k * 29) * 17) % 89 / 89;
-        ctx.beginPath(); ctx.arc(x + 14 + r * (LANE_W - 28), g.y + 12 + q * Math.max(1, g.h - 24), 9 + r * 15, 0, Math.PI * 2); ctx.fill();
-      }
-      if (below && !below.open.includes(l)) continue;
-      ctx.fillStyle = '#ff8a3c'; ctx.fillRect(x, g.y + g.h - 3, LANE_W, 4); // ön kenar: buraya girersen çarparsın
-    }
-    ctx.fillStyle = 'rgba(255,138,60,0.75)';
-    const a = Math.min(...g.open) * LANE_W, b = (Math.max(...g.open) + 1) * LANE_W;
-    if (a > 0) ctx.fillRect(a - 2, g.y, 3, g.h);
-    if (b < W) ctx.fillRect(b - 1, g.y, 3, g.h);
-  });
-  ctx.restore();
-}
 
-// L8 Kovalayan Kazıcı. every: kaya sırası aralığı · hp: kırılır kayanın canı · two: iki kırılır kaya · drift: kazıcının yaklaşma hızı · back: temiz sırada geri düşme
-const DIGGER_WAVES = [
-  { spd: 4.6, every: 72, hp: 2, two: 0.5,  drift: 0.05, back: 10 },
-  { spd: 5.2, every: 62, hp: 2, two: 0.3,  drift: 0.07, back: 9 },
-  { spd: 5.6, every: 58, hp: 2, two: 0.2,  drift: 0.08, back: 8, cargo: true },
-  { spd: 4.8, every: 70, hp: 3, two: 0.3,  drift: 0.06, back: 10 },
-  { spd: 6.2, every: 52, hp: 2, two: 0.15, drift: 0.1,  back: 7 },
-];
-const DIG_START = H - 34, DIG_CATCH = 724, DIG_CRASH = 32; // kazıcının üst kenarı: başlangıç, oyuncuya ulaştığı yer, çarpınca yaklaşma
-let digY = 0, digSpd = 0, digT = 0, digLane = 1, digCargo = false, digHeat = 0;
-function updateDigger(w, ending) {
-  if (!digSpd) { digSpd = w.spd; digY = DIG_START; digT = w.every - 40; showToast('THE DIGGER IS BEHIND YOU', '#ff8a3c', 130); }
-  digSpd += (w.spd - digSpd) * 0.02;
-  asteroids.forEach(a => { if (a.sl) a.speed = digSpd; });
-  enemies.forEach(e => { if (e.sl) e.speed = digSpd; });
-  if (digHeat > 0) digHeat--;
-  if (ending) { digY = Math.min(H + 60, digY + 2.5); return; } // kazıcı geride kaldı
-  digY -= w.drift;
-  if (digY <= DIG_CATCH && !player.dead) {
-    damagePlayer('Caught by the digger!');
-    spawnExplosion(player.x, player.y + 20, true);
-    digY = DIG_START;
-  }
-  if (++digT < w.every) return;
-  digT = 0; digY = Math.min(DIG_START, digY + w.back);
-  // Sıra: üç şerit de dolu, en az bir şeritte kırılır kaya var (önceki zayıf şeritten farklı)
-  const opts = [0, 1, 2].filter(l => l !== digLane);
-  digLane = opts[Math.floor(Math.random() * opts.length)];
-  const weak = [digLane];
-  if (Math.random() < w.two) weak.push(opts.find(l => l !== digLane));
-  for (let l = 0; l < 3; l++) {
-    const brk = weak.includes(l);
-    const a = spawnAsteroid(brk ? 'normal' : 'iron', LANE_CENTERS[l]);
-    a.size = brk ? 24 : 40; a.y = -50; a.speed = digSpd; a.sl = true; a.dig = true; a.rotSpeed = brk ? 0.02 : 0.008;
-    if (brk) a.hp = a.maxHp = w.hp;
-  }
-  if (w.cargo && !digCargo && spawnRunner()) {
-    const e = enemies[enemies.length - 1], y = -50 - w.every * digSpd / 2;
-    e.lane = digLane; e.x = LANE_CENTERS[digLane]; e.shiftTo = digLane; e.y = y; e.speed = digSpd; e.sl = true;
-    digCargo = true; runnerDone = true;
-  }
-}
-function digCrash() { // kayaya çarpma can götürmez, kazıcıyı yaklaştırır
-  digY -= DIG_CRASH; digHeat = 24; hurtFx = Math.max(hurtFx, 6); Sound.sfx.hit();
-  addFloat(player.x, player.y - 60, 'SLOWED!', '#ff8a3c', false);
-}
-// Ekranın altında dönen dişli kazıcı; yaklaştıkça kızarır
-function drawDigger() {
-  if (digY >= H + 40) return;
-  const near = Math.max(0, Math.min(1, (DIG_START - digY) / (DIG_START - DIG_CATCH)));
-  ctx.save();
-  const g = ctx.createLinearGradient(0, digY - 90, 0, digY + 10);
-  g.addColorStop(0, 'rgba(255,90,40,0)'); g.addColorStop(1, 'rgba(255,90,40,' + (0.12 + 0.4 * near + digHeat / 60) + ')');
-  ctx.fillStyle = g; ctx.fillRect(0, digY - 90, W, 100);
-  const tw = 39, off = (frameCount * (2.5 + 5 * near)) % tw;
-  ctx.fillStyle = near > 0.6 ? '#ff5a30' : '#c9772f';
-  ctx.beginPath(); ctx.moveTo(-tw, digY + 14);
-  for (let x = -tw + off; x < W + tw; x += tw) { ctx.lineTo(x + tw / 2, digY - 16); ctx.lineTo(x + tw, digY + 14); }
-  ctx.lineTo(W + tw, digY + 30); ctx.lineTo(-tw, digY + 30); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#1c1416'; ctx.fillRect(0, digY + 12, W, H - digY);
-  ctx.fillStyle = '#35282a';
-  for (let x = -60 + off * 2 % 60; x < W; x += 60) ctx.fillRect(x, digY + 22, 34, 8);
-  ctx.restore();
-}
 
 // L8 Dev Matkaplar. every: matkap aralığı · long: iki şerit uzanan matkap · pair: iki yandan birden · per: uzanıp çekilme süresi (kare)
 // cross: art arda iki uzun matkap, hizaya gelince tam uzanmış: bir kenardan öbür kenara geçmek gerekir
@@ -2785,91 +2586,6 @@ function drawDrills() {
   ctx.restore();
 }
 
-// L9 Yük Gemileri. hp · time: kaçma süresi · rest: şerit değiştirmeden önce durma (vuracak an) · drop: kaya bırakma aralığı
-// iron: demir kaya oranı · rock: kaya hızı · n: aynı anda gemi · gold: bu dalganın ilk gemisi altın (hızlı kaçar, güçlü rozet)
-const HAULER_WAVES = [
-  { hp: 5, time: 540, rest: 70, drop: 90, iron: 0.2,  rock: 3.6, n: 1 },
-  { hp: 6, time: 500, rest: 60, drop: 72, iron: 0.3,  rock: 4.0, n: 1 },
-  { hp: 6, time: 480, rest: 56, drop: 66, iron: 0.35, rock: 4.2, n: 1, gold: true },
-  { hp: 5, time: 540, rest: 62, drop: 84, iron: 0.3,  rock: 4.0, n: 2 },
-  { hp: 7, time: 480, rest: 48, drop: 52, iron: 0.4,  rock: 4.8, n: 1 },
-];
-const HAULER_Y = 165; // süre barı HUD ve kristal barının altında kalsın
-let haulers = [], haulerWait = 0, haulerGold = false;
-function spawnHauler(w) {
-  const lanes = [0, 1, 2].filter(l => !haulers.some(h => h.lane === l));
-  const lane = lanes[Math.floor(Math.random() * lanes.length)], gold = w.gold && !haulerGold;
-  if (gold) haulerGold = true;
-  const r = Math.random();
-  haulers.push({ lane, x: LANE_CENTERS[lane], y: -60, hp: w.hp, maxHp: w.hp, t: gold ? Math.round(w.time * 0.7) : w.time, t0: gold ? Math.round(w.time * 0.7) : w.time,
-    rest: w.rest, dropT: 40, flash: 0, gold, leaving: false, drop: gold ? 'triple' : r < 0.4 ? 'shield' : r < 0.7 ? 'double' : 'bomb' });
-}
-function updateHaulers(w, ending) {
-  if (!slalomSpd) { slalomSpd = 1; showToast('STOP THE CARGO SHIPS', '#ffb347', 120); } // slalomSpd: bölüm sonu anı için
-  if (!ending && haulers.length < w.n && --haulerWait <= 0) { spawnHauler(w); haulerWait = 50; }
-  haulers = haulers.filter(h => {
-    if (h.flash > 0) h.flash--;
-    if (h.leaving) { // kaçış: hızla yukarı çıkar
-      h.y -= 9; h.x += (LANE_CENTERS[h.lane] - h.x) * 0.12;
-      return h.y > -70;
-    }
-    if (h.y < HAULER_Y) h.y += 4;
-    h.x += (LANE_CENTERS[h.lane] - h.x) * 0.14;
-    if (--h.t <= 0) {
-      h.leaving = true; showToast('CARGO ESCAPED', '#ff4d66', 80); damagePlayer('A cargo ship escaped!');
-      return true;
-    }
-    if (--h.rest <= 0) { // sıradaki şerit: yan şerit, öbür yük gemisinin olmadığı
-      const opts = [h.lane - 1, h.lane + 1].filter(l => l >= 0 && l <= 2 && !haulers.some(o => o !== h && o.lane === l));
-      if (opts.length) h.lane = opts[Math.floor(Math.random() * opts.length)];
-      h.rest = w.rest + 16;
-    }
-    if (--h.dropT <= 0 && h.y >= HAULER_Y && Math.abs(h.x - LANE_CENTERS[h.lane]) < 8) {
-      if (!rockWouldWall(h.lane, h.y + 50, 26, w.rock)) {
-        const iron = Math.random() < w.iron, a = spawnAsteroid(iron ? 'iron' : 'normal', h.x);
-        a.size = iron ? 26 : 22; a.y = h.y + 50; a.speed = w.rock; a.amb = true; a.rotSpeed = 0.02;
-        if (!iron) a.hp = a.maxHp = 1;
-      }
-      h.dropT = w.drop;
-    }
-    bullets = bullets.filter(b => {
-      if (h.hp <= 0 || Math.abs(b.x - h.x) > 50 || Math.abs(b.y - h.y) > 40) return true;
-      h.hp--; h.flash = 12; spawnExplosion(b.x, b.y, false); Sound.sfx.hit();
-      return false;
-    });
-    if (h.hp <= 0) {
-      Sound.sfx.shipBoom(3);
-      for (let i = 0; i < 5; i++) spawnExplosion(h.x + (Math.random() - 0.5) * 80, h.y + (Math.random() - 0.5) * 50, true);
-      spawnShipDeath({ x: h.x, y: h.y, hp: 0, maxHp: 1, runner: true, drop: h.drop });
-      dropCrystals(h.x, h.y, 4);
-      haulerWait = 60;
-      return false;
-    }
-    return true;
-  });
-}
-function drawHaulers() {
-  const spr = getRunnerSprite();
-  haulers.forEach(h => {
-    const dw = 112, dh = 92;
-    ctx.save(); ctx.translate(h.x, h.y);
-    if (h.gold) {
-      const g = ctx.createRadialGradient(0, 0, 14, 0, 0, 84);
-      g.addColorStop(0, 'rgba(255,205,90,0.5)'); g.addColorStop(1, 'rgba(255,205,90,0)');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 84, 0, Math.PI * 2); ctx.fill();
-    }
-    if (spr) ctx.drawImage(spr, -dw / 2, -dh / 2, dw, dh);
-    if (h.flash > 6) { const wsp = getWhiteSprite(enemyImgs[1], 1); if (wsp) { ctx.globalAlpha = 0.6; ctx.drawImage(wsp, -dw / 2, -dh / 2, dw, dh); ctx.globalAlpha = 1; } }
-    if (powerupImgReady(h.drop)) ctx.drawImage(powerupImgs[h.drop], -16, -20, 32, 32);
-    if (!h.leaving) {
-      const bw = 92, by = -dh / 2 - 16, k = h.t / h.t0;
-      ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(-bw / 2, by, bw, 6); ctx.fillRect(-bw / 2, by + 8, bw, 4);
-      ctx.fillStyle = k < 0.3 ? '#ff4d66' : '#ffb347'; ctx.fillRect(-bw / 2, by, bw * k, 6); // kaçma süresi
-      ctx.fillStyle = '#7dffb0'; ctx.fillRect(-bw / 2, by + 8, bw * h.hp / h.maxHp, 4); // can
-    }
-    ctx.restore();
-  });
-}
 
 // L9 Ateşi Kes. every: sıra aralığı · wall: üç şerit kapsül (ateş kesilmeli) · mine: patlayıcılı sıra · foe2: ikinci düşman
 const CONVOY_WAVES = [ // ilk sürüm "çok zor", yumuşak sürüm kolay geldi: ikisinin arası. hp2 / hp3: dayanıklı gemi oranı (ateşi daha uzun açık tutmak gerekir)
@@ -3368,203 +3084,6 @@ function drawRing() {
     ctx.restore();
   });
 }
-// --- L19 EVENT HORIZON (2026-11-10, kullanıcı seçti): ekranın altında kara deliğin ufku gemiyi sürekli aşağı çeker.
-// İsabetlerin geri tepmesi yukarı iter (öldürünce daha çok); kaçan gemi ve hasar aşağı savurur. Ufka değersen can gider ve
-// yukarı fırlatılırsın. Gemiyi oyuncu dikeyde kontrol etmez; sadece şerit değiştirir.
-const HORIZON_WAVES = [ // pull: kare başına çekim (px) · kick: isabet başına geri tepme · kill: öldürme ek tepmesi (kick 7'de gemi hep tepedeydi, 3'te hep ufuktaydı)
-  { pull: 0.34, kick: 3.5, kill: 7, spd: 3.0, interval: 62, dbl: 0.2,  hp2: 0.4,  hp3: 0.1 },
-  { pull: 0.40, kick: 3.5, kill: 7, spd: 3.1, interval: 58, dbl: 0.25, hp2: 0.4,  hp3: 0.15 },
-  { pull: 0.44, kick: 3.5, kill: 7, spd: 3.2, interval: 58, dbl: 0.25, hp2: 0.45, hp3: 0.15 },
-  { pull: 0.38, kick: 3.5, kill: 7, spd: 3.0, interval: 70, dbl: 0.2,  hp2: 0.4,  hp3: 0.1 },  // nefes
-  { pull: 0.50, kick: 3.5, kill: 7, spd: 3.3, interval: 54, dbl: 0.3,  hp2: 0.45, hp3: 0.2 },
-];
-const HORIZON_Y = H - 64, HZ_TOP = H * 0.52, HZ_START = H - 190, HZ_DANGER = 110;
-let hzKick = 0, hzFx = 0;
-function horizonOn() { const c = currentLevel === 19 && !boss && getLevelConfig(); return !!(c && c.horizon); }
-function horizonPush(dy) { if (horizonOn() && !player.dead) hzKick += dy; } // + aşağı, - yukarı
-function updateHorizon(Z) {
-  const k = hzKick * 0.18; hzKick -= k; // itmeler yumuşak uygulanır
-  player.y += Z.pull + k;
-  if (player.y < HZ_TOP) { player.y = HZ_TOP; hzKick = Math.max(0, hzKick); }
-  if (hzFx > 0) hzFx--;
-  if (player.y >= HORIZON_Y - 22) { // ufka değdi
-    if (!(player.invuln > 0)) { spawnExplosion(player.x, player.y, true); damagePlayer('Pulled into the event horizon!'); }
-    hzKick = -(player.y - HZ_START); hzFx = 30; Sound.sfx.whoosh(); // yukarı fırlatılır
-  }
-}
-function drawHorizon() { // ufuk: altta karanlık, parlayan halka çizgisi, aşağı akan çekim çizgileri
-  const near = Math.max(0, Math.min(1, (player.y - (HORIZON_Y - HZ_DANGER - 22)) / HZ_DANGER)); // 0 güvenli → 1 ufukta
-  const t = frameCount;
-  ctx.save();
-  // çekim çizgileri: ufka doğru hızlanarak akar
-  ctx.strokeStyle = 'rgba(255,170,110,0.18)'; ctx.lineWidth = 1.5;
-  for (let i = 0; i < 14; i++) { const x = 18 + ((i * 61) % (W - 36)), p = ((t * 0.012 + i * 0.137) % 1), y = HZ_TOP - 80 + p * p * (HORIZON_Y - HZ_TOP + 80); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 10 + p * 40); ctx.stroke(); }
-  // ufkun altı: karanlık
-  const g = ctx.createLinearGradient(0, HORIZON_Y - 60, 0, H);
-  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.45, 'rgba(0,0,0,0.85)'); g.addColorStop(1, '#000');
-  ctx.fillStyle = g; ctx.fillRect(0, HORIZON_Y - 60, W, H - HORIZON_Y + 60);
-  // parlayan halka çizgisi (son dalgada kırmızılaşır)
-  const late = getWave() - (currentLevel - 1) * 5 >= 5, col = late ? '255,70,60' : '255,150,70';
-  ctx.globalCompositeOperation = 'lighter';
-  const glow = ctx.createLinearGradient(0, HORIZON_Y - 26, 0, HORIZON_Y + 26);
-  glow.addColorStop(0, `rgba(${col},0)`); glow.addColorStop(0.5, `rgba(${col},${0.45 + 0.35 * near})`); glow.addColorStop(1, `rgba(${col},0)`);
-  ctx.fillStyle = glow; ctx.fillRect(0, HORIZON_Y - 26, W, 52);
-  ctx.strokeStyle = `rgba(255,235,200,${0.75 + 0.2 * Math.sin(t * 0.2)})`; ctx.lineWidth = 2; ctx.beginPath();
-  for (let x = 0; x <= W; x += 6) { const y = HORIZON_Y + Math.sin(x * 0.03 + t * 0.08) * 2.5; x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
-  ctx.stroke();
-  // halkada dönen kıvılcımlar
-  for (let i = 0; i < 10; i++) { const x = (i * 47 + t * (1.5 + (i % 3))) % (W + 20) - 10; ctx.fillStyle = `rgba(${col},0.8)`; ctx.fillRect(x, HORIZON_Y - 1 + Math.sin(i + t * 0.1) * 3, 6, 2); }
-  ctx.globalCompositeOperation = 'source-over';
-  // tehlike: ufka yakınken kenarlar kızarır, gemiden ufka çekim izi
-  if (near > 0) {
-    const v = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.62);
-    v.addColorStop(0, 'rgba(255,40,40,0)'); v.addColorStop(1, `rgba(255,40,40,${0.35 * near * (0.7 + 0.3 * Math.sin(t * 0.3))})`);
-    ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
-    ctx.strokeStyle = `rgba(255,150,90,${0.5 * near})`; ctx.lineWidth = 3; ctx.setLineDash([6, 8]); ctx.lineDashOffset = -t * 2;
-    ctx.beginPath(); ctx.moveTo(player.x, player.y + 28); ctx.lineTo(player.x, HORIZON_Y); ctx.stroke(); ctx.setLineDash([]);
-  }
-  if (hzFx > 0) { ctx.fillStyle = `rgba(255,200,150,${0.3 * hzFx / 30})`; ctx.fillRect(0, 0, W, H); }
-  ctx.restore();
-}
-// --- L19 TIDAL STRETCH (2026-11-10, kullanıcıyla konuşuldu: uzama yana olmalı, yoksa sadece görsel kalır):
-// gelgit kuvveti bazı gemileri yatay esnetir; yandaki gemi kendi şeridi + ortayı, ortadaki üç şeridi kaplar.
-// Esneyen gemi normal ateş etmez: tam genişleyince ısınır ve kapladığı tüm şeritlere bir enerji duvarı atar.
-// Üç şeritlik duvardan kaçış yok: ısınma bitmeden vurmak gerek. Sadece çekirdek (geldiği şerit) vurulur, kanatlar mermiyi yutar.
-const TIDAL_WAVES = [ // stretch: esneyen gemi oranı · mid: ortadakinin (3 şerit) oranı · charge: ısınma (kare); esneyen gemi 3 canlı
-  { stretch: 0.3,  mid: 0.2,  charge: 56, spd: 3.0, interval: 60, dbl: 0.2,  hp2: 0.45, hp3: 0.1 },
-  { stretch: 0.36, mid: 0.45, charge: 52, spd: 3.1, interval: 56, dbl: 0.25, hp2: 0.45, hp3: 0.15 },
-  { stretch: 0.4,  mid: 0.5,  charge: 50, spd: 3.1, interval: 56, dbl: 0.25, hp2: 0.45, hp3: 0.15 },
-  { stretch: 0.34, mid: 0.5,  charge: 50, spd: 3.0, interval: 66, dbl: 0.2,  hp2: 0.45, hp3: 0.1 },  // nefes
-  { stretch: 0.46, mid: 0.6,  charge: 46, spd: 3.3, interval: 52, dbl: 0.3,  hp2: 0.45, hp3: 0.2 },
-];
-const TIDAL_AT = H * 0.13, TIDAL_GROW = 50;
-let tidalSeen = null;
-function tidalLanes(e) { const T = e.tidal; return T.span === 3 ? [0, 1, 2] : [Math.min(e.lane, 1), Math.max(e.lane, 1)]; }
-function tidalBody(e) { // gövdenin merkezi ve yarı genişliği (büyüdükçe)
-  const L = tidalLanes(e), cx1 = (LANE_CENTERS[L[0]] + LANE_CENTERS[L[L.length - 1]]) / 2, full = (L.length * LANE_W) / 2 - 8;
-  const k = e.tidal.w, base = 26;
-  return { cx: e.x + (cx1 - e.x) * k, half: base + (full - base) * k };
-}
-function updateTidal(e, Z) {
-  const T = e.tidal;
-  if (e.y > TIDAL_AT && T.w < 1) T.w = Math.min(1, T.w + 1 / TIDAL_GROW);
-  if (T.w >= 1 && !T.fired) {
-    if (!seenIntro.tidal && !tidalSeen && T.c === 0) tidalSeen = { x: tidalBody(e).cx, y: e.y };
-    if (++T.c >= Z.charge) { // enerji duvarı
-      T.fired = true;
-      tidalLanes(e).forEach(l => eBullets.push({ x: LANE_CENTERS[l], y: e.y + 26, vx: 0, vy: 5.2, hp: 2, lane: l, bar: true }));
-      Sound.sfx.blast();
-    }
-  }
-}
-function drawTidal(e) {
-  const T = e.tidal, B = tidalBody(e), sz = ENEMY_SIZES[e.maxHp] ?? { w: 80, h: 60 }, img = enemyImgs[e.maxHp];
-  const spr = getNeonSprite(img, e.maxHp) || img, sx = (B.half * 2) / sz.w;
-  ctx.save(); ctx.translate(B.cx, e.y);
-  // gelgit çizgileri: iki yana çekilen ışık
-  if (T.w > 0) {
-    ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = `rgba(255,170,90,${0.35 * T.w})`; ctx.lineWidth = 1.5;
-    for (let i = -2; i <= 2; i++) { const y = i * 6, len = B.half + 10 + Math.sin(frameCount * 0.2 + i) * 6; ctx.beginPath(); ctx.moveTo(-len, y); ctx.lineTo(len, y); ctx.stroke(); }
-    ctx.globalCompositeOperation = 'source-over';
-  }
-  if (spr && spr.width !== 0) { ctx.save(); ctx.scale(Math.max(1, sx), 1 - 0.18 * T.w); ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 9; ctx.drawImage(spr, -sz.w / 2, -sz.h / 2, sz.w, sz.h); ctx.restore(); }
-  if (e.flash > 8) { const w = getWhiteSprite(img, e.maxHp); if (w) { ctx.save(); ctx.globalAlpha = (e.flash - 8) / 6; ctx.scale(Math.max(1, sx), 1 - 0.18 * T.w); ctx.drawImage(w, -sz.w / 2, -sz.h / 2, sz.w, sz.h); ctx.restore(); } }
-  if (T.w > 0.2) { // çekirdek: tek vurulabilir nokta (geldiği şerit)
-    const ox = e.x - B.cx, p = 0.6 + 0.4 * Math.sin(frameCount * 0.3);
-    ctx.globalCompositeOperation = 'lighter';
-    const cg = ctx.createRadialGradient(ox, 0, 2, ox, 0, 22); cg.addColorStop(0, `rgba(255,255,230,${0.9 * p})`); cg.addColorStop(0.4, `rgba(255,190,90,${0.6 * p})`); cg.addColorStop(1, 'rgba(255,150,60,0)');
-    ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(ox, 0, 22, 0, Math.PI * 2); ctx.fill();
-    ctx.globalCompositeOperation = 'source-over';
-  }
-  // ısınma: alt kenar boyunca büyüyen kırmızı enerji + kapladığı şeritlerde uyarı
-  if (T.w >= 1 && !T.fired) {
-    const Z = getLevelConfig().tidal, k = T.c / ((Z && Z.charge) || 70), blink = Math.floor(frameCount / 5) % 2;
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = `rgba(255,60,60,${0.25 + 0.6 * k})`; ctx.fillRect(-B.half * k, sz.h * 0.32, B.half * 2 * k, 5);
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = `rgba(255,40,60,${(blink ? 0.12 : 0.05) + 0.1 * k})`; ctx.fillRect(-B.half, sz.h * 0.4, B.half * 2, H - e.y);
-  }
-  ctx.restore();
-}
-function drawBarShot(b) { // enerji duvarının bir şerit parçası
-  ctx.save(); ctx.translate(b.x, b.y); ctx.globalCompositeOperation = 'lighter';
-  const w = LANE_W / 2 - 4, g = ctx.createLinearGradient(0, -14, 0, 14);
-  g.addColorStop(0, 'rgba(255,60,60,0)'); g.addColorStop(0.5, 'rgba(255,80,70,0.85)'); g.addColorStop(1, 'rgba(255,60,60,0)');
-  ctx.fillStyle = g; ctx.fillRect(-w, -14, w * 2, 28);
-  ctx.fillStyle = 'rgba(255,230,210,0.9)'; ctx.fillRect(-w, -2, w * 2, 4);
-  ctx.restore();
-}
-// --- L19 SEVERED SPACE (2026-11-10, ChatGPT fikri, kullanıcı "dene" dedi): iki şeridin arasındaki sınır parlar (warn),
-// sonra orada içinden geçilemeyen dikey enerji perdesi açılır (on). Kapanmadan önce hangi tarafta kalacağını seçersin:
-// tek şeritte yeni mermi gelmez ama diğer şeritlerdeki gemiler kaçar; iki şeritte daha az gemi kaçar ama mermiden kaçman gerekir.
-// Perdeye kaydırmak can götürmez, gemi sınırda kalır. Aynı anda tek perde. Mermiler (seninki dahil) perdeden etkilenmez.
-const SEVER_WAVES = [ // every: perdeler arası (kare) · warn: uyarı · on: açık kalma
-  { every: 160, warn: 80, on: 115, spd: 3.0, interval: 72, dbl: 0.18, hp2: 0.4,  hp3: 0.1 },
-  { every: 130, warn: 72, on: 125, spd: 3.0, interval: 68, dbl: 0.2,  hp2: 0.4,  hp3: 0.1 },
-  { every: 120, warn: 66, on: 130, spd: 3.1, interval: 68, dbl: 0.22, hp2: 0.4,  hp3: 0.15 },
-  { every: 170, warn: 60, on: 110, spd: 3.0, interval: 78, dbl: 0.18, hp2: 0.4,  hp3: 0.1 },  // nefes, kısa uyarı
-  { every: 90,  warn: 58, on: 140, spd: 3.2, interval: 64, dbl: 0.25, hp2: 0.45, hp3: 0.15 },
-];
-let sever = null, severT = 90, severLast = -1, severBump = 0, severSeen = null;
-const severX = b => LANE_W * (b + 1); // 0: sol-orta sınırı, 1: orta-sağ
-function severOn() { return !!(sever && sever.on); }
-function severSide() { return player.x < severX(sever.b) ? 0 : 1; } // 0: sol taraf, 1: sağ taraf
-function severReach(l) { // perde açıkken bu şeride ulaşılabilir mi
-  if (!severOn()) return true;
-  return severSide() === 0 ? l <= sever.b : l > sever.b;
-}
-function severClamp() { // açık perde gemiyi kendi tarafında tutar
-  if (!severOn()) return;
-  const side = severSide(), lo = side === 0 ? 0 : sever.b + 1, hi = side === 0 ? sever.b : 2;
-  if (player.targetLane < lo || player.targetLane > hi) {
-    player.targetLane = Math.max(lo, Math.min(hi, player.targetLane)); prevTargetLane = player.targetLane;
-    if (!severBump) { severBump = 14; Sound.sfx.shield(); }
-  }
-}
-function updateSever(S, ending) {
-  if (severBump > 0) severBump--;
-  if (!sever) {
-    if (!ending && --severT <= 0) {
-      const b = severLast < 0 ? (Math.random() < 0.5 ? 0 : 1) : 1 - severLast; // sınırlar sırayla değişir
-      severLast = b; sever = { b, t: 0, warn: S.warn, dur: S.on, on: false };
-    }
-    return;
-  }
-  sever.t++;
-  if (!sever.on && sever.t >= sever.warn) {
-    sever.on = true; sever.t = 0;
-    // geçiş ortasındaysa gemi yöneldiği değil, bulunduğu tarafta kalır
-    Sound.sfx.blast();
-  }
-  if (!sever.on && !seenIntro.sever && !severSeen && sever.t > 10) severSeen = { x: severX(sever.b), y: player.y - 120 };
-  if (sever.on && sever.t >= sever.dur) { sever = null; severT = S.every; }
-}
-function drawSever() {
-  if (!sever) return;
-  const x = severX(sever.b), t = frameCount;
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  if (!sever.on) { // uyarı: sınır çizgisi giderek parlar, kıvılcımlar
-    const k = sever.t / sever.warn, blink = Math.floor(t / (k > 0.7 ? 3 : 6)) % 2;
-    ctx.fillStyle = `rgba(255,60,130,${(0.28 + 0.4 * k) * (blink ? 1 : 0.45)})`; ctx.fillRect(x - 5 - 8 * k, HUD_H, 10 + 16 * k, H - HUD_H);
-    ctx.fillStyle = `rgba(255,200,230,${(0.55 + 0.4 * k) * (blink ? 1 : 0.6)})`; ctx.fillRect(x - 1.5, HUD_H, 3, H - HUD_H);
-    for (let i = 0; i < 6; i++) { const y = HUD_H + ((i * 151 + t * 3) % (H - HUD_H)); ctx.fillStyle = `rgba(255,150,200,${0.5 * k})`; ctx.fillRect(x - 2 + Math.sin(t * 0.3 + i) * 4, y, 3, 8); }
-  } else { // açık perde: parlak çekirdek + akan enerji; biterken titrer
-    const end = sever.dur - sever.t < 40 && Math.floor(t / 4) % 2, a = end ? 0.5 : 1;
-    const g = ctx.createLinearGradient(x - 22, 0, x + 22, 0);
-    g.addColorStop(0, 'rgba(255,40,120,0)'); g.addColorStop(0.5, `rgba(255,70,150,${0.55 * a})`); g.addColorStop(1, 'rgba(255,40,120,0)');
-    ctx.fillStyle = g; ctx.fillRect(x - 22, HUD_H, 44, H - HUD_H);
-    ctx.fillStyle = `rgba(255,235,245,${0.9 * a})`; ctx.fillRect(x - 2.5, HUD_H, 5, H - HUD_H);
-    ctx.strokeStyle = `rgba(255,170,210,${0.6 * a})`; ctx.lineWidth = 1.5;
-    for (let i = 0; i < 2; i++) { ctx.beginPath(); for (let y = HUD_H; y <= H; y += 10) { const xx = x + Math.sin(y * 0.05 + t * 0.25 + i * 3) * 7; y === HUD_H ? ctx.moveTo(xx, y) : ctx.lineTo(xx, y); } ctx.stroke(); }
-    // kalan süre: perdenin üstünden aşağı inen sönük kısım
-    const left = 1 - sever.t / sever.dur; ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillRect(x - 6, HUD_H + 4, 12, 3); ctx.fillStyle = 'rgba(255,70,150,0.9)'; ctx.fillRect(x - 6, HUD_H + 4, 12 * left, 3);
-  }
-  if (severBump > 0) { // perdeye çarptı: sınırda kıvılcım
-    const bx = x + (severSide() === 0 ? -4 : 4);
-    ctx.fillStyle = `rgba(255,220,240,${severBump / 14})`; ctx.beginPath(); ctx.arc(bx, player.y, 10 + (14 - severBump) * 2, 0, Math.PI * 2); ctx.fill();
-  }
-  ctx.restore();
-}
 // --- L19 TWISTED SPACE (2026-11-10, kullanıcı fikri: uzay-zaman sürüklenmesi + dikey uzama + aşırı bulanık dalgalanma):
 // dönen kara delik uzayı da döndürür: akıntı gemiyi sürekli yana sürükler, karşı koymazsan yan şeride kayarsın (kenarda
 // sıkışırsın). Akıntının yönü ara ara döner. Gemiler ve mermileri aşağı indikçe boylamasına uzar (uzun mermi daha geniş
@@ -3704,7 +3223,7 @@ const ENDING_B_PANELS = [
   "You came to save one planet. Maybe you saved two.",
   "THE END",
 ];
-const isEndingPanels = p => p === ENDING_PANELS || p === ENDING_A_PANELS || p === ENDING_B_PANELS;
+const isEndingPanels = p => p === ENDING_A_PANELS || p === ENDING_B_PANELS;
 let finalChoice = null; // { t, pick: null | 'answer' | 'ignore', ft }
 const FINAL_BTNS = { answer: { x: W / 2 - 138, y: H * 0.62, w: 128, h: 52 }, ignore: { x: W / 2 + 10, y: H * 0.62, w: 128, h: 52 } };
 function startFinalChoice() {
@@ -3772,13 +3291,8 @@ function drawFinalChoice() {
 // F2: LAST VECTOR (seni izleyen hedef çizgisi kilitlenir, o şeride ışın iner: boş şeride çek). F3: boss mermileri de yörüngeye
 // girer (alttan çıkan bir kez tepeden döner). Faz geçişlerinde bozuk sinyal anı: "...see you among the..."
 const DUEL_Y = H * 0.17, DUEL_HIT_X = 36;
-const DUEL = { // fazlara göre: lag: şeridine gelme gecikmesi · charge: ısınma (vurulabilir an) · rest: kaçtıktan sonra · vec: Last Vector aralığı (0: yok); flinch denendi: boss hiç saldıramıyordu
-  1: { lag: 34, charge: 34, rest: 46, gap: 9, vy: 5.0, vec: 0,   flinch: 7 },
-  2: { lag: 30, charge: 30, rest: 52, gap: 9, vy: 5.2, vec: 230, flinch: 6 },
-  3: { lag: 24, charge: 26, rest: 40, gap: 8, vy: 5.6, vec: 175, flinch: 5 },
-};
-const VEC_TRACK = 72, VEC_LOCK = 30, VEC_FIRE = 26, DUEL_SIGNAL = 80;
-let duelVec = null, duelSignal = 0, duelSprite = null;
+const DUEL_SIGNAL = 80; // bozuk sinyal süresi (L20 faz geçişi)
+let duelSignal = 0, duelSprite = null;
 function getDuelSprite() { // oyuncunun gemisinin karanlık, kızıl tonlu kopyası (aşağı bakar)
   if (duelSprite || !spaceshipImg.complete || !spaceshipImg.naturalWidth) return duelSprite;
   const c = document.createElement('canvas'); c.width = spaceshipImg.naturalWidth; c.height = spaceshipImg.naturalHeight;
@@ -3787,97 +3301,9 @@ function getDuelSprite() { // oyuncunun gemisinin karanlık, kızıl tonlu kopya
   g.fillStyle = 'rgba(255,40,80,0.18)'; g.fillRect(0, 0, c.width, c.height);
   duelSprite = c; return c;
 }
-function duelLane() { return nearestLane(boss.x); }
-function updateDuel() {
-  const b = boss, ph = b.phase || 1, D = b.form === 'core' ? DUEL_CORE : DUEL[ph];
-  if (b.dState == null) { b.dState = 'follow'; b.dT = 0; b.lane = 1; b.lastPh = 1; b.vecT = 120; }
-  b.x += (LANE_CENTERS[b.lane] - b.x) * 0.12; // şeritler arası süzülme
-  if (bossWarn > 0) return;
-  if (ph !== b.lastPh) { // faz geçişi: bozuk sinyal anı, boss durur
-    b.lastPh = ph; duelSignal = DUEL_SIGNAL; eBullets = []; duelVec = null; b.dState = 'rest'; b.dT = 0;
-    Sound.sfx.crackle(); showToast(ph === 2 ? 'TARGETING SYSTEM ONLINE' : 'THE HORIZON PULLS EVERYTHING IN', '#ff6a8a', 90);
-  }
-  if (duelSignal > 0) { duelSignal--; return; }
-  b.dT++;
-  if (b.dState === 'follow') { // senin şeridine gelir (gecikmeli)
-    if (b.dT % D.lag === 0) b.lane = playerLaneNow();
-    if (b.dT >= D.lag && Math.abs(b.x - LANE_CENTERS[b.lane]) < 6) { b.dState = 'charge'; b.dT = 0; }
-  } else if (b.dState === 'charge') {
-    if (b.dT >= D.charge) { b.dState = 'burst'; b.dT = 0; b.shots = 0; }
-  } else if (b.dState === 'burst') {
-    if (b.dT % D.gap === 1 && b.shots < 3) {
-      b.shots++; Sound.sfx.hit();
-      pushShot({ x: b.x, y: b.y + 46, vx: 0, vy: D.vy, hp: 3, lane: duelLane(), fromBoss: true, big: false, orbit: ph === 3 && b.form !== 'core' ? 1 : 0 }); // kaçışsız duvar olmaz
-      if (ph >= 2 && b.shots === 2) { // F2+: yan şeride de bir mermi (kaçacağın yerin yarısı kapanır)
-        const side = [duelLane() - 1, duelLane() + 1].filter(l => l >= 0 && l <= 2), l = side[Math.floor(Math.random() * side.length)];
-        const vx = (LANE_CENTERS[l] - b.x) / ((player.y - b.y - 46) / D.vy);
-        pushShot({ x: b.x, y: b.y + 46, vx, vy: D.vy, hp: 3, lane: l, fromBoss: true, big: false, orbit: ph === 3 && b.form !== 'core' ? 1 : 0 });
-      }
-    }
-    if (b.shots >= 3 && b.dT > D.gap * 3) { // kaç: senin olmadığın bir şeride
-      const opts = [0, 1, 2].filter(l => l !== b.lane && l !== playerLaneNow());
-      b.lane = opts[Math.floor(Math.random() * opts.length)] ?? (b.lane === 1 ? 0 : 1);
-      b.dState = 'rest'; b.dT = 0;
-    }
-  } else if (b.dState === 'rest') {
-    if (b.dT >= D.rest) { b.dState = 'follow'; b.dT = 0; b.flinch = 0; }
-  }
-  // LAST VECTOR: seni izleyen hedef çizgisi → kilit → ışın
-  if (D.vec && !duelVec && --b.vecT <= 0) { b.vecT = D.vec; duelVec = { lane: playerLaneNow(), t: 0 }; Sound.sfx.warning(); }
-  if (duelVec) {
-    const V = duelVec; V.t++;
-    if (V.t < VEC_TRACK) V.lane = playerLaneNow(); // izler
-    else if (V.t === VEC_TRACK) Sound.sfx.blast();
-    if (V.t >= VEC_TRACK + VEC_LOCK && V.t < VEC_TRACK + VEC_LOCK + VEC_FIRE && playerLaneNow() === V.lane && !player.dead) damagePlayer('Vaporized by the void beam!');
-    if (V.t >= VEC_TRACK + VEC_LOCK + VEC_FIRE) duelVec = null;
-  }
-}
 function duelOrbit(b) { // F3: boss mermisi alttan çıkınca bir kez tepeden döner
   if (b.orbit === 1 && b.y > H + 8) { b.orbit = 2; b.y = HUD_H - 20; return true; }
   return false;
-}
-function drawDuel(b) {
-  const spr = getDuelSprite(), ph = b.phase || 1, sz = b.form ? 88 : 118; // final çekirdeği: küçük, derme çatma
-  ctx.save(); ctx.translate(b.x, b.y);
-  const glow = ctx.createRadialGradient(0, 0, 10, 0, 0, 90);
-  glow.addColorStop(0, `rgba(255,40,90,${0.18 + 0.06 * ph})`); glow.addColorStop(1, 'rgba(255,40,90,0)');
-  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(0, 0, 90, 0, Math.PI * 2); ctx.fill();
-  if (b.dState === 'charge') { // motorlar / burun ısınır
-    const k = b.dT / (b.form === 'core' ? DUEL_CORE : DUEL[ph]).charge;
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = `rgba(255,70,110,${0.25 + 0.6 * k})`; ctx.beginPath(); ctx.arc(0, 48, 6 + 10 * k, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = `rgba(255,40,80,${0.06 + 0.12 * k})`; ctx.fillRect(-LANE_W / 2 + 6, 50, LANE_W - 12, H); // şeridi kızarır
-    ctx.globalCompositeOperation = 'source-over';
-  }
-  ctx.rotate(Math.PI); // aşağı bakar
-  if (b.flash > 0 && b.flash % 4 < 2) ctx.globalAlpha = 0.5;
-  if (spr) ctx.drawImage(spr, -sz / 2, -sz / 2, sz, sz);
-  if (b.form) { // yamalar, kaynak izleri, kopuk kablodan kıvılcım (isyancıların elden geçirdiği eski Astra gemisi)
-    [[-16, -8, 12, 7], [10, 6, 9, 10], [-4, 18, 14, 5]].forEach(([x, y, w, h]) => { ctx.fillStyle = 'rgba(70,52,44,0.85)'; ctx.fillRect(x, y, w, h); ctx.strokeStyle = 'rgba(210,130,70,0.55)'; ctx.lineWidth = 1; ctx.strokeRect(x, y, w, h); });
-    if (Math.floor(frameCount / 5) % 7 === 0) { ctx.fillStyle = '#ffd27a'; ctx.beginPath(); ctx.arc(18 + Math.random() * 4, -14, 2.5, 0, Math.PI * 2); ctx.fill(); }
-  }
-  ctx.restore();
-  if (duelVec) { // Last Vector: izlerken ince kesikli, kilitlenince kalın, ateşte ışın
-    const V = duelVec, x = LANE_CENTERS[V.lane], lock = V.t >= VEC_TRACK, fire = V.t >= VEC_TRACK + VEC_LOCK;
-    ctx.save();
-    if (fire) {
-      const k = 1 - (V.t - VEC_TRACK - VEC_LOCK) / VEC_FIRE;
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle = `rgba(255,40,120,${0.5 * k})`; ctx.fillRect(x - 26, b.y, 52, H - b.y);
-      ctx.fillStyle = `rgba(255,230,240,${0.9 * k})`; ctx.fillRect(x - 4, b.y, 8, H - b.y);
-    } else if (lock) {
-      const blink = Math.floor(frameCount / 4) % 2;
-      ctx.strokeStyle = blink ? 'rgba(255,60,90,0.95)' : 'rgba(255,160,180,0.7)'; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.moveTo(b.x, b.y + 40); ctx.lineTo(x, player.y - 30); ctx.stroke();
-      ctx.beginPath(); ctx.arc(x, player.y, 34, 0, Math.PI * 2); ctx.stroke();
-      ctx.fillStyle = 'rgba(255,90,110,0.95)'; ctx.font = `700 11px ${UI_FONT}`; ctx.textAlign = 'center'; ctx.fillText('LOCKED', x, player.y + 50);
-    } else {
-      ctx.strokeStyle = 'rgba(255,120,160,0.5)'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 8]); ctx.lineDashOffset = -frameCount;
-      ctx.beginPath(); ctx.moveTo(b.x, b.y + 40); ctx.lineTo(x, player.y - 30); ctx.stroke(); ctx.setLineDash([]);
-      ctx.beginPath(); ctx.arc(x, player.y, 30, 0, Math.PI * 2); ctx.stroke();
-    }
-    ctx.restore();
-  }
 }
 function drawDuelSignal() { // faz geçişi: bozuk kayıt parçası
   if (duelSignal <= 0) return;
@@ -3900,15 +3326,9 @@ function drawDuelSignal() { // faz geçişi: bozuk kayıt parçası
 // (iki şeridin içindekiler yer değiştirir), kollar daha sık, ekran hep dalgalı. F3 ÇEKİRDEK: kabuk dökülür, sessizlik, içinden
 // ağabeyin derme çatma gemisi çıkar: kısa düello (updateDuel, DUEL_CORE). Iskalayan mermi sadece F3'te geri döner (kütle tüm
 // şeritleri kaplar). Görünüş: isyancıların eski teknolojiden topladığı yamalı hurda (kullanıcı notu).
-const UNMAKE_INTRO = 300, UNMAKE_BIRTH = 262, MASS_Y = H * 0.19, MASS_RX = 176, MASS_RY = 66, CORE_IN = 210;
-const UNMAKE = { // fazlara göre: blister: kabarcık aralığı · life: kopmadan önceki süre · arm: kol aralığı · fold: katlanma aralığı (0: yok) · glob: damla aralığı
-  1: { blister: 118, life: 280, bhp: 6, bdmg: 7, arm: 150, warn: 54, slam: 26, dbl: 0,    fold: 0,   glob: 78, gvy: 4.2, amp: 2,  ghost: 0.08 },
-  2: { blister: 108, life: 250, bhp: 6, bdmg: 7, arm: 128, warn: 50, slam: 26, dbl: 0.45, fold: 240, glob: 60, gvy: 4.5, amp: 7,  ghost: 0.24 },
-};
-const FOLD_WARN = 66, ARM_BACK = 22;
-const DUEL_CORE = { lag: 26, charge: 30, rest: 42, gap: 8, vy: 5.4, vec: 0 }; // F3: sade, yakın düello (Last Vector yok)
-let unmakeT = 0, unmakeBits = [], unmakeArms = [], unmakeFold = null, unmakeAmp = 0, unmakeGhost = 0, unmakeGlitch = 0, unmakeFlash = 0, unmakeShell = [];
-function massEdgeY(x) { const k = (x - W / 2) / MASS_RX; return MASS_Y + MASS_RY * Math.sqrt(Math.max(0, 1 - k * k)); } // kütlenin alt kenarı
+const UNMAKE_INTRO = 300, UNMAKE_BIRTH = 262, MASS_Y = H * 0.19; // giriş sahnesi: girdap merkezi MASS_Y'de
+let unmakeT = 0, unmakeBits = [], unmakeAmp = 0, unmakeGhost = 0, unmakeGlitch = 0, unmakeFlash = 0;
+ // kütlenin alt kenarı
 function startUnmake() { unmakeT = 1; unmakeBits = []; eBullets = []; fireHold = false; Sound.sfx.rumble(); } // ateş hep açık
 function updateUnmakeIntro() { // her şey birbirine girer → nabız → kütle doğar
   const t = ++unmakeT;
@@ -3924,127 +3344,10 @@ function updateUnmakeIntro() { // her şey birbirine girer → nabız → kütle
   unmakeBits = unmakeBits.filter(p => { p.r *= 0.972; p.r -= 0.6; p.w *= 1.012; p.a += p.w; p.rot += 0.1; return p.r > 10; });
   if (t === UNMAKE_BIRTH) { player.y = H - 160; unmakeBits = []; unmakeFlash = 26; Sound.sfx.bigBoom(); Sound.sfx.blast(); spawnBoss(currentLevel * 5); }
 }
-function initMass(b) {
-  b.form = 'mass'; b.x = W / 2; b.y = MASS_Y; b.grow = 0; b.lastPh = 1; b.blisters = []; b.blT = 70; b.armT = 120; b.foldT = 160; b.globT = 90; b.ripples = [];
-  b.scrap = []; // yamalı hurda plakalar (eski gemi parçaları)
-  for (let i = 0; i < 18; i++) { const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * 0.82; b.scrap.push({ x: Math.cos(a) * d * MASS_RX, y: Math.sin(a) * d * MASS_RY, w: 12 + Math.random() * 26, h: 6 + Math.random() * 14, rot: Math.random() * 6, sp: (Math.random() - 0.5) * 0.004, rust: Math.random() < 0.5 }); }
-  b.cables = [0, 1, 2, 3, 4, 5].map(i => ({ x: -140 + i * 56 + (Math.random() - 0.5) * 20, len: 30 + Math.random() * 40, ph: Math.random() * 6 }));
-}
-function massStop(b) { return b.phase === 1 ? b.maxHp * 0.6 : b.phase === 2 ? b.maxHp * 0.3 : 0; }
-function massHurt(b, dmg) { const s = massStop(b); b.hp = Math.max(s > 0 ? s - 0.01 : 0, b.hp - dmg); b.flash = 10; } // faz sınırını geçmez: her faz görülür
-function detachBlister(q) { // patlatılmayan kabarcık kopar, gemi olur
-  enemies.push({ lane: q.lane, x: LANE_CENTERS[q.lane], y: q.y + 10, w: 38, h: 44, hp: 2, maxHp: 2, speed: 2.5, flash: 0,
-    fireTimer: 0, fireRate: 999, canShoot: false, zigzag: false, zigzagPhase: 0, phantom: false, cloakCfg: { vis: 90, inv: 40 }, cloakT: 0, alpha: 1,
-    shiftAt: null, shiftTo: q.lane, curveShots: false, shift2: 0, diver: false, diveAt: 0, diveState: 0, armor: 1, splitter: false, spawn: true });
-  Sound.sfx.whoosh();
-}
-function updateUnmake() {
-  const b = boss, ph = b.phase || 1;
-  if (b.form == null) initMass(b);
-  if (stormShake > 0) stormShake--; // kol çarpınca sarsıntı
-  if (b.form === 'core') { updateDuel(); return; }
-  if (b.form === 'breaking') return updateCoreIn(b);
-  b.x = W / 2; b.y = MASS_Y + Math.sin(frameCount * 0.03) * 4;
-  b.grow = Math.min(1, b.grow + 0.025);
-  b.scrap.forEach(s => s.rot += s.sp);
-  b.ripples = b.ripples.filter(r => ++r.t < 18);
-  if (ph >= 3) { startCoreIn(b); return; }
-  const U = UNMAKE[ph];
-  unmakeAmp += (U.amp - unmakeAmp) * 0.03; unmakeGhost += (U.ghost - unmakeGhost) * 0.03;
-  if (ph !== b.lastPh) { // F1 → F2: uzay yırtılır
-    b.lastPh = ph; unmakeArms = []; unmakeFold = null; b.foldT = 90; unmakeAmp = 16; unmakeFlash = 14; Sound.sfx.thunder(); Sound.sfx.crackle();
-    showToast('SPACE IS TEARING APART', '#ff6a8a', 110);
-  }
-  if (b.grow < 1) return;
-  if (b.intro == null) { b.intro = 1; showToast('SHOOT THE BLISTERS', '#ff9ab8', 120); }
-  // kabarcıklar: şişer, patlatılınca kütle küçülür, süresi dolunca kopar
-  if (--b.blT <= 0 && b.blisters.length < 2) {
-    const free = [0, 1, 2].filter(l => !b.blisters.some(q => q.lane === l) && !unmakeArms.some(A => A.lane === l));
-    if (free.length) { const l = free[Math.floor(Math.random() * free.length)]; b.blisters.push({ lane: l, x: LANE_CENTERS[l], y: massEdgeY(LANE_CENTERS[l]) - 4, hp: U.bhp, t: 0, life: U.life, hit: 0 }); b.blT = U.blister; }
-    else b.blT = 20;
-  }
-  b.blisters = b.blisters.filter(q => {
-    q.t++; if (q.hit > 0) q.hit--;
-    if (q.hp <= 0) { massHurt(b, U.bdmg); spawnExplosion(q.x, q.y, true); Sound.sfx.shipBoom(2); addFloat(q.x, q.y + 20, 'BURST', '#ff9ab8'); return false; }
-    if (q.t >= q.life) { detachBlister(q); return false; }
-    return true;
-  });
-  // kollar: şeridi işaretler (uç sarkar, parlar) → iner → geri çekilir
-  if (--b.armT <= 0 && unmakeArms.length === 0) {
-    b.armT = U.arm;
-    const hz = hazardWindows(), free = l => !hz.some(h => h.lane === l && h.t0 < U.warn + U.slam + WALL_MARGIN && h.t1 > U.warn - WALL_MARGIN);
-    const opts = [0, 1, 2].filter(l => [0, 1, 2].some(o => o !== l && free(o)));
-    const pl = playerLaneNow(), l = Math.random() < 0.55 && opts.includes(pl) ? pl : opts[Math.floor(Math.random() * opts.length)];
-    if (l != null) {
-      unmakeArms.push({ lane: l, t: 0, warn: U.warn, slam: U.slam, hit: false });
-      if (Math.random() < U.dbl) { // F2: ikinci kol başka şeride, birincisi çekilirken iner (aynı anda iki şerit kapanmaz)
-        const o = [0, 1, 2].filter(x => x !== l), l2 = o[Math.floor(Math.random() * 2)];
-        unmakeArms.push({ lane: l2, t: -(U.warn * 0.5 + U.slam), warn: U.warn * 0.75 | 0, slam: U.slam, hit: false });
-      }
-      Sound.sfx.laserWarn();
-    }
-  }
-  unmakeArms = unmakeArms.filter(A => {
-    A.t++;
-    if (A.t === A.warn + 1) { Sound.sfx.blast(); stormShake = Math.max(stormShake, 8); }
-    if (A.t > A.warn && A.t <= A.warn + A.slam && !player.dead && playerLaneNow() === A.lane) damagePlayer('Crushed by the mass!');
-    return A.t <= A.warn + A.slam + ARM_BACK;
-  });
-  // damlalar: kütleden düşen hurda (düşman mermisi)
-  if (--b.globT <= 0) {
-    b.globT = U.glob * (0.8 + Math.random() * 0.4);
-    const opts = [0, 1, 2].filter(l => !unmakeArms.some(A => A.lane === l)), l = opts[Math.floor(Math.random() * opts.length)];
-    if (l != null) pushShot({ x: LANE_CENTERS[l], y: massEdgeY(LANE_CENTERS[l]) + 6, vx: 0, vy: U.gvy, hp: 3, lane: l, fromBoss: true, big: false, glob: true });
-  }
-  // F2: uzay katlanır — iki şeridin içindekiler yer değiştirir (gemine yakın olanlar hariç)
-  if (U.fold && !unmakeFold && --b.foldT <= 0) {
-    const pairs = [[0, 1], [1, 2], [0, 2]], p = pairs[Math.floor(Math.random() * 3)];
-    unmakeFold = { a: p[0], b: p[1], t: 0 }; Sound.sfx.warning();
-  }
-  if (unmakeFold) {
-    const F = unmakeFold;
-    if (++F.t === FOLD_WARN) {
-      const dx = LANE_CENTERS[F.b] - LANE_CENTERS[F.a], lim = player.y - 150;
-      eBullets.forEach(q => { if (q.y > lim) return; const l = nearestLane(q.x); if (l === F.a) q.x += dx; else if (l === F.b) q.x -= dx; q.lane = nearestLane(q.x); });
-      enemies.forEach(e => { if (e.y > lim) return; if (e.lane === F.a) { e.lane = F.b; e.x += dx; } else if (e.lane === F.b) { e.lane = F.a; e.x -= dx; } });
-      unmakeFlash = 10; unmakeAmp = 15; Sound.sfx.whoosh(); Sound.sfx.crackle();
-    }
-    if (F.t > FOLD_WARN + 22) { unmakeFold = null; b.foldT = U.fold; }
-  }
-}
-function startCoreIn(b) { // kabuk dökülür, sessizlik, ağabeyin gemisi çıkar
-  b.form = 'breaking'; b.coreT = 0; unmakeArms = []; unmakeFold = null; eBullets = []; enemies = []; b.blisters = [];
-  unmakeShell = b.scrap.map(s => ({ x: W / 2 + s.x, y: MASS_Y + s.y, vx: s.x * 0.05 + (Math.random() - 0.5) * 2, vy: s.y * 0.05 - 1 - Math.random() * 2, w: s.w, h: s.h, rot: s.rot, vr: (Math.random() - 0.5) * 0.2, rust: s.rust }));
-  for (let i = 0; i < 10; i++) spawnExplosion(W / 2 + (Math.random() - 0.5) * 300, MASS_Y + (Math.random() - 0.5) * 100, true);
-  unmakeFlash = 30; Sound.sfx.bigBoom(); Sound.sfx.shipBoom(3);
-}
-function updateCoreIn(b) {
-  const t = ++b.coreT;
-  unmakeAmp = Math.max(0, unmakeAmp - 0.4); unmakeGhost = Math.max(0, unmakeGhost - 0.01);
-  unmakeShell = unmakeShell.filter(s => { s.x += s.vx; s.y += s.vy; s.vy += 0.06; s.rot += s.vr; return s.y < H + 40 && t < 160; });
-  b.x = W / 2; b.y = MASS_Y + (DUEL_Y - MASS_Y) * Math.min(1, Math.max(0, (t - 70) / 70));
-  if (t === 120) { duelSignal = DUEL_SIGNAL; Sound.sfx.crackle(); }
-  if (duelSignal > 0) duelSignal--;
-  if (t >= CORE_IN) { b.form = 'core'; b.dState = 'rest'; b.dT = 20; b.lane = 1; b.lastPh = 3; b.vecT = 1e9; duelSignal = 0; showToast('THE CORE', '#ff9ab8', 80); }
-}
-function unmakeBulletHit(q) { // kütle tüm şeritleri kaplar: mermi ya kabarcığı vurur ya da yutulur
-  const b = boss;
-  if (b.form === 'breaking') return Math.abs(q.y - b.y) < 40 && Math.abs(q.x - b.x) < 40;
-  for (const s of b.blisters) {
-    const r = blisterR(s);
-    if (Math.abs(q.x - s.x) < r + 8 && Math.abs(q.y - s.y) < r + 10) { if (b.grow >= 1) { s.hp--; s.hit = 6; Sound.sfx.hit(); } return true; }
-  }
-  const dx = (q.x - W / 2) / MASS_RX, dy = (q.y - b.y) / MASS_RY;
-  if (dx * dx + dy * dy < 1.05 * b.grow) { if (b.ripples.length < 6) b.ripples.push({ x: q.x, y: massEdgeY(q.x), t: 0 }); return true; }
-  return false;
-}
-function blisterR(q) { return 6 + 16 * Math.min(1, q.t / 30) + (q.t > q.life - 60 ? 3 * Math.sin(q.t * 0.6) : 0); }
+ // faz sınırını geçmez: her faz görülür
 function unmakeDuck() { // müzik: geçişte ve çekirdekte susar
   if (currentLevel !== 20 || state !== 'play') return null;
-  if (!boss && unmakeT > 40) return 0.04;
-  if (boss && boss.form === 'breaking') return 0.1;
-  if (boss && boss.form === 'core') return 0.4;
-  if (boss && boss.grow < 1) return 0.3;
+  if (!boss && unmakeT > 40) return 0.04; // geçiş sahnesinde müzik susar
   return null;
 }
 function drawUnmakeIntro() { // girdap + çekilen parçalar
@@ -4067,97 +3370,6 @@ function drawUnmakeIntro() { // girdap + çekilen parçalar
     ctx.fillRect(-p.sz, -p.sz * 0.5, p.sz * 2, p.sz); ctx.restore();
   });
   ctx.restore();
-}
-function drawMassBody(b) { // amorf, dalgalanan hurda yığını
-  const t = frameCount, s = b.grow, ph = b.phase || 1;
-  ctx.save(); ctx.translate(W / 2, b.y); ctx.scale(s, s);
-  const path = () => { ctx.beginPath(); for (let i = 0; i <= 64; i++) { const a = i / 64 * Math.PI * 2, w = 1 + 0.07 * Math.sin(a * 3 + t * 0.05) + 0.05 * Math.sin(a * 7 - t * 0.08) + (ph === 2 ? 0.04 * Math.sin(a * 11 + t * 0.2) : 0); const x = Math.cos(a) * MASS_RX * w, y = Math.sin(a) * MASS_RY * w; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.closePath(); };
-  const glow = ctx.createRadialGradient(0, 10, 20, 0, 10, MASS_RX * 1.25);
-  glow.addColorStop(0, `rgba(255,40,100,${0.22 + (b.flash > 0 ? 0.2 : 0)})`); glow.addColorStop(1, 'rgba(255,40,100,0)');
-  ctx.fillStyle = glow; ctx.fillRect(-MASS_RX * 1.3, -MASS_RY * 2, MASS_RX * 2.6, MASS_RY * 4);
-  b.cables.forEach(c => { // alttan sarkan kablolar
-    const sw = Math.sin(t * 0.04 + c.ph) * 10, y0 = MASS_RY * Math.sqrt(Math.max(0, 1 - (c.x / MASS_RX) ** 2)) - 6;
-    ctx.strokeStyle = '#1a1420'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(c.x, y0); ctx.quadraticCurveTo(c.x + sw, y0 + c.len * 0.6, c.x + sw * 1.4, y0 + c.len); ctx.stroke();
-    ctx.fillStyle = Math.floor(t / 7 + c.ph * 3) % 5 ? 'rgba(255,170,90,0.35)' : '#ffd27a'; ctx.beginPath(); ctx.arc(c.x + sw * 1.4, y0 + c.len, 2.2, 0, Math.PI * 2); ctx.fill(); // kopuk uçta kıvılcım
-  });
-  path();
-  const body = ctx.createRadialGradient(-30, -20, 10, 0, 0, MASS_RX);
-  body.addColorStop(0, '#2a1a2e'); body.addColorStop(0.7, '#120a16'); body.addColorStop(1, '#07040a');
-  ctx.fillStyle = body; ctx.fill();
-  ctx.save(); path(); ctx.clip();
-  b.scrap.forEach(p => { // yamalı plakalar: perçin + pas + çizik
-    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
-    ctx.fillStyle = p.rust ? '#3a2a24' : '#2c2e36'; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
-    ctx.strokeStyle = p.rust ? 'rgba(200,110,60,0.45)' : 'rgba(150,160,180,0.35)'; ctx.lineWidth = 1; ctx.strokeRect(-p.w / 2, -p.h / 2, p.w, p.h);
-    ctx.fillStyle = 'rgba(200,200,210,0.5)'; [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([u, v]) => ctx.fillRect(u * (p.w / 2 - 2.5) - 0.8, v * (p.h / 2 - 2.5) - 0.8, 1.6, 1.6));
-    ctx.restore();
-  });
-  ctx.globalCompositeOperation = 'lighter'; // içten parlayan damarlar (F2'de çatlaklar)
-  ctx.strokeStyle = `rgba(255,50,110,${ph === 2 ? 0.55 + 0.25 * Math.sin(t * 0.2) : 0.25 + 0.1 * Math.sin(t * 0.08)})`; ctx.lineWidth = ph === 2 ? 2.2 : 1.4;
-  for (let i = 0; i < (ph === 2 ? 9 : 5); i++) { ctx.beginPath(); let x = -120 + i * 30, y = -40; ctx.moveTo(x, y); for (let j = 0; j < 5; j++) { x += Math.sin(i * 3 + j * 1.7) * 18; y += 18; ctx.lineTo(x, y); } ctx.stroke(); }
-  ctx.restore();
-  ctx.strokeStyle = `rgba(255,110,160,${0.35 + 0.15 * Math.sin(t * 0.1)})`; ctx.lineWidth = 1.6; path(); ctx.stroke();
-  ctx.restore();
-}
-function drawArm(A) { // hurdadan kol: uyarıda uç sarkar ve parlar, inişte şeridi boydan boya ezer
-  const x = LANE_CENTERS[A.lane], y0 = massEdgeY(x) - 8, t = frameCount;
-  if (A.t <= 0) return;
-  let tip, a = 1;
-  if (A.t <= A.warn) tip = y0 + 30 + 26 * (A.t / A.warn);
-  else if (A.t <= A.warn + A.slam) tip = Math.min(H + 20, y0 + 56 + (H - y0) * Math.min(1, (A.t - A.warn) / 4));
-  else { const k = (A.t - A.warn - A.slam) / ARM_BACK; tip = y0 + (H - y0) * (1 - k); a = 1 - k * 0.5; }
-  ctx.save(); ctx.globalAlpha = a;
-  if (A.t <= A.warn) { // uyarı: şeridin altında titreyen kırmızı işaret
-    const k = A.t / A.warn, blink = Math.floor(t / 5) % 2;
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = `rgba(255,40,90,${0.05 + 0.12 * k})`; ctx.fillRect(x - LANE_W / 2 + 8, tip, LANE_W - 16, H - tip);
-    ctx.fillStyle = blink ? `rgba(255,90,140,${0.5 + 0.4 * k})` : `rgba(255,200,220,${0.3 + 0.3 * k})`; ctx.beginPath(); ctx.arc(x, tip, 7 + 5 * k, 0, Math.PI * 2); ctx.fill();
-    ctx.globalCompositeOperation = 'source-over';
-  }
-  const seg = 18, n = Math.max(2, Math.ceil((tip - y0) / seg));
-  for (let i = 0; i < n; i++) { // dalgalı, aşağı incelen gövde
-    const yy = y0 + (tip - y0) * (i / n), w = 30 - 14 * (i / n), sw = Math.sin(i * 0.7 + t * 0.15) * (A.t > A.warn && A.t <= A.warn + A.slam ? 3 : 7);
-    ctx.fillStyle = i % 3 === 1 ? '#2c2e36' : '#160d1a'; ctx.fillRect(x - w / 2 + sw, yy, w, seg + 2);
-    ctx.fillStyle = 'rgba(255,70,120,0.35)'; ctx.fillRect(x - w / 2 + sw, yy, 2, seg + 2); ctx.fillRect(x + w / 2 + sw - 2, yy, 2, seg + 2);
-  }
-  if (A.t > A.warn && A.t <= A.warn + A.slam) { ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(255,60,110,0.22)'; ctx.fillRect(x - LANE_W / 2 + 4, y0, LANE_W - 8, H - y0); }
-  ctx.restore();
-}
-function drawFold() { // katlanma uyarısı: iki şerit titrer, aralarında ↔
-  const F = unmakeFold; if (!F) return;
-  const xa = LANE_CENTERS[F.a], xb = LANE_CENTERS[F.b], t = frameCount;
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  if (F.t < FOLD_WARN) {
-    const k = F.t / FOLD_WARN;
-    [xa, xb].forEach(x => { ctx.fillStyle = `rgba(190,120,255,${0.05 + 0.1 * k + 0.05 * Math.sin(t * 0.5)})`; ctx.fillRect(x - LANE_W / 2 + 6, HUD_H, LANE_W - 12, player.y - 150 - HUD_H); });
-    ctx.strokeStyle = `rgba(220,170,255,${0.5 + 0.4 * k})`; ctx.lineWidth = 2; ctx.setLineDash([6, 6]); ctx.lineDashOffset = -t;
-    const y = HUD_H + 90; ctx.beginPath(); ctx.moveTo(xa + 16, y); ctx.lineTo(xb - 16, y); ctx.stroke(); ctx.setLineDash([]);
-    [[xa + 16, 1], [xb - 16, -1]].forEach(([x, d]) => { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + d * 10, y - 6); ctx.moveTo(x, y); ctx.lineTo(x + d * 10, y + 6); ctx.stroke(); });
-    ctx.fillStyle = `rgba(230,200,255,${0.6 + 0.3 * k})`; ctx.textBaseline = 'middle'; drawSpaced('FOLD', (xa + xb) / 2, y - 16, 10, 700, UI_FONT, 3);
-  } else { const k = 1 - (F.t - FOLD_WARN) / 22; ctx.fillStyle = `rgba(240,210,255,${0.35 * k})`; ctx.fillRect(Math.min(xa, xb) - LANE_W / 2, HUD_H, Math.abs(xb - xa) + LANE_W, player.y - 150 - HUD_H); }
-  ctx.restore();
-}
-function drawUnmake(b) {
-  if (b.form === 'core') { drawDuel(b); return; }
-  if (b.form === 'breaking') {
-    unmakeShell.forEach(s => { ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(s.rot); ctx.fillStyle = s.rust ? '#3a2a24' : '#2c2e36'; ctx.fillRect(-s.w / 2, -s.h / 2, s.w, s.h); ctx.strokeStyle = 'rgba(255,90,140,0.5)'; ctx.strokeRect(-s.w / 2, -s.h / 2, s.w, s.h); ctx.restore(); });
-    if (b.coreT > 50) { ctx.save(); ctx.globalAlpha = Math.min(1, (b.coreT - 50) / 50) * (b.coreT < 110 && Math.floor(b.coreT / 4) % 2 ? 0.5 : 1); drawDuel(b); ctx.restore(); }
-    return;
-  }
-  drawMassBody(b);
-  b.blisters.forEach(q => { // kabarcık: şişer, kopmadan önce titrer
-    const r = blisterR(q) * b.grow, late = q.t > q.life - 60;
-    const g = ctx.createRadialGradient(q.x - r * 0.3, q.y - r * 0.3, 2, q.x, q.y, r);
-    g.addColorStop(0, q.hit ? '#ffffff' : '#ffd0e0'); g.addColorStop(0.5, late ? '#ff3a70' : '#ff6a9a'); g.addColorStop(1, 'rgba(120,10,50,0.9)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = 'rgba(40,10,20,0.8)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(q.x, q.y, r * 0.6, 0.4, 2.2); ctx.stroke();
-    const k = q.hp / UNMAKE[1].bhp; ctx.strokeStyle = 'rgba(255,220,230,0.7)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(q.x, q.y, r + 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); ctx.stroke();
-  });
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  b.ripples.forEach(r => { ctx.strokeStyle = `rgba(255,120,170,${0.5 * (1 - r.t / 18)})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(r.x, r.y, 4 + r.t, 2 + r.t * 0.4, 0, 0, Math.PI * 2); ctx.stroke(); });
-  ctx.restore();
-  unmakeArms.forEach(drawArm);
-  drawFold();
 }
 function drawUnmakeOverlay() { // HUD parazit + doğum / kırılma flaşı
   if (unmakeGlitch > 0) {
@@ -4218,28 +3430,7 @@ function echoHit() { // isabet: ufku geri iter
   const E = ECHO[boss.phase || 1]; if (boss.drop) return;
   hzTop = Math.max(H * E.base, hzTop - E.push);
 }
-function horizonEdge(x, t) { const c = (x - W / 2) / (W / 2); return hzTop + 26 * (1 - c * c) + Math.sin(x * 0.03 + t * 0.06) * 5 + Math.sin(x * 0.011 - t * 0.03) * 7; } // ortası sarkık, dalgalı kenar
-function drawHorizonTop() { // ekranın üstünü yutan zifiri karanlık + kenarında parlayan madde akışı (2026-11-11: telefonda fark edilmiyordu, güçlendirildi)
-  const t = frameCount, y = hzTop;
-  ctx.save();
-  const edge = () => { ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(W, -10); for (let x = W; x >= 0; x -= 8) ctx.lineTo(x, horizonEdge(x, t)); ctx.closePath(); };
-  edge(); ctx.fillStyle = '#000'; ctx.fill(); // zifiri karanlık
-  const g = ctx.createLinearGradient(0, y, 0, y + 150); // kenarın altı da kararır
-  g.addColorStop(0, 'rgba(0,0,0,0.75)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(0, y, W, 150);
-  ctx.globalCompositeOperation = 'lighter';
-  const lineAt = (off, col, lw) => { ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); for (let x = 0; x <= W; x += 8) { const yy = horizonEdge(x, t) + off; x ? ctx.lineTo(x, yy) : ctx.moveTo(x, yy); } ctx.stroke(); };
-  const pulse = 0.5 + 0.5 * Math.sin(t * 0.09);
-  lineAt(4, `rgba(255,90,40,${0.22 + 0.1 * pulse})`, 26);   // geniş sıcak parıltı
-  lineAt(2, `rgba(255,150,70,${0.45 + 0.15 * pulse})`, 10);
-  lineAt(0, 'rgba(255,240,210,0.95)', 3);                    // parlak çekirdek çizgi
-  lineAt(-14, `rgba(200,150,255,${0.25 + 0.15 * pulse})`, 1.5); // ışığın büküldüğü ince halka (karanlığın içinde)
-  for (let i = 0; i < 22; i++) { // aşağıdan karanlığa çekilen ışık çizgileri
-    const x = (i * 53 + t * (1 + i % 3) * 0.6) % W, len = 24 + (i % 4) * 16, yy = horizonEdge(x, t) + 20 + ((i * 37 + t * 3) % 160);
-    const gg = ctx.createLinearGradient(0, yy, 0, yy - len); gg.addColorStop(0, 'rgba(255,170,120,0)'); gg.addColorStop(1, `rgba(255,190,140,${0.35 + 0.1 * (i % 3)})`);
-    ctx.strokeStyle = gg; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x, yy - len); ctx.stroke();
-  }
-  ctx.restore();
-}
+ // ortası sarkık, dalgalı kenar
 // 2026-11-12 kullanıcı: "tamamen ortam karanlık olsun, ateşlerden anlarız nerede olduğunu, ateşlerin etrafı hafif aydınlık olur".
 // Tüm sahne karanlığa gömülür; mermiler (senin ve boss'un), patlamalar, boss'un ateşlenen burnu ve vurulduğu an etraflarını aydınlatır.
 // Boss karanlıkta görünmez: yerini ateşinden ve mermilerinin geldiği yerden bulursun.
@@ -5891,7 +5082,6 @@ function drawRunner(e) {
 function drawEnemy(e) {
   if (e.runner) { drawRunner(e); return; }
   if (e.mini) { drawMiniTitan(e); return; }
-  if (e.tidal) { drawTidal(e); return; }
   if (e.seg) { // yılan parçası: küçük turkuaz gemi, baş biraz büyük
     if (e.y < -50) return;
     const spr = getSnakeSprite(), sz = ENEMY_SIZES[1], k = e.head ? 0.95 : 0.72, dw = sz.w * k, dh = sz.h * k;
@@ -6124,7 +5314,7 @@ function getBossGlowSprite(zone, glow) {
 function drawBoss(b) {
   if (b.zone === 2) { drawTitan(b); return; }
   if (b.zone === 3) { drawCenter(b); return; }
-  if (b.zone === 4) { drawEchoBoss(b); return; } // L20 final (THE UNMAKING kütlesi: drawUnmake, kullanılmıyor)
+  if (b.zone === 4) { drawEchoBoss(b); return; } // L20 final
   const sc    = b.special ? 1.45 : 1.0;
   const phase = b.phase || 1;
   const pulse = 0.6 + 0.4 * Math.sin(frameCount * (phase === 3 ? 0.22 : 0.07));
@@ -6169,7 +5359,6 @@ function drawShotSprite(x, y, h, vx = 0, vy = 1) {
   ctx.restore();
 }
 function drawEBullet(b) {
-  if (b.bar) { drawBarShot(b); return; }
   if (currentLevel === 19 && twistOn() && !b.big && eShotReady()) { const k = twistStretch(b.y); ctx.save(); ctx.translate(b.x, b.y); ctx.scale(1, k); drawShotSprite(0, 0, 40, b.vx || 0, b.vy || 1); ctx.restore(); return; }
   if (!b.big && eShotReady()) { drawShotSprite(b.x, b.y, b.fromBoss ? 46 : 40, b.vx || 0, b.vy || 1); return; }
   ctx.save();
@@ -6993,22 +6182,6 @@ function drawBriefVisual(kind, cx, cy, zc) {
       if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, cx + 40, cy + 6, 30, 30);
       break;
     }
-    case 'digger': {
-      briefRock('iron', cx - 56, cy - 26, 18); briefRock('normal', cx, cy - 26, 13); briefRock('iron', cx + 56, cy - 26, 18);
-      if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, cx - 15, cy + 2, 30, 30);
-      ctx.fillStyle = '#c9772f'; ctx.beginPath(); ctx.moveTo(cx - 80, cy + 46);
-      for (let x = cx - 80 + (t * 30) % 20 - 20; x < cx + 80; x += 20) { ctx.lineTo(x + 10, cy + 34); ctx.lineTo(x + 20, cy + 46); }
-      ctx.closePath(); ctx.fill();
-      break;
-    }
-    case 'tunnel': {
-      ctx.fillStyle = '#231815'; ctx.fillRect(cx - 80, cy - 44, 160, 88);
-      ctx.fillStyle = '#05060f';
-      ctx.fillRect(cx - 80 + 54, cy - 44, 52, 40); ctx.fillRect(cx - 80, cy - 4, 106, 48);
-      ctx.fillStyle = '#ff8a3c'; ctx.fillRect(cx - 80, cy - 6, 54, 3);
-      if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, cx - 68 + Math.max(0, Math.sin(t)) * 54, cy + 6, 30, 30);
-      break;
-    }
     case 'explosive': {
       const p = (t % 2) / 2;
       briefEnemy(1, cx - 70, cy - 14, 0.6, 1 - p); briefEnemy(1, cx + 70, cy - 14, 0.6, 1 - p);
@@ -7143,40 +6316,6 @@ function drawBriefVisual(kind, cx, cy, zc) {
       ctx.restore();
       break;
     }
-    case 'sever': { // sınır parlar, perde kapanır, gemi bir tarafta kalır
-      const ph = (t % 3.2) / 3.2, bx = cx - 40, on = ph > 0.4 && ph < 0.85;
-      ctx.save(); ctx.globalCompositeOperation = 'lighter';
-      if (!on && ph <= 0.4) { const k = ph / 0.4; ctx.fillStyle = `rgba(255,60,130,${(0.15 + 0.4 * k) * (Math.floor(frameCount / 6) % 2 ? 1 : 0.5)})`; ctx.fillRect(bx - 3 - 4 * k, cy - 60, 6 + 8 * k, 110); }
-      if (on) { const g = ctx.createLinearGradient(bx - 16, 0, bx + 16, 0); g.addColorStop(0, 'rgba(255,40,120,0)'); g.addColorStop(0.5, 'rgba(255,70,150,0.6)'); g.addColorStop(1, 'rgba(255,40,120,0)'); ctx.fillStyle = g; ctx.fillRect(bx - 16, cy - 60, 32, 110); ctx.fillStyle = 'rgba(255,235,245,0.9)'; ctx.fillRect(bx - 2, cy - 60, 4, 110); }
-      ctx.restore();
-      const sx = ph < 0.3 ? cx - 80 : ph < 0.38 ? cx - 80 + (ph - 0.3) / 0.08 * 80 : cx;
-      if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, sx - 14, cy + 18, 28, 28);
-      break;
-    }
-    case 'tidal': { // gemi yana esner, ısınır, iki şeride duvar atar
-      const ph = (t % 3) / 3, k = Math.min(1, ph / 0.4), img = enemyImgs[2], spr = img && (getNeonSprite(img, 2) || img);
-      const ey = cy - 36, wdt = 44 + 76 * k, bx = cx - 80 + 40 * k; // sol şeritten ortaya doğru esner
-      ctx.save();
-      if (spr && img.complete) ctx.drawImage(spr, bx - wdt / 2, ey - 15, wdt, 30 - 5 * k);
-      if (ph > 0.4 && ph < 0.75) { const q = (ph - 0.4) / 0.35; ctx.fillStyle = `rgba(255,60,60,${0.3 + 0.6 * q})`; ctx.fillRect(cx - 80, ey + 14, 120 * q, 4); }
-      if (ph >= 0.75) { const by = ey + 20 + (ph - 0.75) * 4 * 50; ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(255,80,70,0.8)'; ctx.fillRect(cx - 80, by, 120, 6); }
-      ctx.restore();
-      break;
-    }
-    case 'horizon': { // ufuk çizgisi, gemi isabetlerle yukarı, boşta aşağı
-      const ph = (t % 3) / 3, sy = cy + 2 + (ph < 0.5 ? ph * 2 * 16 : (1 - ph) * 2 * 16), hy = cy + 30;
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      const gl = ctx.createLinearGradient(0, hy - 10, 0, hy + 10); gl.addColorStop(0, 'rgba(255,150,70,0)'); gl.addColorStop(0.5, 'rgba(255,150,70,0.6)'); gl.addColorStop(1, 'rgba(255,150,70,0)');
-      ctx.fillStyle = gl; ctx.fillRect(cx - 120, hy - 10, 240, 20);
-      ctx.strokeStyle = 'rgba(255,235,200,0.85)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx - 120, hy); ctx.lineTo(cx + 120, hy); ctx.stroke();
-      ctx.globalCompositeOperation = 'source-over';
-      briefEnemy(2, cx, cy - 42, 0.4);
-      if (ph >= 0.5 && Math.floor(frameCount / 5) % 2) briefShot(cx, cy - 24);
-      if (spaceshipImg.complete) ctx.drawImage(spaceshipImg, cx - 14, sy - 14, 28, 28);
-      ctx.restore();
-      break;
-    }
     case 'bent': {
       briefEnemy(2, cx - 70, cy - 30, 0.5);
       ctx.strokeStyle = 'rgba(255,120,60,0.6)'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
@@ -7277,8 +6416,6 @@ const FIRST_SEEN = {
   meteor:    { title: 'INCOMING ROCKS', text: 'Rocks are coming down this lane. Move out!' },
   phantom:   { title: 'PHANTOM',        text: 'Turns invisible. Shots pass through it while hidden.' },
   photon:    { title: 'PHOTON SPHERE',  text: 'Your missed shots orbit the black hole and come back from below, in the same lane. Tap to hold fire!' },
-  sever:     { title: 'SEVERED SPACE',  text: 'A glowing border is about to close. Once it does, you cannot cross it. Choose your side now!' },
-  tidal:     { title: 'TIDAL STRETCH',  text: 'It charges, then fires a wall across every lane it covers. Only the glowing core takes damage. Hit it before the charge ends!' },
   ring:      { title: 'DEBRIS RING',    text: "The ring turns as it falls, so the gap slides. Be in the gap's lane when it reaches you. Debris can't be shot." },
   mirror:    { title: 'REFLECTION',     text: "The glassy copy can't be hit, but its shots are real. Destroy the real ship to break it." },
   mirrorSwap:{ title: 'MIRROR SWAP',    text: 'When the mirror flickers, the ship and its reflection trade places.' },
@@ -7310,8 +6447,6 @@ function checkFirstSeen() {
   const want = (key, x, y) => { if (!seenIntro[key] && !introCard) { if (currentLevel === 16) [x, y] = riftPoint(x, y); introCard = { key, x, y, t: 0 }; Sound.sfx.click(); } };
   if (riftSeen) { want(riftSeen.key, riftSeen.x, riftSeen.y); riftSeen = null; }
   if (ringSeen) { want('ring', ringSeen.x, ringSeen.y); ringSeen = null; }
-  if (tidalSeen) { want('tidal', tidalSeen.x, tidalSeen.y); tidalSeen = null; }
-  if (severSeen) { want('sever', severSeen.x, severSeen.y); severSeen = null; }
   if (photonSeen) { want('photon', photonSeen.x, photonSeen.y); photonSeen = null; }
   if (currentLevel === 17) { for (const e of enemies) if (e.mirror && vis(e.y)) want('mirror', W - e.x, e.y); if (mirrorSeen) { want(mirrorSeen.key, mirrorSeen.x, mirrorSeen.y); mirrorSeen = null; } }
   for (const p of powerups) if (FIRST_SEEN[p.type] && vis(p.y)) want(p.type, p.x, p.y);
@@ -7837,7 +6972,6 @@ function update() {
     twistD = 0; // elle şerit değiştirmek akıntıya karşı koyar
   }
 
-  if (currentLevel === 19) severClamp(); // L19: açık perdeden geçilmez
   const twisting = twistOn() && state === 'play' && !player.dead && !briefing && !introCard;
   if (twisting) updateTwist(getLevelConfig().twist);
   const targetX = LANE_CENTERS[player.targetLane] + (twisting || currentLevel === 19 ? twistD : 0);
@@ -7896,7 +7030,7 @@ function update() {
   // Level tamamlama: 5 dalgayı geçince bölüm biter (boss seviyesi hariç)
   const _zoneLastLevel = currentZone * 5;
   if (slowMoT > 0) slowMoT--;
-  if (currentLevel !== _zoneLastLevel && !boss && currentWave > currentLevel * 5 && enemies.length === 0 && slowMoT <= 0 && !asteroids.some(a => a.sl) && !stealthScans.length && !haulers.length && !drifters.length && slalomSpd > 0 && slalomOutro < SLALOM_OUTRO) {
+  if (currentLevel !== _zoneLastLevel && !boss && currentWave > currentLevel * 5 && enemies.length === 0 && slowMoT <= 0 && !asteroids.some(a => a.sl) && !stealthScans.length && !drifters.length && slalomSpd > 0 && slalomOutro < SLALOM_OUTRO) {
     if (slalomOutro === 0 && survivors > 0) addFloat(W / 2, H * 0.42, survivors + ' SURVIVORS', '#9fe8ff', true);
     const l6 = currentLevel !== 9 && currentLevel !== 7; // L6: önce merak, üs görününce ne olduğu (2026-11-22, kullanıcı seçti)
     if (slalomOutro === 0) showToast(currentLevel === 9 ? 'SOMETHING WOKE UP' : currentLevel === 7 ? 'THE GATES CLOSE BEHIND YOU' : 'SOMETHING IS OUT THERE', currentLevel === 9 ? '#ff4d66' : '#ffb347', l6 ? 78 : SLALOM_OUTRO);
@@ -7905,7 +7039,7 @@ function update() {
     if (currentLevel === 9) hurtFx = Math.max(hurtFx, 10); // yer sarsılır: Rock Titan uyanıyor
   } else if (currentLevel === 14 && !archiveDone && !boss && currentWave > currentLevel * 5 && enemies.length === 0 && slowMoT <= 0) {
     if (!archiveCard) { archiveCard = { t: 0 }; Sound.sfx.wave(); } // önce çözülen mesaj, sonra LEVEL CLEAR
-  } else if (currentLevel !== _zoneLastLevel && !boss && currentWave > currentLevel * 5 && enemies.length === 0 && slowMoT <= 0 && !asteroids.some(a => a.sl) && !stealthScans.length && !tunnelSegs.some(g => g.open.length < 3) && !drills.length && !haulers.length && !drifters.length) {
+  } else if (currentLevel !== _zoneLastLevel && !boss && currentWave > currentLevel * 5 && enemies.length === 0 && slowMoT <= 0 && !asteroids.some(a => a.sl) && !stealthScans.length && !drills.length && !drifters.length) {
     levelStates[currentLevel - 1] = 'completed';
     levelStates[currentLevel] = 'unlocked';
     saveLevelStates();
@@ -7926,7 +7060,7 @@ function update() {
     // Yatay hareket hızı faza göre
     const baseSpeed = (boss.special ? 1.9 : 1.2 + boss.bossNum * 0.2)
                     * (boss.phase === 1 ? 1.0 : boss.phase === 2 ? 1.7 : 2.8);
-    if (boss.zone > 4) { // (L20 Mirror Duel kendi hareketinde: updateDuel) Void Vanguard, Rock Titan ve Command Center devriye yapmaz: şeride oturur, sıçrar (updateRecoil)
+    if (boss.zone > 4) { // Void Vanguard, Rock Titan ve Command Center devriye yapmaz: şeride oturur, sıçrar (updateRecoil)
       const sign = boss.vx >= 0 ? 1 : -1;
       boss.vx = sign * baseSpeed;
       boss.x += boss.vx;
@@ -7942,7 +7076,7 @@ function update() {
     if (boss.zone === 2) updateTitan();
     if (boss && boss.zone === 3) updateCenter();
     if (!boss) return;
-    if (boss.zone === 4) updateEcho(); // L20 final: ufuk kapanıyor + seni tanıyor (THE UNMAKING kütlesi: updateUnmake, kullanılmıyor)
+    if (boss.zone === 4) updateEcho(); // L20 final: ufuk kapanıyor + seni tanıyor
     if (boss.zone === 1) updateRecoil(); // yardımcı gemiler kaldırıldı (kullanıcı: küçükleri kovalamaktan boss'u vuramıyordu) — updateBossMinions kullanılmıyor
 
     // Komuta Merkezi: faz 2'den itibaren periyodik olarak görünmez olur (mermi işlemez, ateş etmez)
@@ -7953,33 +7087,7 @@ function update() {
       boss.cloak = 0;
     }
 
-    // Drone gönderme: Komuta Merkezi her fazda, Void Leader son fazda
-    if (false && boss.zone === 4 && boss.phase === 3) { // eski Void Leader dronları (Mirror Duel'de yok)
-      boss.droneTimer++;
-      const droneEvery = (boss.zone === 4 ? 210 : [0, 230, 190, 160][boss.phase]) * (BOSS_FIRE_MUL[currentLevel] || 1);
-      if (boss.droneTimer >= droneEvery) {
-        boss.droneTimer = 0;
-        // Drone, boss'un son atışta boş bıraktığı şeritten iner
-        spawnDrone(boss.x, boss.zone === 3 && boss.phase >= 2 && Math.random() < 0.5, boss.safeLane);
-      }
-    }
 
-    // Void Leader: şerit lazerleri (önce uyarı, sonra ışın)
-    if (false && boss.zone === 4 && boss.phase >= 2) { // eski Void Leader lazerleri (Mirror Duel: Last Vector)
-      boss.laserTimer++;
-      const laserEvery = (boss.phase === 2 ? 170 : 135) * (BOSS_FIRE_MUL[currentLevel] || 1);
-      if (boss.laserTimer >= laserEvery && lasers.length === 0) {
-        boss.laserTimer = 0;
-        const count = boss.phase === 2 ? 1 : 2;
-        const hz = hazardWindows();
-        const laneFreeDuring = l => !hz.some(h => h.lane === l && h.t0 < 90 + WALL_MARGIN && h.t1 > 62 - WALL_MARGIN);
-        const combos = count === 1 ? [[0], [1], [2]] : [[0, 1], [0, 2], [1, 2]];
-        // en az bir şerit (ışın dışı) ışın süresince tehlikesiz kalmalı
-        const ok = combos.filter(c => [0, 1, 2].some(l => !c.includes(l) && laneFreeDuring(l)));
-        const pick = (ok.length ? ok : combos)[Math.floor(Math.random() * (ok.length || combos.length))];
-        pick.forEach(l => lasers.push({ lane: l, t: 0, warn: 62, fire: 28, hit: false }));
-      }
-    }
 
     // Boss ateş ediyor
     boss.fireTimer++;
@@ -8010,19 +7118,6 @@ function update() {
           [0, 1, 2].filter(l => l !== safe).forEach(l => pushShot(mk(LANE_CENTERS[l], vy)));
           if (phase === 3 && Math.random() < 0.2) pushShot(mk(LANE_CENTERS[safe === 1 ? 0 : 1], 2.8, true));
         }
-      } else if (false && boss.zone === 4) {
-        // eski Void Leader: nişanlı yelpaze; lazer varken mermiler lazer şeritlerine gider (güvenli şerit korunur)
-        const phase = boss.phase || 1;
-        boss.nextFireIn = phase === 1 ? 52 + Math.random() * 16 : phase === 2 ? 70 + Math.random() * 18 : 58 + Math.random() * 16;
-        const vy = phase === 1 ? 4.6 : 5.4;
-        let targets;
-        if (lasers.length > 0) targets = lasers.map(L => L.lane);
-        else {
-          const safe = Math.floor(Math.random() * 3);
-          targets = [0, 1, 2].filter(l => l !== safe);
-          if (phase === 2) targets = [targets[Math.floor(Math.random() * 2)]];
-        }
-        targets.forEach(l => pushShot(aimed(l, vy)));
       } else {
         boss.nextFireIn = 9999; // Void Vanguard'ın ateşi updateRecoil()'de
       }
@@ -8041,7 +7136,6 @@ function update() {
         } else boss.shieldHit = 8;
         return false;
       }
-      if (boss.zone === 4 && (boss.form === 'mass' || boss.form === 'breaking')) return !unmakeBulletHit(b); // L20: kütle mermiyi yutar, sadece kabarcıklar
       if (boss.shielded && Math.abs(b.x - boss.x) < 90 && Math.abs(b.y - boss.y) < 70) { boss.shieldHit = 8; return false; } // dron kalkanı
       const bsc = boss.special ? 1.45 : 1.0;
       const hit = boss.zone === 4 ? (Math.abs(b.x - boss.x) < DUEL_HIT_X && Math.abs(b.y - boss.y) < 46) : (Math.abs(b.x - boss.x) < 62 * bsc && Math.abs(b.y - boss.y) < 48 * bsc); // L20: sadece kendi şeridinden vurulur
@@ -8104,8 +7198,6 @@ function update() {
 
   if (currentLevel === 15 && state === 'play' && (gates.length || (_zcfg && _zcfg.gates && !boss))) updateGates(_zcfg.gates || GATE_WAVES[2], !!boss || getWave() - (currentLevel - 1) * 5 > bossPreWaves());
   if (currentLevel === 15) updateTitanBombs();
-  if (horizonOn() && state === 'play' && !player.dead && _zcfg && _zcfg.horizon) updateHorizon(_zcfg.horizon);
-  if (currentLevel === 19 && state === 'play' && !player.dead && (sever || (_zcfg && _zcfg.sever))) updateSever(_zcfg.sever || SEVER_WAVES[4], getWave() > currentLevel * 5 || !(_zcfg && _zcfg.sever));
   if (currentLevel === 16 && !boss && state === 'play' && !player.dead && _zcfg && _zcfg.rift) updateRift(_zcfg.rift, getWave() > currentLevel * 5);
   if (currentLevel === 18 && state === 'play' && !player.dead && (ringRows.length || (_zcfg && _zcfg.ring))) updateRing(_zcfg.ring || RING_WAVES[4], getWave() > currentLevel * 5 || !(_zcfg && _zcfg.ring));
   if (currentLevel === 14 && !boss && state === 'play' && _zcfg && _zcfg.stream) updateStream(_zcfg.stream, getWave() > currentLevel * 5);
@@ -8118,15 +7210,12 @@ function update() {
     // Asteroid spawning (zone 2)
     const levelEnd = currentLevel % 5 !== 0 && getWave() > currentLevel * 5;
     if (currentLevel === 7) updateScans();
-    if (_zcfg && _zcfg.tunnel && !boss) updateTunnel(_zcfg.tunnel, levelEnd);
-    if (_zcfg && _zcfg.digger && !boss) updateDigger(_zcfg.digger, levelEnd);
     if (_zcfg && _zcfg.drills && !boss) updateDrills(_zcfg.drills, levelEnd);
-    if (_zcfg && _zcfg.haulers && !boss) updateHaulers(_zcfg.haulers, levelEnd);
     if (_zcfg && _zcfg.convoy && !boss) updateConvoy(_zcfg.convoy, levelEnd);
     if (currentLevel === 10) updateTitanBombs();
     if (currentZone === 2 && !boss && !levelEnd && _zcfg && _zcfg.slalom) updateSlalom(_zcfg.slalom);
     else if (currentZone === 2 && !boss && !levelEnd && _zcfg && _zcfg.stealth) updateStealth(_zcfg.stealth);
-    else if (currentZone === 2 && !boss && _zcfg && (_zcfg.tunnel || _zcfg.digger || _zcfg.drills || _zcfg.haulers || _zcfg.convoy)) { /* L8: kaya üretimi kendi fonksiyonunda */ }
+    else if (currentZone === 2 && !boss && _zcfg && (_zcfg.drills || _zcfg.convoy)) { /* L8: kaya üretimi kendi fonksiyonunda */ }
     else if (currentZone === 2 && !boss && !levelEnd) {
       asteroidSpawnTimer++;
       const astLvl = Math.min(5, currentLevel - 5); // 1-5: L6-L10
@@ -8208,7 +7297,6 @@ function update() {
       // Çarpma alanı görselle uyumlu (önceden görselden ~10px büyüktü)
       if (!player.dead && Math.abs(a.x - player.x) < a.size * 0.9 + (a.sl || a.amb ? 24 : 12) && Math.abs(a.y - player.y) < (a.hitH || a.size * 0.9 + 16)) { // L6: küçük kaya, gemi gövdesi kadar pay
         spawnExplosion(a.x, a.y, true);
-        if (a.dig) { digCrash(); return false; }
         if (!(a.meteor && frameCount < meteorImmuneUntil)) {
           damagePlayer(a.meteor ? 'Hit by a meteor!' : 'Hit by an asteroid!');
           if (a.meteor) meteorImmuneUntil = frameCount + 45;
@@ -8284,7 +7372,7 @@ function update() {
     if (cfg && cfg.burster && ++burstT >= cfg.burster && enemies.filter(e => e.burster).length < 2 && spawnBurster()) burstT = 0;
     if (cfg && cfg.link && ++linkT >= cfg.link && !enemies.some(e => e.guarding) && spawnLinkPair()) linkT = 0;
     const lw = getWave() - (currentLevel - 1) * 5;
-    if (lw === 3 && !runnerDone && !(cfg && (cfg.slalom || cfg.stealth || cfg.tunnel || cfg.digger || cfg.drills || cfg.haulers)) && (Math.random() < 1 / 360 || getWave() * WAVE_SEC - gameSec() < 2)) runnerDone = spawnRunner();
+    if (lw === 3 && !runnerDone && !(cfg && (cfg.slalom || cfg.stealth || cfg.drills)) && (Math.random() < 1 / 360 || getWave() * WAVE_SEC - gameSec() < 2)) runnerDone = spawnRunner();
     // formation: true → sadece son dalga; dizi → o dalgalarda
     const formWave = cfg && (Array.isArray(cfg.formation) ? cfg.formation.includes(lw) : cfg.formation && lw >= 5);
     if (!formWave) formOn = false;
@@ -8295,7 +7383,7 @@ function update() {
         // ikili sıra: farklı boşluklu ikinci sıra hemen arkadan → iki kez yer değiştir
         if (cfg.formDouble && Math.random() < cfg.formDouble) spawnFormationRow(120);
       }
-    } else if (cfg && (cfg.slalom || cfg.stealth || cfg.tunnel || cfg.digger || cfg.drills || cfg.haulers || cfg.convoy)) {
+    } else if (cfg && (cfg.slalom || cfg.stealth || cfg.drills || cfg.convoy)) {
       spawnTimer = 0; // L6: gemiler kapılarla gelir · L7: düşman yok
     } else if (spawnTimer >= interval) {
       spawnTimer = 0;
@@ -8517,7 +7605,6 @@ function update() {
     const cloaked = e.phantom && e.alpha < 0.45;
 
     if (e.mirror) updateMirror(e);
-    if (e.tidal) updateTidal(e, getLevelConfig().tidal || TIDAL_WAVES[4]);
     // Ateş etme — canShoot false ise hiç ateş etme (süpürme sırasında sayaç durur → bitince toplu ateş olmasın)
     if (!sweepActive) e.fireTimer++;
     if (e.canShoot && !cloaked && e.fireTimer >= e.fireRate && e.y > 0 && !sweepActive) { // süpürme sırasında ateş yok
@@ -8539,12 +7626,9 @@ function update() {
     if (!cloaked) bullets = bullets.filter(b => {
       if (e.hp <= 0) return true; // aynı karede ölen düşmana ikinci mermi işlemez (çift ölüm/çift drop olmasın)
       const sc  = ENEMY_TIER[e.maxHp].sc;
-      const TB = e.tidal ? tidalBody(e) : null; // L19: esneyen gövdenin kanatları mermiyi yutar, sadece çekirdek (geldiği şerit) vurulur
-      if (TB && Math.abs(b.x - TB.cx) < TB.half && Math.abs(b.x - e.x) >= 26 && Math.abs(b.y - e.y) < 29 * sc) { e.shieldHit = 8; spawnExplosion(b.x, b.y, false); return false; }
-      const hit = Math.abs(b.x - e.x) < (TB ? 26 : 24 * sc) && Math.abs(b.y - e.y) < 29 * sc;
+      const hit = Math.abs(b.x - e.x) < 24 * sc && Math.abs(b.y - e.y) < 29 * sc;
       if (hit && ((e.gunner && e.gState !== 'cool') || e.armored || e.guardedBy || (e.hunter && (e.hState === 'enter' || e.hState === 'track')) || e.rammer || e.sweeper)) { e.shieldHit = 8; return false; } // kalkan: hasar yok (rammer vurulamaz: tek çare kaçmak)
       if (hit) {
-        if (horizonOn()) { const Z = getLevelConfig().horizon; horizonPush(-(Z.kick + (e.hp - 1 / (e.armor || 1) <= 0.001 ? Z.kill : 0))); } // L19: geri tepme
         e.hp -= 1 / (e.armor || 1); // zırh: mermi başına hasar azalır (görünüş/can barı aynı, daha yavaş erir)
         if (e.hp < 0.001) e.hp = 0;
         e.flash = 14;
@@ -8570,7 +7654,7 @@ function update() {
     if (e.free) { if (e.y > H + 40) return false; }
     else if (e.y > H - 55 && !e.runner && !e.seg && !e.rammer && !e.sweeper && !e.burster) {
       spawnShipDeath(e);
-      horizonPush(45); damagePlayer('The enemy reached the ship!');
+      damagePlayer('The enemy reached the ship!');
       return false;
     }
 
@@ -9217,7 +8301,6 @@ function render() {
   drawWreck('under');
 
   if (currentLevel === 7 && state !== 'levelcomplete') drawStealth();
-  if (currentLevel === 8) drawTunnel();
   if (currentLevel === 8 && drillSpd > 0) drawMineBack();
   if (currentLevel === 12 && state !== 'levelcomplete') drawStormDark(); // her şeyin altında
   if (currentLevel === 15 && !boss && state !== 'levelcomplete') drawCorridor();
@@ -9238,7 +8321,6 @@ function render() {
   enemies.forEach(drawEnemy);
   if (currentLevel === 17) drawMirrors();
   if (currentLevel === 18 && ringRows.length) drawRing();
-  if (currentLevel === 19 && sever) drawSever();
   if (twistOn() && state === 'play') drawTwistFlow();
   if (photonOn() && state !== 'levelcomplete') drawPhotonRing();
   drawRecoilFx('under');
@@ -9252,14 +8334,11 @@ function render() {
   powerups.forEach(drawPowerup); // güçlendirmeler her zaman net: sisin üstünde
   drawLasers();
   eBullets.forEach(drawEBullet);
-  if (digSpd > 0) drawDigger();
   if (drillSpd > 0) drawDrills();
-  drawHaulers();
   drawDrifters();
   drawTitanBombs();
   drawAlarmFx();
 
-  if (horizonOn() && state !== 'levelcomplete') drawHorizon();
   if (currentLevel === 20 && boss && boss.form === 'echo') drawEchoDark(); // final: tüm ortam karanlık, ateşler aydınlatır
   if (currentLevel === 20 && boss && state === 'play') drawEchoGhost(); // senin kızıl yankın
   if ((state === 'play' || state === 'paused' || state === 'gameover' || state === 'finalchoice') && !player.dead) {
