@@ -1159,7 +1159,7 @@ function startLevel(level) {
   playFrames     = (level - 1) * LEVEL_SEC * 60;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; shards = []; powerups = [];
-  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; towSeen = false; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; ccSeen = null; gates = []; gateT = 0; dashT = 0; dashTrail = 0; gateSeen = null; corridorY = 0; streamLane = 1; streamX = 0; streamNext = -1; streamT = 0; streamPre = 0; archive = 0; archiveCard = null; archiveDone = false; streamBits = []; inStream = false; streamChain = false; warpT = 0; warpWarn = 0; warpTrails = []; warpSeen = null; orbs = []; orbT = 0; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1; stormClouds = []; stormCloudT = 0; stormShake = 0; rifts = []; riftMode = null; riftT = 0; riftNext = 90; riftIdx = 0; riftScaleCur = 1; riftAng = 0; riftAngTgt = 0; riftFlip = false; riftFx = 0; riftSeen = null; mirrorSeen = null; ringRows = []; ringT = 0; ringSeen = null; twistDir = Math.random() < 0.5 ? -1 : 1; twistT = 0; twistD = 0; twistAmp = 0; twistGhost = 0; twistPin = 0; twistPrev = null; photonSeen = null; photonN = 0; duelSignal = 0; unmakeT = 0; unmakeBits = []; unmakeAmp = 0; unmakeGhost = 0; unmakeGlitch = 0; unmakeFlash = 0; hzTop = 0; echoDark = 0; wreckFx = []; echoHist = []; echoEsc = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]; echoLastLane = 1;
+  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; towSeen = false; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; ccSeen = null; gates = []; gateT = 0; dashT = 0; dashTrail = 0; gateSeen = null; corridorY = 0; streamLane = 1; streamX = 0; streamNext = -1; streamT = 0; streamPre = 0; archive = 0; archiveCard = null; archiveDone = false; streamBits = []; corrupt = []; corruptT = 0; inStream = false; streamChain = false; warpT = 0; warpWarn = 0; warpTrails = []; warpSeen = null; orbs = []; orbT = 0; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1; stormClouds = []; stormCloudT = 0; stormShake = 0; rifts = []; riftMode = null; riftT = 0; riftNext = 90; riftIdx = 0; riftScaleCur = 1; riftAng = 0; riftAngTgt = 0; riftFlip = false; riftFx = 0; riftSeen = null; mirrorSeen = null; ringRows = []; ringT = 0; ringSeen = null; twistDir = Math.random() < 0.5 ? -1 : 1; twistT = 0; twistD = 0; twistAmp = 0; twistGhost = 0; twistPin = 0; twistPrev = null; photonSeen = null; photonN = 0; duelSignal = 0; unmakeT = 0; unmakeBits = []; unmakeAmp = 0; unmakeGhost = 0; unmakeGlitch = 0; unmakeFlash = 0; hzTop = 0; echoDark = 0; wreckFx = []; echoHist = []; echoEsc = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]; echoLastLane = 1;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
   countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
@@ -2190,6 +2190,7 @@ function hazardWindows() {
   lasers.forEach(L => out.push({ lane: L.lane, t0: L.warn - L.t, t1: L.warn - L.t + (L.meteor ? 60 : L.drill ? 45 : L.fire) }));
   bolts.forEach(B => out.push({ lane: B.lane, t0: B.warn - B.t, t1: B.warn - B.t + B.fire }));
   if (orbs.length) orbHazards(out, py);
+  corrupt.forEach(c => { const t = (py - c.y) / CORRUPT_SPD, d = (CORRUPT_H / 2 + 24) / CORRUPT_SPD; if (t + d > 0) out.push({ lane: c.lane, t0: t - d, t1: t + d }); });
   ringRows.forEach(r => { if (r.hit) return; const t = (py - r.y) / r.spd, d = (RING_H / 2 + 16) / r.spd; [0, 1, 2].forEach(l => { if (l !== r.end) out.push({ lane: l, t0: t - d, t1: t + d }); }); }); // L17 enkaz sırası
   return out;
 }
@@ -4366,13 +4367,17 @@ function drawWarp() { // ışınlanma izi + uyarıda inecekleri yerdeki soluk ko
 // --- L14 DATA STREAM: bir şeridi kaplayan veri akışı; içinde kalınca ARCHIVE dolar. Akış ara ara şerit değiştirir
 // (gideceği şeritte önce soluk çizgi). Bölüm sonunda toplanan kadar çözülmüş mesaj (hikâye ipucu 2).
 const DATA_WAVES = [ // 2026-11-08: L1'e yakın: daha hızlı ve dayanıklı gemiler (L1: 3.0-3.4 hız, çoğu 2-3 can), biraz daha seyrek
-  { shift: 260, pre: 70, dblShift: 0,    spd: 3.0, interval: 68, dbl: 0.2,  hp2: 0.4,  hp3: 0.1,  bias: 0.5 },
-  { shift: 220, pre: 60, dblShift: 0,    spd: 3.1, interval: 64, dbl: 0.25, hp2: 0.4,  hp3: 0.15, bias: 0.6 },
-  { shift: 180, pre: 56, dblShift: 0.2,  spd: 3.1, interval: 64, dbl: 0.25, hp2: 0.4,  hp3: 0.15, bias: 0.6 },
-  { shift: 200, pre: 44, dblShift: 0.6,  spd: 3.0, interval: 72, dbl: 0.2,  hp2: 0.4,  hp3: 0.1,  bias: 0.55 }, // nefes + arka arkaya kayma
-  { shift: 160, pre: 50, dblShift: 0.35, spd: 3.3, interval: 60, dbl: 0.3,  hp2: 0.4,  hp3: 0.2,  bias: 0.65 },
+  // 2026-11-24 (kullanıcı: sıkıcı): bad = akışın içinden inen bozuk veri paketi aralığı, pair = arka arkaya iki paket olasılığı
+  { shift: 260, pre: 70, dblShift: 0,    spd: 3.0, interval: 68, dbl: 0.2,  hp2: 0.4,  hp3: 0.1,  bias: 0.5,  bad: 150, pair: 0 },
+  { shift: 220, pre: 60, dblShift: 0,    spd: 3.1, interval: 64, dbl: 0.25, hp2: 0.4,  hp3: 0.15, bias: 0.6,  bad: 120, pair: 0.2 },
+  { shift: 180, pre: 56, dblShift: 0.2,  spd: 3.1, interval: 64, dbl: 0.25, hp2: 0.4,  hp3: 0.15, bias: 0.6,  bad: 105, pair: 0.3 },
+  { shift: 200, pre: 44, dblShift: 0.6,  spd: 3.0, interval: 72, dbl: 0.2,  hp2: 0.4,  hp3: 0.1,  bias: 0.55, bad: 90,  pair: 0.4 }, // nefes + arka arkaya kayma
+  { shift: 160, pre: 50, dblShift: 0.35, spd: 3.3, interval: 60, dbl: 0.3,  hp2: 0.4,  hp3: 0.2,  bias: 0.65, bad: 85,  pair: 0.45 },
 ];
-const ARCHIVE_FULL = 2400; // akışta bu kadar kare = %100; bölüm arşiv dolunca biter (dalgalar arşivle ilerler)
+// Bozuk veri: akışın şeridinde tepeden iner, vurulamaz; değersen can + arşivden CORRUPT_LOSS gider. Akıştan kısa çıkıp geri girmek gerekir.
+const CORRUPT_SPD = 4.6, CORRUPT_LOSS = 0.04, CORRUPT_H = 34;
+let corrupt = [], corruptT = 0;
+const ARCHIVE_FULL = 2050; // 2026-11-24: bozuk veri yüzünden akış dışında geçen süre eklendi, bölüm uzamasın diye 2400 → 2050 // akışta bu kadar kare = %100; bölüm arşiv dolunca biter (dalgalar arşivle ilerler)
 const ARCHIVE_MSG = [
   '...if this message ever reaches you,',
   'the colony is not what we were promised.',
@@ -4395,6 +4400,21 @@ function updateStream(D, ending) {
     streamLane = streamNext; streamNext = -1; Sound.sfx.swipe();
     if (Math.random() < D.dblShift) streamChain = true; // hemen bir kez daha kayar
   }
+  if (!ending && D.bad && ++corruptT >= D.bad) {
+    corruptT = 0;
+    const lane = streamNext >= 0 && streamPre < 30 ? streamNext : streamLane; // akış kaymak üzereyse gideceği şeride
+    const n = Math.random() < D.pair ? 2 : 1;
+    for (let k = 0; k < n; k++) corrupt.push({ lane, x: LANE_CENTERS[lane], y: HUD_H - 20 - k * 95, seed: Math.random() * 99 });
+  }
+  corrupt = corrupt.filter(c => {
+    c.y += CORRUPT_SPD;
+    if (!player.dead && !(player.invuln > 0) && Math.abs(c.x - player.x) < LANE_W * 0.36 && Math.abs(c.y - player.y) < CORRUPT_H / 2 + 22) {
+      damagePlayer('Hit by corrupted data!'); archive = Math.max(0, archive - CORRUPT_LOSS);
+      addFloat(player.x, player.y - 50, '-' + Math.round(CORRUPT_LOSS * 100) + '% ARCHIVE', '#ff4d66', false);
+      return false;
+    }
+    return c.y < H + 40;
+  });
   inStream = !player.dead && Math.abs(streamX - tx) < 4 && Math.abs(player.x - streamX) < LANE_W * 0.4;
   if (inStream && archive < 1) {
     archive = Math.min(1, archive + 1 / ARCHIVE_FULL);
@@ -4429,6 +4449,24 @@ function drawStream() {
     rg.addColorStop(0, 'rgba(120,255,190,0.35)'); rg.addColorStop(1, 'rgba(60,255,160,0)');
     ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(player.x, player.y - 10, 60, 0, Math.PI * 2); ctx.fill();
   }
+  ctx.restore();
+}
+function drawCorrupt() { // kırmızı, titreyen bozuk veri bloğu: kayık şeritler + hata karakterleri
+  ctx.save();
+  corrupt.forEach(c => {
+    let s2 = c.seed + Math.floor(frameCount / 3) * 5.1; const rnd = () => { s2 = (s2 * 9301 + 49297) % 233280; return s2 / 233280; };
+    const w = LANE_W * 0.62, h = CORRUPT_H, x0 = c.x - w / 2, y0 = c.y - h / 2;
+    const gl = ctx.createRadialGradient(c.x, c.y, 4, c.x, c.y, w * 0.75); gl.addColorStop(0, 'rgba(255,40,70,0.35)'); gl.addColorStop(1, 'rgba(255,40,70,0)');
+    ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(c.x, c.y, w * 0.75, 0, Math.PI * 2); ctx.fill();
+    for (let i = 0; i < 5; i++) { // yatay kayık dilimler (glitch)
+      const sh = (rnd() - 0.5) * 14, sy = y0 + i * h / 5;
+      ctx.fillStyle = i % 2 ? '#a3001f' : '#ff1f45'; ctx.fillRect(x0 + sh, sy, w, h / 5 + 0.5);
+    }
+    ctx.fillStyle = 'rgba(80,240,255,0.55)'; ctx.fillRect(x0 + (rnd() - 0.5) * 18, y0 + rnd() * h, w * (0.3 + rnd() * 0.5), 2); // renk ayrışması
+    ctx.shadowColor = '#ff1f45'; ctx.shadowBlur = 12; ctx.strokeStyle = '#ffb3c0'; ctx.lineWidth = 2; ctx.strokeRect(x0, y0, w, h); ctx.shadowBlur = 0;
+    ctx.font = `700 12px ${MONO_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ffe0e6';
+    ctx.fillText(['ERR', '#!?', '0x0', 'NUL', '??'][Math.floor(rnd() * 5)], c.x + (rnd() - 0.5) * 4, c.y);
+  });
   ctx.restore();
 }
 function drawArchiveBar() { // üstte, düğme değil: ARCHIVE yüzde çubuğu
@@ -6533,6 +6571,7 @@ const FIRST_SEEN = {
   coreGap:   { title: 'SHIELD GAP',     text: 'The gap in its shield is facing you. Tap to throw a bomb now! A blocked bomb is lost.' },
   stream:    { title: 'DATA STREAM',    text: 'Stay inside the green stream to copy their archive. The level ends when the archive bar at the top is full.' },
   warp:      { title: 'WARP JUMP',      text: 'When the ships flicker, they all jump forward. The faint copy shows where each one lands.' },
+  corrupt:   { title: 'CORRUPTED DATA', text: "Red blocks ride the stream. They can't be shot and cost a life and some archive. Slip out, then back in!" },
   orb:       { title: 'BALL LIGHTNING', text: "It zigzags between lanes and can't be shot. A spark shows where it jumps next!" },
   bolt:      { title: 'LIGHTNING',      text: 'The glowing cloud marks the lane it will strike. Get out of that lane!' },
   ion:       { title: 'ION CLOUD',      text: 'Your guns jam inside it. Steer around it.' },
@@ -6564,6 +6603,7 @@ function checkFirstSeen() {
   if (gateSeen) { want('gate', gateSeen.x, gateSeen.y); gateSeen = null; }
   warpSeen = null; // WARP JUMP durdurma kartı kaldırıldı (2026-11-09): bilgi bölüm kartında
   for (const B of bolts) if (B.t > 6 && B.t < B.warn - 20) want('bolt', LANE_CENTERS[B.lane], H * 0.3);
+  for (const c of corrupt) if (c.y > HUD_H + 80 && c.y < H * 0.5) want('corrupt', c.x, c.y);
   for (const o of orbs) if (o.y > HUD_H + 60 && o.y < H * 0.55) want('orb', o.x, o.y);
   if (overdriveTimer > OVERDRIVE_TIME - 3) want('overdrive', player.x, player.y);
   for (const a of asteroids) {
@@ -8449,6 +8489,7 @@ function render() {
   if (currentZone === 3 && !boss) { const fc = getLevelConfig(); if (!fc || fc.fog !== 0) drawFog(fc && fc.fog ? fc.fog : 0.4); } // boss sırasında sis yok: üs net görünsün // sis düşmanları örter, mermileri değil
   if (radarOn()) { drawNebMines(); drawRadar(); }
   if (currentLevel === 12 && state !== 'levelcomplete') { drawStorm(); if (orbs.length) drawOrbs(); }
+  if (currentLevel === 14 && state === 'play' && corrupt.length) drawCorrupt(); // sisin üstünde: net kırmızı
   powerups.forEach(drawPowerup); // güçlendirmeler her zaman net: sisin üstünde
   drawLasers();
   eBullets.forEach(drawEBullet);
