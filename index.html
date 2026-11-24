@@ -2187,7 +2187,7 @@ function hazardWindows() {
     const t = (py - b.y) / b.vy, d = 40 / b.vy;
     if (t + d > 0) lanesHit(b.x + (b.vx || 0) * Math.max(0, t), 30).forEach(lane => out.push({ lane, t0: t - d, t1: t + d }));
   });
-  lasers.forEach(L => out.push({ lane: L.lane, t0: L.warn - L.t, t1: L.warn - L.t + (L.meteor ? 60 : L.fire) }));
+  lasers.forEach(L => out.push({ lane: L.lane, t0: L.warn - L.t, t1: L.warn - L.t + (L.meteor ? 60 : L.drill ? 45 : L.fire) }));
   bolts.forEach(B => out.push({ lane: B.lane, t0: B.warn - B.t, t1: B.warn - B.t + B.fire }));
   ringRows.forEach(r => { if (r.hit) return; const t = (py - r.y) / r.spd, d = (RING_H / 2 + 16) / r.spd; [0, 1, 2].forEach(l => { if (l !== r.end) out.push({ lane: l, t0: t - d, t1: t + d }); }); }); // L17 enkaz sırası
   return out;
@@ -3602,7 +3602,13 @@ function drawCenter(b) {
 }
 // L10 Rock Titan. Faz 1 Kaya Fırlatma · Faz 2 Matkap Dalışı · Faz 3 Göçük. Çekirdek sadece açıkken hasar alır.
 const TITAN_Y = H * 0.23, TITAN_DIVE_Y = H * 0.5;
-function titanThrow(lanes) { lanes.forEach(l => lasers.push({ lane: l, t: 0, warn: 38, fire: 30, hit: true, meteor: true, y0: boss.y + 50 })); }
+// 2026-11-24 (kullanıcı): Titan kayalarla sırayla matkap başı da fırlatır: şeritte uyarı → dönen matkap ucu hızla iner, vurulamaz, kaçılır
+const TITAN_DRILL_SPD = 15;
+function titanThrow(lanes) {
+  const drill = boss && (boss.throwN = (boss.throwN || 0) + 1) % 2 === 0;
+  lanes.forEach(l => lasers.push(drill ? { lane: l, t: 0, warn: 34, fire: 60, hit: false, drill: true, y0: boss.y + 60 }
+    : { lane: l, t: 0, warn: 38, fire: 30, hit: true, meteor: true, y0: boss.y + 50 }));
+}
 function updateTitan() {
   const b = boss;
   if (b.dying > 0) {
@@ -3820,15 +3826,36 @@ function drawTitan(b) {
   if (tImg.complete && tImg.naturalWidth) { // 2026-11-22: kullanıcının görselleri (F1 zırhlı, sonra zırhsız); çekirdek (0, 4) noktasına oturur
     const w = TITAN_IMG_W, h = w * tImg.naturalHeight / tImg.naturalWidth;
     ctx.drawImage(tImg, -w / 2, 4 - h * TITAN_CORE_FY, w, h);
-    const q = 0.5 + 0.5 * Math.sin(frameCount * 0.3);
-    if (open) { // çekirdek açık: parlayan nabız
-      ctx.globalCompositeOperation = 'lighter';
-      const g = ctx.createRadialGradient(0, 4, 2, 0, 4, 34); g.addColorStop(0, `rgba(255,230,160,${0.75 + 0.25 * q})`); g.addColorStop(0.5, `rgba(255,140,40,${0.45 + 0.2 * q})`); g.addColorStop(1, 'rgba(255,100,20,0)');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 4, 34, 0, Math.PI * 2); ctx.fill(); ctx.globalCompositeOperation = 'source-over';
-    } else { ctx.fillStyle = 'rgba(20,12,10,0.6)'; ctx.beginPath(); ctx.arc(0, 4, 14, 0, Math.PI * 2); ctx.fill(); } // kapalı: çekirdek söner
+    drawTitanCore(b, open);
   } else drawTitanBody(1.15, 4 - (b.phase || 1), open, spin);
   ctx.restore();
   if (!(titanShedImg.complete && titanShedImg.naturalWidth) && ((b.phase || 1) === 3 || b.dying)) drawAstraEmblem(b.x, b.y - 36, 13, b.dying ? 0.95 : 0.3); // (görsel yoksa) zırhın altındaki soluk sembol; zırhsız görselde amblem var
+}
+// 2026-11-24 (kullanıcı: açık / kapalı anlaşılmıyordu): kapalıyken çekirdeğin üstüne gri metal kapak dilimleri kapanır, ışık söner;
+// açılınca dilimler kenara çekilir, çekirdek beyaz-sarı parlar ve dışa halkalar yayılır
+function drawTitanCore(b, open) {
+  b.coreA = (b.coreA || 0) + ((open ? 1 : 0) - (b.coreA || 0)) * (open ? 0.25 : 0.3);
+  const A = b.coreA, R = 21, cy = 4, q = 0.5 + 0.5 * Math.sin(frameCount * 0.3);
+  if (A > 0.05) { // açık: güçlü nabız + yayılan halkalar
+    ctx.globalCompositeOperation = 'lighter';
+    const rr = 30 + 10 * q, g = ctx.createRadialGradient(0, cy, 2, 0, cy, rr);
+    g.addColorStop(0, `rgba(255,255,230,${A})`); g.addColorStop(0.35, `rgba(255,220,120,${0.8 * A})`); g.addColorStop(1, 'rgba(255,140,30,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, cy, rr, 0, Math.PI * 2); ctx.fill();
+    for (let i = 0; i < 2; i++) { const v = ((frameCount + i * 18) % 36) / 36; ctx.strokeStyle = `rgba(255,230,150,${(1 - v) * 0.8 * A})`; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(0, cy, R + v * 34, 0, Math.PI * 2); ctx.stroke(); }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  // kapak dilimleri (iris): A=0 merkezde birleşir, A=1 kenara çekilir
+  ctx.fillStyle = 'rgba(8,6,5,0.85)'; ctx.globalAlpha = 1 - A; ctx.beginPath(); ctx.arc(0, cy, R, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+  const N = 6, rin = R * A;
+  for (let i = 0; i < N; i++) {
+    const a0 = i * Math.PI * 2 / N + 0.3, a1 = a0 + Math.PI * 2 / N + 0.08, am = a0 + Math.PI / N + 0.9;
+    ctx.beginPath(); ctx.moveTo(Math.cos(a0) * R, cy + Math.sin(a0) * R); ctx.arc(0, cy, R, a0, a1);
+    ctx.lineTo(Math.cos(am) * rin, cy + Math.sin(am) * rin); ctx.closePath();
+    ctx.fillStyle = i % 2 ? '#5a524c' : '#6a615a'; ctx.fill();
+    ctx.strokeStyle = 'rgba(20,14,10,0.9)'; ctx.lineWidth = 1.2; ctx.stroke();
+  }
+  ctx.strokeStyle = '#2a221d'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, cy, R, 0, Math.PI * 2); ctx.stroke(); // kapak çerçevesi
+  if (A < 0.5) { ctx.fillStyle = `rgba(255,60,40,${0.5 + 0.5 * (Math.floor(frameCount / 20) % 2)})`; ctx.beginPath(); ctx.arc(0, cy, 2.5, 0, Math.PI * 2); ctx.fill(); } // kilitli: küçük kırmızı ışık
 }
 function drawMiniTitan(e) {
   ctx.save(); ctx.translate(e.x, e.y);
@@ -4640,12 +4667,30 @@ function drawZone4Background() {
   ctx.restore();
 }
 
+// Titan'ın matkap başı: Titan görselinin alt ucundan kesilir; dönüş için yatay titreme + kayan spiral parıltı
+function drawTitanDrill(x, y) {
+  const img = titanImg, w = 46, h = 78;
+  ctx.save();
+  const tg = ctx.createLinearGradient(0, y - h - 130, 0, y - h + 10); tg.addColorStop(0, 'rgba(255,140,40,0)'); tg.addColorStop(1, 'rgba(255,150,50,0.35)');
+  ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = tg; ctx.fillRect(x - 9, y - h - 130, 18, 140); ctx.globalCompositeOperation = 'source-over'; // arkasında sönen sıcak iz
+  ctx.translate(x + (Math.random() - 0.5) * 2.5, y);
+  if (img.complete && img.naturalWidth) {
+    const S = img.naturalWidth / 600; // görselde matkap: x 225-375, y 330-580 (600 px'lik ölçekte)
+    ctx.drawImage(img, 225 * S, 330 * S, 150 * S, 250 * S, -w / 2, -h, w, h);
+  } else { ctx.fillStyle = '#6b5a4e'; ctx.beginPath(); ctx.moveTo(-w / 2, -h); ctx.lineTo(w / 2, -h); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill(); }
+  ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = 'rgba(255,200,120,0.55)'; ctx.lineWidth = 2;
+  for (let i = 0; i < 4; i++) { const v = ((frameCount * 6 + i * 20) % 80) / 80, yy = -h + v * h, hw = (w / 2) * (1 - v) * 0.9; ctx.beginPath(); ctx.moveTo(-hw, yy); ctx.lineTo(hw, yy + 7); ctx.stroke(); }
+  const g = ctx.createRadialGradient(0, -4, 1, 0, -4, 18); g.addColorStop(0, 'rgba(255,230,160,0.9)'); g.addColorStop(1, 'rgba(255,120,30,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, -4, 18, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
 // --- Draw: Void Leader lazerleri ---
 function drawLasers() {
   lasers.forEach(L => {
     const x = LANE_CENTERS[L.lane];
     const top = boss ? boss.y + 40 : HUD_H;
     if (L.meteor && L.t > L.warn) return; // meteorların kendisi çizilir
+    if (L.drill && L.t > L.warn) { if (L.dy != null) drawTitanDrill(x, L.dy); return; }
     ctx.save();
     if (L.t <= L.warn) {
       // Uyarı: yanıp sönen şerit + ünlem
@@ -5787,6 +5832,18 @@ function briefBolt(x, y, s, col) {
   ctx.lineTo(x + 8 * s, y - 3 * s); ctx.lineTo(x + 1 * s, y - 3 * s); ctx.closePath(); ctx.fill();
 }
 let bossLightMask = null;
+let titanLightMask = null;
+function getTitanLightMask() { // Titan görselinin sadece turuncu-sarı ışıklı pikselleri (L10 kartı için)
+  if (titanLightMask || !titanImg.complete || !titanImg.naturalWidth) return titanLightMask;
+  const c = document.createElement('canvas'); c.width = titanImg.naturalWidth; c.height = titanImg.naturalHeight;
+  const g = c.getContext('2d'); g.drawImage(titanImg, 0, 0);
+  try {
+    const d = g.getImageData(0, 0, c.width, c.height), a = d.data;
+    for (let i = 0; i < a.length; i += 4) { const r = a[i], gr = a[i + 1], b = a[i + 2]; if (!(r > 220 && gr > 110 && b < 110 && r - b > 150)) a[i + 3] = 0; }
+    g.putImageData(d, 0, 0);
+  } catch (e) { return null; }
+  return (titanLightMask = c);
+}
 function getBossLightMask() { // Vanguard görselinin sadece pembe ışıklı pikselleri (L5 kartı için)
   if (bossLightMask || !bossImg.complete || !bossImg.naturalWidth) return bossLightMask;
   const c = document.createElement('canvas'); c.width = bossImg.naturalWidth; c.height = bossImg.naturalHeight;
@@ -6098,30 +6155,23 @@ function drawBriefVisual(kind, cx, cy, zc) {
       ctx.restore();
       break;
     }
-    case 'quake': { // sarsılan kaya, çatlaklardan sızan ışık: Titan'ı göstermeden "bir şey uyandı"
-      const f = frameCount % 170, quake = f < 26, pulse = 0.55 + 0.45 * Math.sin(frameCount * 0.07);
-      const sx = quake ? (Math.random() - 0.5) * 6 : 0, sy = quake ? (Math.random() - 0.5) * 4 : 0;
-      ctx.save(); ctx.translate(cx + sx, cy + sy);
-      ctx.fillStyle = '#1b1613'; ctx.strokeStyle = 'rgba(120,96,80,0.5)'; ctx.lineWidth = 1.5; ctx.beginPath();
-      [[-96, 14], [-80, -18], [-52, -34], [-22, -42], [14, -38], [46, -44], [78, -22], [98, 10], [70, 36], [28, 44], [-24, 40], [-68, 38]].forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
-      ctx.closePath(); ctx.fill(); ctx.stroke();
-      ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = quake ? 3 : 2;
-      ctx.strokeStyle = `rgba(255,138,60,${quake ? 1 : pulse})`; ctx.shadowColor = '#ff8a3c'; ctx.shadowBlur = quake ? 18 : 10;
-      [[[0, -4], [-14, -18], [-10, -30], [-22, -42]], [[0, -4], [18, -14], [34, -12], [46, -30]], [[0, -4], [-20, 6], [-44, 2], [-66, 14]], [[0, -4], [12, 12], [34, 16], [60, 30]], [[0, -4], [-6, 18], [-18, 40]]].forEach(c => {
-        ctx.beginPath(); c.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke();
-      });
-      ctx.fillStyle = `rgba(255,200,130,${quake ? 1 : pulse})`; ctx.beginPath(); ctx.arc(0, -4, quake ? 7 : 5, 0, Math.PI * 2); ctx.fill();
-      ctx.shadowBlur = 0;
-      const ca = quake ? 1 - f / 40 : f < 60 ? (1 - (f - 26) / 34) * 0.6 : 0; // 2026-11-22: sarsıntıda çatlağın ardında Titan'ın turuncu çekirdeği bir an görünür
-      if (ca > 0) {
-        ctx.globalCompositeOperation = 'lighter';
-        const cg = ctx.createRadialGradient(0, -4, 2, 0, -4, 30); cg.addColorStop(0, `rgba(255,190,90,${0.8 * ca})`); cg.addColorStop(0.45, `rgba(255,120,30,${0.45 * ca})`); cg.addColorStop(1, 'rgba(255,90,20,0)');
-        ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(0, -4, 30, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = `rgba(255,170,80,${0.7 * ca})`; ctx.lineWidth = 2;
-        for (let q = 0; q < 8; q++) { const a = q * Math.PI / 4 + 0.2; ctx.beginPath(); ctx.arc(0, -4, 15, a, a + 0.5); ctx.stroke(); } // çekirdeğin parçalı halkası
-        ctx.globalCompositeOperation = 'source-over';
+    case 'quake': { // 2026-11-24 (kullanıcı seçti): L5 kartı gibi karanlıkta Titan'ın kendi turuncu ışıkları + çok soluk silüet; ara ara sarsıntı
+      const f = frameCount % 170, quake = f < 26, bw = 124, bh = 124;
+      const sx = quake ? (Math.random() - 0.5) * 6 : 0, sy = quake ? (Math.random() - 0.5) * 4 : 0, bx = cx - bw / 2 + sx, by = cy - bh / 2 + 2 + sy;
+      const g = ctx.createRadialGradient(cx, cy, 4, cx, cy, 130); g.addColorStop(0, 'rgba(0,0,0,0.75)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(cx, cy, 140, 60, 0, 0, Math.PI * 2); ctx.fill();
+      if (titanImg.complete && titanImg.naturalWidth) {
+        ctx.globalAlpha = 0.035 + 0.035 * (0.5 + 0.5 * Math.sin(frameCount * 0.025)) + (quake ? 0.04 : 0);
+        ctx.drawImage(titanImg, bx, by, bw, bh); ctx.globalAlpha = 1;
+        const lm = getTitanLightMask();
+        if (lm) {
+          const glow = quake ? 1 : 0.55 + 0.35 * Math.sin(frameCount * 0.06);
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.globalAlpha = 0.5 * glow; ctx.shadowColor = '#ff8a3c'; ctx.shadowBlur = 14; ctx.drawImage(lm, bx, by, bw, bh); ctx.shadowBlur = 0;
+          ctx.globalAlpha = glow; ctx.drawImage(lm, bx, by, bw, bh);
+          ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+        }
       }
-      ctx.restore();
       break;
     }
     case 'boss': {
@@ -6421,6 +6471,7 @@ const FIRST_SEEN = {
   iron:      { title: 'IRON ROCK',      text: "Can't be destroyed and blocks your shots. Dodge it." },
   explosive: { title: 'EXPLOSIVE ROCK', text: 'Shoot it to blow up everything nearby.' },
   meteor:    { title: 'INCOMING ROCKS', text: 'Rocks are coming down this lane. Move out!' },
+  titanDrill: { title: 'DRILL HEAD',    text: 'A spinning drill is coming down this lane. It can\'t be shot. Move out!' },
   phantom:   { title: 'PHANTOM',        text: 'Turns invisible. Shots pass through it while hidden.' },
   photon:    { title: 'PHOTON SPHERE',  text: 'Your missed shots orbit the black hole and come back from below, in the same lane. Tap to hold fire!' },
   ring:      { title: 'DEBRIS RING',    text: "The ring turns as it falls, so the gap slides. Be in the gap's lane when it reaches you. Debris can't be shot." },
@@ -6470,7 +6521,7 @@ function checkFirstSeen() {
     if (a.type === 'iron' && vis(a.y)) want('iron', a.x, a.y);
     if (a.type === 'explosive' && vis(a.y)) want('explosive', a.x, a.y);
   }
-  for (const L of lasers) if (L.t > 2) want(L.meteor ? 'meteor' : 'beam', LANE_CENTERS[L.lane], H * 0.45);
+  for (const L of lasers) if (L.t > 2) want(L.meteor ? 'meteor' : L.drill ? 'titanDrill' : 'beam', LANE_CENTERS[L.lane], H * 0.45);
   for (const e of enemies) if (e.phantom && e.alpha > 0.9 && vis(e.y)) want('phantom', e.x, e.y);
   for (const e of enemies) if (e.runner && e.y > HUD_H + 60) want('runner', e.x, e.y);
   for (const e of enemies) if (e.diveState === 1) want('diver', e.x, e.y);
@@ -7167,6 +7218,16 @@ function update() {
   lasers = lasers.filter(L => {
     L.t++;
     if (L.t === 1 && L === lasers[0]) Sound.sfx.laserWarn();
+    if (L.drill) { // Titan'ın matkap başı
+      const k = L.t - L.warn;
+      if (k === 1) { L.dy = L.y0; Sound.sfx.whoosh(); }
+      if (k >= 1) {
+        L.dy += TITAN_DRILL_SPD;
+        if (frameCount % 2 === 0) wreckSparks(LANE_CENTERS[L.lane] + (Math.random() - 0.5) * 18, L.dy - 70, 1, true);
+        if (!L.hit && !player.dead && playerLaneNow() === L.lane && Math.abs(L.dy - player.y) < 40) { L.hit = true; damagePlayer('Drilled by the Rock Titan!'); }
+      }
+      return L.dy == null || L.dy < H + 80;
+    }
     if (L.meteor) {
       // Meteor yağmuru: uyarıdan sonra şeritten 3 hızlı meteor geçer
       if ([1, 10, 19].includes(L.t - L.warn)) {
