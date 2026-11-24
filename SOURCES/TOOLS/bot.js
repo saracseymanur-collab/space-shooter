@@ -52,6 +52,7 @@ function laneDanger(l, horizon, blind) { // isabet edecek mermi/kaya/lazer: kesi
     if (!q.known || q.lane !== l || q.y > player.y + 40) continue;
     const t = (player.y - q.y) / q.spd; if (t <= horizon * 2) d += 1e5 / (1 + Math.max(0, t));
   }
+  if (typeof orbs !== 'undefined' && orbs.length) { const hz = []; orbHazards(hz, player.y); for (const h of hz) if (h.lane === l && h.t1 > -4 && h.t0 < horizon * 2) d += 1e5 / (1 + Math.max(0, h.t0)); } // L12 yıldırım topu (hareketi görünür, atlama kıvılcımla haber verilir)
   if (boss && boss.zone === 2 && boss.lane === l && (boss.tState === 'mark' || boss.tState === 'dive' || boss.tState === 'strike')) d += 1e6; // L10: matkap dalışı
   if (blind) return d;
   for (const b of eBullets) { const vy = b.vy || 4; if (vy <= 0) continue; const t = (player.y - b.y) / vy; if (t < -8 || t > horizon) continue;
@@ -74,6 +75,7 @@ function hitWithin(l, t0, t1) {
     if (Math.abs(a.x + (a.vx || 0) * Math.max(0, t) - lx) < a.size * 0.9 + 22) return true; }
   for (const L of lasers) if (L.lane === l && L.t > L.warn - t1) return true;
   if (typeof bolts !== 'undefined') for (const B of bolts) if (B.lane === l && B.t > 0 && B.t > B.warn - t1 && B.t < B.warn + B.fire - t0) return true;
+  if (typeof orbs !== 'undefined' && orbs.length) { const hz = []; orbHazards(hz, player.y); if (hz.some(h => h.lane === l && h.t1 > t0 && h.t0 < t1)) return true; }
   if (typeof ccWallLanes !== 'undefined' && ccWallLanes().includes(l)) return true;
   return false;
 }
