@@ -4813,7 +4813,7 @@ const STORY_LINE_H = 30;
 // --- Draw: Zone Transition ---
 const ZONE_COLORS = ['', '#4af', '#ffaa55', '#d58cff', '#ff7a4a'];
 // 2026-11-24 (kullanıcı): sektör geçişlerine girişteki gibi tam ekran görsel (852×1846, alt kısım koyu); null: görsel yok (yıldızlı zemin)
-const ZONE_TRANS_IMG_FILES = ['trans-1-2-v1', null, null]; // 1→2, 2→3, 3→4
+const ZONE_TRANS_IMG_FILES = ['trans-1-2-v1', null, 'trans-3-4-v1']; // 1→2, 2→3, 3→4
 const ZONE_TRANS_IMGS = ZONE_TRANS_IMG_FILES.map(f => { if (!f) return null; const im = new Image(); im.src = `ASSETS/story/${f}.jpg`; return im; });
 function drawZoneTransition() {
   ctx.fillStyle = '#000008';
@@ -4832,7 +4832,7 @@ function drawZoneTransition() {
 
   // Başlık: sıradaki bölge
   ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  const ty = hasImg ? H * 0.545 : H * 0.24; // görsel varsa başlık ve metin altta (girişteki gibi)
+  const ty = hasImg ? H * 0.52 : H * 0.24; // görsel varsa başlık ve metin altta (girişteki gibi)
   drawSpaced(`SECTOR 0${nextZone}`, W / 2, ty, 12, 600, MONO_FONT, 4);
   ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 18;
   drawSpaced(MENU_CARDS[nextZone - 1].name.toUpperCase(), W / 2, ty + 34, 26, 700, UI_FONT, 3, W - 50);
@@ -4842,7 +4842,7 @@ function drawZoneTransition() {
   ctx.font = STORY_FONT;
   ctx.fillStyle = '#fff';
   const lineH = STORY_LINE_H;
-  const cy = hasImg ? H * 0.77 : H * 0.53;
+  const cy = hasImg ? H * 0.745 : H * 0.53;
   const textH = wrapText(zoneMsg(), W - 80).length * lineH + 30;
   const pad = 26;
   const top = cy - textH / 2 - pad, bot = cy + textH / 2 + pad;
