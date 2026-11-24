@@ -52,6 +52,7 @@ function laneDanger(l, horizon, blind) { // isabet edecek mermi/kaya/lazer: kesi
     if (!q.known || q.lane !== l || q.y > player.y + 40) continue;
     const t = (player.y - q.y) / q.spd; if (t <= horizon * 2) d += 1e5 / (1 + Math.max(0, t));
   }
+  if (typeof crane !== 'undefined' && (crane || craneDrops.length)) { const hz = []; craneHazards(hz); for (const h of hz) if (h.lane === l && h.t1 > -4 && h.t0 < horizon * 2) d += 1e5 / (1 + Math.max(0, h.t0)); } // L10 vinç
   if (typeof press !== 'undefined' && press && l !== press.open) d += 1e6 / (1 + Math.max(0, PRESS_WARN - press.t)); // L10 pres
   if (typeof mineHeat !== 'undefined' && currentLevel === 10 && mineHeat[l] > 0.55) d += 4e3 * (mineHeat[l] - 0.55); // L10 ısınan zemin: ısınınca şerit değiştir
   if (typeof corrupt !== 'undefined') for (const c of corrupt) { if (c.lane !== l) continue; const t = (player.y - c.y) / CORRUPT_SPD; if (t > -10 && t < 30) d += 1e5 / (1 + Math.max(0, t)); } // L14 bozuk veri: sadece yaklaşınca kaç, sonra akışa dön
@@ -78,6 +79,7 @@ function hitWithin(l, t0, t1) {
     if (Math.abs(a.x + (a.vx || 0) * Math.max(0, t) - lx) < a.size * 0.9 + 22) return true; }
   for (const L of lasers) if (L.lane === l && L.t > L.warn - t1) return true;
   if (typeof bolts !== 'undefined') for (const B of bolts) if (B.lane === l && B.t > 0 && B.t > B.warn - t1 && B.t < B.warn + B.fire - t0) return true;
+  if (typeof crane !== 'undefined' && (crane || craneDrops.length)) { const hz = []; craneHazards(hz); if (hz.some(h => h.lane === l && h.t1 > t0 && h.t0 < t1)) return true; }
   if (typeof press !== 'undefined' && press && l !== press.open && PRESS_WARN + PRESS_CLOSE + PRESS_HOLD - press.t > t0 && PRESS_WARN - press.t < t1) return true;
   if (typeof corrupt !== 'undefined') for (const c of corrupt) { if (c.lane !== l) continue; const t = (player.y - c.y) / CORRUPT_SPD; if (t > t0 - 8 && t < t1 + 8) return true; }
   if (typeof orbs !== 'undefined' && orbs.length) { const hz = []; orbHazards(hz, player.y); if (hz.some(h => h.lane === l && h.t1 > t0 && h.t0 < t1)) return true; }
