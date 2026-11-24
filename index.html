@@ -725,14 +725,17 @@ function baseLevelConfig() {
       const lw = Math.min(5, getWave() - (currentLevel - 1) * 5);
       return { interval: 999, doubleChance: 0, speed: () => 3, hp: () => 1, canShoot: false, zigzag: false, convoy: CONVOY_WAVES[lw - 1] };
     }
-    case 10: { // Rock Titan öncü birlikleri: kaya, gemi ve Titan'ın küçükleri + ısınan zemin + ezici presler (2026-11-24)
+    case 10: { // 2026-11-24 (kullanıcı: bölüm bir türlü olmuyor; plan onaylandı): öncü dalgalar sektör 2'nin özeti, her dalgada tek fikir.
+      // 1 madene yaklaşma: slalom (L6) · 2 madene giriş: duvardan matkaplar (L8) · 3 derinlik: gemiler + mini Titan (bomba)
+      // 4 ağır makineler: vinç + seyrek gemi · 5 final: yoğun gemi + mini Titan. Sonra deprem ve Titan'ın girişi.
       const lw = Math.min(5, Math.max(1, getWave() - (currentLevel - 1) * 5));
-      return {
-      interval: [88, 84, 82, 90, 78][lw - 1], doubleChance: 0.28, press: [520, 460, 420, 380, 340][lw - 1], crane: CRANE_WAVES[lw - 1],
-      speed: () => 3.5,
-      hp: () => Math.random() < 0.35 ? 2 : 1,
-      canShoot: true, zigzag: false, fireMul: 1.5, mini: 0.3,
-    }; }
+      const base = { speed: () => 3.5, hp: () => Math.random() < 0.35 ? 2 : 1, canShoot: true, zigzag: false, fireMul: 1.5, l10: lw };
+      if (lw === 1) return { ...base, interval: 999, doubleChance: 0, slalom: SLALOM_WAVES[1] };
+      if (lw === 2) return { ...base, interval: 999, doubleChance: 0, speed: () => 5, hp: () => 1, canShoot: false, drills: DRILL_WAVES[1] };
+      if (lw === 3) return { ...base, interval: 74, doubleChance: 0.3, mini: 0.35 };
+      if (lw === 4) return { ...base, interval: 120, doubleChance: 0.15, mini: 0.2, crane: CRANE_WAVES[2] };
+      return { ...base, interval: 60, doubleChance: 0.35, mini: 0.35 };
+    }
     // ── Zone 3: Nebula — sis bulutları + görünmez olabilen hayalet düşmanlar ──
     // fog: sis yoğunluğu (0-1) · cloak: hayaletin görünür/görünmez süreleri (kare) · ion: iyon bulutu aralığı
     case 11: { // RADAR PING: düşmanlar bulutsuda görünmez, radar dalgası kısa süre gösterir
@@ -1161,7 +1164,7 @@ function startLevel(level) {
   playFrames     = (level - 1) * LEVEL_SEC * 60;
   lastWaveForBoss = (level - 1) * 5;
   bullets = []; eBullets = []; enemies = []; explosions = []; shards = []; powerups = [];
-  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; towSeen = false; titanBombs = 0; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; ccSeen = null; gates = []; gateT = 0; dashT = 0; dashTrail = 0; gateSeen = null; corridorY = 0; streamLane = 1; streamX = 0; streamNext = -1; streamT = 0; streamPre = 0; archive = 0; archiveCard = null; archiveDone = false; streamBits = []; corrupt = []; corruptT = 0; inStream = false; streamChain = false; warpT = 0; warpWarn = 0; warpTrails = []; warpSeen = null; orbs = []; orbT = 0; mineHeat = [0, 0, 0]; heatEmbers = []; press = null; pressT = 0; crane = null; craneDrops = []; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1; stormClouds = []; stormCloudT = 0; stormShake = 0; rifts = []; riftMode = null; riftT = 0; riftNext = 90; riftIdx = 0; riftScaleCur = 1; riftAng = 0; riftAngTgt = 0; riftFlip = false; riftFx = 0; riftSeen = null; mirrorSeen = null; ringRows = []; ringT = 0; ringSeen = null; twistDir = Math.random() < 0.5 ? -1 : 1; twistT = 0; twistD = 0; twistAmp = 0; twistGhost = 0; twistPin = 0; twistPrev = null; photonSeen = null; photonN = 0; duelSignal = 0; unmakeT = 0; unmakeBits = []; unmakeAmp = 0; unmakeGhost = 0; unmakeGlitch = 0; unmakeFlash = 0; hzTop = 0; echoDark = 0; wreckFx = []; echoHist = []; echoEsc = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]; echoLastLane = 1;
+  asteroids = []; asteroidSpawnTimer = 0; slalomSpd = 0; slalomGap = 1; slalomNext = 1; slalomShort = false; slalomChase = false; slalomOutro = 0; slalomPin = -1; stealthT = 0; stealthLane = 1; stealthScans = []; alarmFx = 0; drills = []; drillSparks = []; mineWallY = 0; drillSame = 0; drillSpd = 0; drillT = 0; drillSide = 0; drillCargo = false; drillForce = false; drifters = []; fireHold = false; convoySpd = 0; convoyT = 0; survivors = 0; towSeen = false; titanBombs = 0; titanDust = []; bombDrops = []; bombShots = []; bombsDropped = 0; radarPings = []; radarT = 0; radarReveal = null; mineReveal = null; nebMines = []; nebMineT = 0; ccSeen = null; gates = []; gateT = 0; dashT = 0; dashTrail = 0; gateSeen = null; corridorY = 0; streamLane = 1; streamX = 0; streamNext = -1; streamT = 0; streamPre = 0; archive = 0; archiveCard = null; archiveDone = false; streamBits = []; corrupt = []; corruptT = 0; inStream = false; streamChain = false; warpT = 0; warpWarn = 0; warpTrails = []; warpSeen = null; orbs = []; orbT = 0; mineHeat = [0, 0, 0]; heatEmbers = []; press = null; pressT = 0; crane = null; craneDrops = []; bolts = []; stormT = 0; stormFlash = 0; stormLast = -1; stormClouds = []; stormCloudT = 0; stormShake = 0; rifts = []; riftMode = null; riftT = 0; riftNext = 90; riftIdx = 0; riftScaleCur = 1; riftAng = 0; riftAngTgt = 0; riftFlip = false; riftFx = 0; riftSeen = null; mirrorSeen = null; ringRows = []; ringT = 0; ringSeen = null; twistDir = Math.random() < 0.5 ? -1 : 1; twistT = 0; twistD = 0; twistAmp = 0; twistGhost = 0; twistPin = 0; twistPrev = null; photonSeen = null; photonN = 0; duelSignal = 0; unmakeT = 0; unmakeBits = []; unmakeAmp = 0; unmakeGhost = 0; unmakeGlitch = 0; unmakeFlash = 0; hzTop = 0; echoDark = 0; wreckFx = []; echoHist = []; echoEsc = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]; echoLastLane = 1;
   boss = null; bossKillTimer = 0; returnToMap = false;
   lasers = []; deathCause = '';
   countdown = 0; levelPlayT = 0; toasts = []; tipPlan = []; pendingEnemies = []; snakes = []; snakeT = 300; sweepT = 120; burstT = 160; lastWaveSeen = 1; gunT = 99999; linkT = 300; hunT = 420; runnerDone = false; slowMoT = 0; formOn = false; formGap = -1; hurtFx = 0; bossWarn = 0; crystalFly = []; crystalPulse = 0; introCard = null; // ilk bağlı çift / Hunter ~3 sn sonra
@@ -1986,7 +1989,7 @@ function spawnBoss(wave) {
   enemies = [];
   asteroids = []; // clear asteroids during boss fight
   lasers = [];
-  bossWarn = bossWarnMax = currentZone === 1 ? 90 : currentLevel === 20 ? 0 : 150; // Void Vanguard: ekran temizlenince kısa uyarı · L20: uyarı yok, kütle nabızla doğar
+  bossWarn = bossWarnMax = currentZone === 1 ? 90 : currentLevel === 20 ? 0 : currentLevel === 10 ? TITAN_INTRO : 150; // L10: sinematik giriş // Void Vanguard: ekran temizlenince kısa uyarı · L20: uyarı yok, kütle nabızla doğar
   boss.fireTimer = -100; boss.droneTimer = -100; boss.laserTimer = -100; // uyarı sırasında ateş yok
   Sound.sfx.bossIn(); Sound.sfx.warning();
 }
@@ -2472,7 +2475,7 @@ function addDrill(side, reach, w) {
   drills.push({ y: -30, side, reach, per: w.per, ph: Math.random() });
 }
 function updateDrills(w, ending) {
-  if (!drillSpd) { drillSpd = w.spd; drillT = w.every - 30; showToast('WEAPONS ONLINE', '#9fe8ff', 140); }
+  if (!drillSpd) { drillSpd = w.spd; drillT = w.every - 30; if (currentLevel === 8) showToast('WEAPONS ONLINE', '#9fe8ff', 140); }
   drillSpd += (w.spd - drillSpd) * 0.02;
   asteroids.forEach(a => { if (a.sl) a.speed = drillSpd; });
   enemies.forEach(e => { if (e.sl) e.speed = drillSpd; });
@@ -3847,6 +3850,23 @@ function drawPress() {
 }
 // L10 Rock Titan. Faz 1 Kaya Fırlatma · Faz 2 Matkap Dalışı · Faz 3 Göçük. Çekirdek sadece açıkken hasar alır.
 const TITAN_Y = H * 0.23, TITAN_DIVE_Y = H * 0.5;
+const TITAN_INTRO = 230, TITAN_DARK = 90, TITAN_REVEAL = 190; // giriş: 0-90 deprem, 90-190 karanlıkta ışıklar, 190 açılış
+let titanDust = [];
+function drawTitanIntro(b) { // karanlık + dökülen taşlar + ışıklar (drawTitan'dan önce)
+  const e = bossWarnMax - bossWarn;
+  titanDust = titanDust.filter(d => (d.y += d.vy, d.rot += 0.1, d.y < H + 10));
+  const dark = e < TITAN_DARK ? 0.55 * e / TITAN_DARK + 0.2 : e < TITAN_REVEAL ? 0.75 : Math.max(0, 0.75 * (1 - (e - TITAN_REVEAL) / 25));
+  ctx.save();
+  ctx.fillStyle = `rgba(4,2,0,${dark})`; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#5a4a40'; titanDust.forEach(d => { ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.rot); ctx.fillRect(-d.s / 2, -d.s / 2, d.s, d.s * 0.7); ctx.restore(); });
+  if (e >= TITAN_DARK && e < TITAN_REVEAL && titanImg.complete && titanImg.naturalWidth) { // karanlıkta Titan'ın ışıkları
+    const w = TITAN_IMG_W, h = w * titanImg.naturalHeight / titanImg.naturalWidth, x = b.x - w / 2, y = b.y + 4 - h * TITAN_CORE_FY;
+    const k = Math.min(1, (e - TITAN_DARK) / 40), lm = getTitanLightMask();
+    ctx.globalAlpha = 0.12 * k; ctx.drawImage(titanImg, x, y, w, h);
+    if (lm) { ctx.globalCompositeOperation = 'lighter'; const gl = k * (0.7 + 0.3 * Math.sin(frameCount * 0.2)); ctx.globalAlpha = 0.6 * gl; ctx.shadowColor = '#ff8a3c'; ctx.shadowBlur = 16; ctx.drawImage(lm, x, y, w, h); ctx.shadowBlur = 0; ctx.globalAlpha = gl; ctx.drawImage(lm, x, y, w, h); }
+  }
+  ctx.restore();
+}
 // 2026-11-24 (kullanıcı): Titan kayalarla sırayla matkap başı da fırlatır: şeritte uyarı → dönen matkap ucu hızla iner, vurulamaz, kaçılır
 const TITAN_DRILL_SPD = 18;
 function titanThrow(lanes) {
@@ -3863,7 +3883,21 @@ function updateTitan() {
     return;
   }
   if (b.lane == null) { b.lane = 1; b.tState = 'idle'; b.tT = 30; b.lastPh = 1; b.dives = 0; }
-  if (bossWarn > 0) { b.shielded = true; b.y += (TITAN_Y - b.y) * 0.04; return; }
+  if (bossWarn > 0) { // 2026-11-24 sinematik giriş: deprem + tavandan dökülen kaya → karanlıkta ışıklar belirir, iner → patlayarak açılır
+    b.shielded = true; const e = bossWarnMax - bossWarn;
+    if (stormShake > 0) stormShake--;
+    if (e === 4) { showToast('THE MINE IS COLLAPSING', '#ffb347', 90); Sound.sfx.rumble(); }
+    if (e < TITAN_DARK) { stormShake = Math.max(stormShake, 5 + e * 0.08); if (e % 40 === 20) Sound.sfx.rumble(); b.y = -140; }
+    else b.y += (TITAN_Y - b.y) * 0.045;
+    if (e % 3 === 0 && e < TITAN_REVEAL) titanDust.push({ x: Math.random() * W, y: HUD_H - 10, vy: 3 + Math.random() * 5, s: 2 + Math.random() * 5, rot: Math.random() * 6 });
+    if (e === TITAN_DARK) Sound.sfx.rockCrack(30);
+    if (e === TITAN_REVEAL) { // patlayarak açılır
+      stormShake = 18; hurtFx = Math.max(hurtFx, 10); Sound.sfx.shipBoom(3); Sound.sfx.rockCrack(30);
+      for (let i = 0; i < 9; i++) spawnExplosion(b.x + (Math.random() - 0.5) * 200, b.y + (Math.random() - 0.5) * 120, true);
+      showToast('ROCK TITAN', '#ff8a3c', 110);
+    }
+    return;
+  }
   const ph = b.phase, pick = l => l[Math.floor(Math.random() * l.length)];
   if (ph !== b.lastPh) { // zırh dökülür
     b.lastPh = ph; b.tState = 'shed'; b.tT = 44; b.flash = 24; hurtFx = 16; eBullets = []; lasers = [];
@@ -3876,7 +3910,14 @@ function updateTitan() {
   b.x += (LANE_CENTERS[b.lane] - b.x) * 0.26;
   const home = () => { b.y += (TITAN_Y - b.y) * 0.18; };
   b.shielded = !(b.tState === 'open' || b.tState === 'stuck' || b.tState === 'strike');
+  if (stormShake > 0) stormShake--;
+  // Son çare (2026-11-24): canı %15'in altına inince Titan ekranın ortasına iner ve şerit şerit seni kovalar: işaretle → dal → saplan (açık) → kalk → tekrar
+  if (ph === 3 && !b.last && b.hp / b.maxHp < 0.15 && (b.tState === 'idle' || b.tState === 'open' || b.tState === 'settle' || b.tState === 'rows')) {
+    b.last = true; b.tState = 'lastRoar'; b.tT = 70; lasers = []; stormShake = 16; hurtFx = Math.max(hurtFx, 8);
+    Sound.sfx.rockCrack(30); showToast("IT'S COMING FOR YOU", '#ff4d66', 110);
+  }
   switch (b.tState) {
+    case 'lastRoar': b.y += (H * 0.3 - b.y) * 0.06; if (--b.tT <= 0) { b.lane = playerLaneNow(); b.tState = 'mark'; b.tT = 32; } break;
     case 'shed': home(); if (--b.tT <= 0) { b.tState = 'idle'; b.tT = 7; } break;
     case 'idle':
       home();
@@ -3908,10 +3949,11 @@ function updateTitan() {
       break;
     case 'strike': // matkap şeridi yarar
       if (!player.dead && Math.abs(player.x - LANE_CENTERS[b.lane]) < 60 && !(player.invuln > 0)) damagePlayer('Drilled by the Rock Titan!');
-      if (--b.tT <= 0) { b.tState = 'stuck'; b.tT = 80; }
+      if (--b.tT <= 0) { b.tState = 'stuck'; b.tT = b.last ? 62 : 80; }
       break;
     case 'stuck': if (--b.tT <= 0) b.tState = 'rise'; break; // saplandı: çekirdek açık
     case 'rise':
+      if (b.last) { b.y += (H * 0.3 - b.y) * 0.2; if (b.y < H * 0.3 + 8) { b.lane = playerLaneNow(); b.tState = 'mark'; b.tT = 30; } break; }
       home();
       if (b.y < TITAN_Y + 12) { b.dives++; b.tState = 'idle'; b.tT = 6; }
       break;
@@ -4059,6 +4101,7 @@ function drawTitanBody(sc, armor, open, spin) {
   ctx.restore();
 }
 function drawTitan(b) {
+  if (bossWarn > 0 || titanDust.length) { drawTitanIntro(b); if (bossWarn > 0 && bossWarnMax - bossWarn < TITAN_REVEAL) return; }
   const open = !b.shielded && !b.dying, spin = frameCount * 2;
   const lx = LANE_CENTERS[b.lane == null ? 1 : b.lane];
   if (b.tState === 'mark') { // dalış uyarısı: şeritte yanıp sönen kırmızı
@@ -6945,7 +6988,7 @@ function drawFeedbackOverlays() {
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   }
   // Boss uyarısı: üstte ve altta kırmızı şerit, yanıp sönen yazı
-  if (bossWarn > 0) {
+  if (bossWarn > 0 && !(boss && boss.zone === 2)) { // L10'un kendi sinematik girişi var
     const a = Math.min(1, bossWarn / 20, (bossWarnMax - bossWarn) / 12 + 0.2);
     const blink = Math.floor(bossWarn / 10) % 2 === 0;
     ctx.save(); ctx.globalAlpha = a;
@@ -7349,6 +7392,7 @@ function update() {
   if (currentLevel === 14 && !boss) playFrames = (currentLevel - 1) * LEVEL_SEC * 60 + Math.round(archive * LEVEL_SEC * 60); // L14: dalgalar arşivle ilerler, %100'de biter
   else playFrames++;
   tipPlan.forEach(tp => { if (levelPlayT === tp.at) showToast(tp.text); });
+  if (currentLevel === 10 && !boss && levelPlayT === 30) showToast('APPROACHING THE MINE', '#ffb347', 110);
   if (toasts.length && ++toasts[0].t >= toasts[0].dur) toasts.shift();
   if (hurtFx > 0) hurtFx--;
   if (bossWarn > 0) bossWarn--;
@@ -7360,6 +7404,7 @@ function update() {
       if (lvWaveNow === (currentLevel % 5 === 0 ? bossPreWaves() : 5)) showToast('FINAL WAVE', '#ff4d66', 110);
       else showToast(`WAVE ${lastWaveSeen} CLEAR`, null, 90);
       Sound.sfx.wave(); lastWaveSeen = lvWaveNow;
+      if (currentLevel === 10) showToast(['', '', 'ENTERING THE MINE', 'DEEPER INTO THE MINE', 'HEAVY MACHINERY', 'SOMETHING STIRS BELOW'][lvWaveNow], '#ffb347', 110); // L10: madene iniş
     }
   }
 
@@ -7628,6 +7673,8 @@ function update() {
     const levelEnd = currentLevel % 5 !== 0 && getWave() > currentLevel * 5;
     if (currentLevel === 7) updateScans();
     if (_zcfg && _zcfg.drills && !boss) updateDrills(_zcfg.drills, levelEnd);
+    else if (currentLevel === 10 && drills.length) updateDrills(DRILL_WAVES[1], true); // L10: matkap dalgası bitince kalan matkaplar akıp gider
+    if (currentLevel === 10 && drillSpd > 0 && !(_zcfg && _zcfg.drills)) mineWallY = (mineWallY + 3) % 400; // madenin içindeyiz: duvarlar akmaya devam eder
     if (_zcfg && _zcfg.convoy && !boss) updateConvoy(_zcfg.convoy, levelEnd);
     if (currentLevel === 10) updateTitanBombs();
     if (currentZone === 2 && !boss && !levelEnd && _zcfg && _zcfg.slalom) updateSlalom(_zcfg.slalom);
@@ -8718,7 +8765,7 @@ function render() {
   drawWreck('under');
 
   if (currentLevel === 7 && state !== 'levelcomplete') drawStealth();
-  if (currentLevel === 8 && drillSpd > 0) drawMineBack();
+  if ((currentLevel === 8 || currentLevel === 10) && drillSpd > 0) drawMineBack(); // L10: 2. dalgadan sonra madenin içindesin
   if (currentLevel === 12 && state !== 'levelcomplete') drawStormDark(); // her şeyin altında
   if (currentLevel === 15 && !boss && state !== 'levelcomplete') drawCorridor();
   asteroids.forEach(drawAsteroid);
