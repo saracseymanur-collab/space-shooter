@@ -2914,11 +2914,31 @@ function drawRifts() { // inen yarıklar (dönmemiş ekranda)
     if (T) { // yırtık: ekranı boydan boya geçer, kenarları nabız gibi parlar, türe göre hafifçe titrer
       const k = (W + 20) / T.w, dw = (T.w + T.pad * 2) * k, dh = (T.h + T.pad * 2) * k, jit = r.type === 'fast' ? (Math.random() - 0.5) * 3 : 0;
       const sy = 1 + 0.06 * Math.sin(frameCount * (r.type === 'slow' ? 0.05 : 0.15));
+      // 2026-11-24 (kullanıcı: yarıklar çok statik): yırtık dikey dilimlerde dalgalanır (her dilim kendi fazıyla kıvrılıp nefes alır),
+      // iki renk kayması, ortada çıtırdayan enerji çizgisi, kenarlardan kopup savrulan parçalar
+      const spd = r.type === "slow" ? 0.04 : r.type === "fast" ? 0.22 : 0.11, amp = r.type === "fast" ? 9 : 6, N = 40, sw = T.w / N;
+      const strips = (ox, alpha, comp) => {
+        ctx.globalCompositeOperation = comp; ctx.globalAlpha = alpha;
+        for (let i = 0; i < N; i++) {
+          const ph = frameCount * spd + i * 0.36, off = Math.sin(ph) * amp + Math.sin(ph * 2.3 + r.y * 0.01) * amp * 0.4, open = 1 + 0.18 * Math.sin(ph * 1.7 + 1);
+          const sx = T.pad + i * sw, dx = -dw / 2 + (T.pad + i * sw) * k + ox, sh = dh * open;
+          ctx.drawImage(T.c, sx, 0, sw + 1, T.h + T.pad * 2, dx, -sh / 2 + off, sw * k + 1.5, sh);
+        }
+      };
       ctx.translate(W / 2 + jit, mid); ctx.scale(1, sy); if (fl) ctx.scale(1, -1);
-      ctx.drawImage(T.c, -dw / 2, -dh / 2, dw, dh);
-      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.25 + 0.2 * Math.sin(frameCount * 0.12);
-      ctx.drawImage(T.c, -dw / 2, -dh / 2, dw, dh);
-      ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.globalAlpha = 1;
+      strips(0, 1, 'source-over');
+      strips(-4 - 2 * Math.sin(frameCount * 0.3), 0.3, 'lighter'); strips(4 + 2 * Math.sin(frameCount * 0.27), 0.22, 'lighter'); // renk kayması
+      strips(0, 0.2 + 0.2 * Math.sin(frameCount * 0.12), 'lighter'); // nabız
+      ctx.globalAlpha = 1;
+      let s2 = r.y * 7 + Math.floor(frameCount / 2) * 13.1; const rnd = () => (s2 = (s2 * 9301 + 49297) % 233280) / 233280; // ortadaki çıtırdayan enerji
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 2; ctx.shadowColor = `rgb(${D.col})`; ctx.shadowBlur = 10;
+      ctx.beginPath(); for (let i = 0; i <= 20; i++) { const xx = -W / 2 - 10 + i * (W + 20) / 20, yy = Math.sin(frameCount * spd + i * 0.36 * 2) * amp + (rnd() - 0.5) * 10; i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 10; i++) { // kenarlardan kopup savrulan parçalar
+        const p = ((frameCount * 0.025) + i / 10) % 1, bx = ((i * 97 + Math.floor((frameCount * 0.025) + i / 10) * 61) % W), side = i % 2 ? 1 : -1;
+        ctx.fillStyle = `rgba(${D.col},${0.9 * (1 - p)})`; ctx.fillRect(bx + (i % 3 - 1) * p * 20, mid + side * (22 + p * 46), 3 - p * 2, 3 - p * 2);
+      }
       for (let i = 0; i < 8; i++) { // yırtığa doğru çekilen kıvılcımlar
         const p = ((frameCount * 0.02) + i / 8) % 1, sx = (i * 53) % W, side = i % 2 ? 1 : -1, py = mid + side * (40 - p * 34);
         ctx.fillStyle = `rgba(${D.col},${0.8 * (1 - p)})`; ctx.fillRect(sx + p * 10, py, 2, 2);
