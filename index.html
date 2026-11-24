@@ -3757,7 +3757,7 @@ function updateTitanBombs() {
     return false;
   });
 }
-const titanBombImg = new Image(); titanBombImg.src = 'ASSETS/powerups/titan-bomb-v1.png'; // 2026-11-23: kullanıcının derme çatma enerji hücresi (L10 / L15 bombası; genel bomba rozeti aynı)
+const titanBombImg = new Image(); titanBombImg.src = 'ASSETS/powerups/titan-bomb-v2.png'; // 2026-11-23: kullanıcının derme çatma enerji hücresi (L10 / L15 bombası; genel bomba rozeti aynı)
 const titanBombReady = () => titanBombImg.complete && titanBombImg.naturalWidth > 0;
 function drawTitanBombs() {
   bombDrops.forEach(d => {
@@ -4467,26 +4467,37 @@ function updateNebMines(R, ending) {
   });
 }
 function drawMineBody(x, y, sc, alpha, spin) { // L11 gizli mayın (oyunda ve kartta)
+    // 2026-11-24 (kullanıcı: L9'daki vurulunca patlayan kırmızı dikenli mayına benziyordu): nebula mayını artık dikensiz,
+    // mor kristal: elmas gövde, camgöbeği nabız gibi atan çekirdek, etrafında dönen üç kıymık ve yayılan dalga halkası
     ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc); ctx.globalAlpha = alpha;
-    ctx.rotate(spin);
-    const pulse = 0.5 + 0.5 * Math.sin(frameCount * 0.2);
-    const halo = ctx.createRadialGradient(0, 0, 10, 0, 0, 38); // kırmızı hale: mor bulutsuda seçilsin
-    halo.addColorStop(0, `rgba(255,40,70,${0.35 + 0.2 * pulse})`); halo.addColorStop(1, 'rgba(255,40,70,0)');
-    ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(0, 0, 38, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#c8b4cc'; ctx.lineWidth = 4; ctx.lineCap = 'round';
-    for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; ctx.beginPath(); ctx.moveTo(Math.cos(a) * 16, Math.sin(a) * 16); ctx.lineTo(Math.cos(a) * 27, Math.sin(a) * 27); ctx.stroke(); }
-    const g = ctx.createRadialGradient(-6, -6, 2, 0, 0, 20); g.addColorStop(0, '#b8a2bc'); g.addColorStop(1, '#2a1e2e');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 19, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#e8dcea'; ctx.lineWidth = 1.5; ctx.stroke();
-    ctx.fillStyle = `rgba(255,50,80,${0.7 + 0.3 * pulse})`; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 12;
-    ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
+    const pulse = 0.5 + 0.5 * Math.sin(frameCount * 0.12);
+    const halo = ctx.createRadialGradient(0, 0, 6, 0, 0, 40);
+    halo.addColorStop(0, `rgba(190,110,255,${0.35 + 0.2 * pulse})`); halo.addColorStop(1, 'rgba(150,80,255,0)');
+    ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(0, 0, 40, 0, Math.PI * 2); ctx.fill();
+    const v = (frameCount % 60) / 60; // dışa yayılan ince dalga
+    ctx.strokeStyle = `rgba(160,240,255,${0.5 * (1 - v)})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, 0, 18 + v * 22, 0, Math.PI * 2); ctx.stroke();
+    ctx.save(); ctx.rotate(spin * 0.6); // elmas gövde (iki katmanlı yüzey)
+    const D = 22, Wd = 15;
+    ctx.fillStyle = '#3a1d5c'; ctx.strokeStyle = '#d9b8ff'; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.moveTo(0, -D); ctx.lineTo(Wd, 0); ctx.lineTo(0, D); ctx.lineTo(-Wd, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#6a3aa0'; ctx.beginPath(); ctx.moveTo(0, -D); ctx.lineTo(Wd, 0); ctx.lineTo(0, 0); ctx.lineTo(-Wd, 0); ctx.closePath(); ctx.fill(); // üst yüzler açık
+    ctx.strokeStyle = 'rgba(230,210,255,0.6)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-Wd, 0); ctx.lineTo(Wd, 0); ctx.moveTo(0, -D); ctx.lineTo(0, D); ctx.stroke();
+    ctx.restore();
+    for (let k = 0; k < 3; k++) { // dönen kıymıklar
+      const a = spin * 1.4 + k * Math.PI * 2 / 3, r = 28;
+      ctx.save(); ctx.translate(Math.cos(a) * r, Math.sin(a) * r); ctx.rotate(a);
+      ctx.fillStyle = '#b48cff'; ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(0, -3); ctx.lineTo(-5, 0); ctx.lineTo(0, 3); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+    ctx.fillStyle = `rgba(150,245,255,${0.75 + 0.25 * pulse})`; ctx.shadowColor = '#7ff0ff'; ctx.shadowBlur = 12;
+    ctx.beginPath(); ctx.arc(0, 0, 4 + 2 * pulse, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
 }
 function drawNebMines() {
   nebMines.forEach(m => {
     if (!(m.seen > 0.02)) return;
     drawMineBody(m.x, m.y, 1, m.seen, m.spin);
-    ctx.save(); ctx.strokeStyle = `rgba(255,90,110,${0.7 * m.seen})`; ctx.lineWidth = 1.5; // radar işareti: mayın kırmızı
+    ctx.save(); ctx.strokeStyle = `rgba(200,140,255,${0.75 * m.seen})`; ctx.lineWidth = 1.5; // radar işareti: mayın mor
     const s2 = 34, k2 = 9;
     [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([dx, dy]) => {
       ctx.beginPath(); ctx.moveTo(m.x + dx * s2, m.y + dy * (s2 - k2)); ctx.lineTo(m.x + dx * s2, m.y + dy * s2); ctx.lineTo(m.x + dx * (s2 - k2), m.y + dy * s2); ctx.stroke();
