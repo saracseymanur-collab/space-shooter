@@ -2596,7 +2596,7 @@ const CONVOY_WAVES = [ // ilk sürüm "çok zor", yumuşak sürüm kolay geldi: 
   { spd: 4.0, every: 70, wall: 0.28, mine: 0.25, foe2: 0.3,  pod: 0.2,  hp2: 0.35, hp3: 0.15, tow: 0.35 },
 ];
 const CONVOY_CLEAR = 340;
-const DRIFT_SAFE_Y = 260; // bu yüksekliğin üstünde mermi kapsüle değmez: görüp ateşi kesecek vakit kalsın
+const DRIFT_SAFE_Y = 150; // bu yüksekliğin üstünde mermi kapsüle değmez: kapsül ekrana girince ateşi kesecek kısa bir vakit kalsın (2026-11-24: 260 → 150, kullanıcı: vurunca can gitmeli)
 let drifters = [], fireHold = false, convoySpd = 0, convoyT = 0, survivors = 0, towSeen = false;
 // 2026-11-23 (kullanıcı): çekici gemi kapsülü halatla götürür (vurursan kapsül kurtulur, mermin arkasındaki kapsüle gitmesin diye hemen ateşi kes;
 // çekici kaçarsa kapsül de gider) + her SURVIVOR_REWARD kurtarılan kapsülde ödül (can eksikse +1 can, değilse kalkan)
@@ -2612,8 +2612,8 @@ const convoyOn = () => { const c = state === 'play' && !boss && getLevelConfig()
 // L9: parlak mermi kapsülü vurur, soluk mermi vurmaz (düşmanı yine vurur). Mermi uzaklaştıkça solar.
 const bulletFaded = b => b.safe || b.y < DRIFT_SAFE_Y;
 function bulletAlpha(b) {
-  const t = Math.max(0, Math.min(1, (b.y - DRIFT_SAFE_Y) / (player.y - 60 - DRIFT_SAFE_Y)));
-  return bulletFaded(b) ? 0.05 + 0.2 * t : 0.4 + 0.6 * t; // soluk mermi uzakta neredeyse görünmez
+  if (b.safe) return 0.25; // ateş kesilince havadaki mermiler solar (kapsülden geçer)
+  return b.y < DRIFT_SAFE_Y ? 0.45 : 1; // en tepedeki kısa korumalı bant
 }
 function toggleFire() { // kesince havadaki mermiler kapsülden geçer ama düşmanı yine vurur; açınca ilk mermi hemen çıkar
   fireHold = !fireHold; Sound.sfx.click();
@@ -4812,10 +4812,16 @@ const STORY_LINE_H = 30;
 
 // --- Draw: Zone Transition ---
 const ZONE_COLORS = ['', '#4af', '#ffaa55', '#d58cff', '#ff7a4a'];
+// 2026-11-24 (kullanıcı): sektör geçişlerine girişteki gibi tam ekran görsel (852×1846, alt kısım koyu); null: görsel yok (yıldızlı zemin)
+const ZONE_TRANS_IMG_FILES = [null, null, null]; // 1→2, 2→3, 3→4
+const ZONE_TRANS_IMGS = ZONE_TRANS_IMG_FILES.map(f => { if (!f) return null; const im = new Image(); im.src = `ASSETS/story/${f}.jpg`; return im; });
 function drawZoneTransition() {
   ctx.fillStyle = '#000008';
   ctx.fillRect(0, 0, W, H);
   drawStars();
+  const tImg = ZONE_TRANS_IMGS[zoneTransIdx], emblemPage = zoneTransIdx === 1 && zoneTransPage === 0;
+  const hasImg = !emblemPage && tImg && tImg.complete && tImg.naturalWidth > 0; // amblem sayfası görselsiz kalır (amblem görünsün)
+  if (hasImg) { ctx.globalAlpha = zoneTransAlpha; ctx.drawImage(tImg, 0, 0, W, H); ctx.globalAlpha = 1; }
 
   const nextZone = zoneTransIdx + 2;
   const col = ZONE_COLORS[nextZone];
@@ -4826,16 +4832,17 @@ function drawZoneTransition() {
 
   // Başlık: sıradaki bölge
   ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  drawSpaced(`SECTOR 0${nextZone}`, W / 2, H * 0.24, 12, 600, MONO_FONT, 4);
+  const ty = hasImg ? H * 0.6 : H * 0.24; // görsel varsa başlık ve metin altta (girişteki gibi)
+  drawSpaced(`SECTOR 0${nextZone}`, W / 2, ty, 12, 600, MONO_FONT, 4);
   ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 18;
-  drawSpaced(MENU_CARDS[nextZone - 1].name.toUpperCase(), W / 2, H * 0.24 + 34, 26, 700, UI_FONT, 3, W - 50);
+  drawSpaced(MENU_CARDS[nextZone - 1].name.toUpperCase(), W / 2, ty + 34, 26, 700, UI_FONT, 3, W - 50);
   ctx.shadowBlur = 0;
 
   // Mesaj — iki çizgi metnin gerçek yüksekliğine göre yerleşir
   ctx.font = STORY_FONT;
   ctx.fillStyle = '#fff';
   const lineH = STORY_LINE_H;
-  const cy = H * 0.53;
+  const cy = hasImg ? H * 0.77 : H * 0.53;
   const textH = wrapText(zoneMsg(), W - 80).length * lineH + 30;
   const pad = 26;
   const top = cy - textH / 2 - pad, bot = cy + textH / 2 + pad;
@@ -4847,7 +4854,7 @@ function drawZoneTransition() {
   ctx.globalAlpha = a;
   ctx.shadowColor = 'rgba(200,220,255,0.3)'; ctx.shadowBlur = 6;
   drawWrapped(zoneMsg(), W / 2, cy, W - 80, lineH);
-  if (zoneTransIdx === 1 && zoneTransPage === 0) { // Astra amblemi + bozuk kayıttan son cümle (ilk sayfada)
+  if (emblemPage) { // Astra amblemi + bozuk kayıttan son cümle (ilk sayfada)
     drawAstraEmblem(W / 2, bot + 122, 44, a);
     ctx.globalAlpha = a * 0.85; ctx.fillStyle = '#a8dcff';
     ctx.font = 'italic ' + STORY_FONT;
