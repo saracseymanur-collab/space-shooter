@@ -3563,15 +3563,27 @@ function updateCenter() {
   if (!ccSeen && !seenIntro.coreGap && coreGapLane(b.gap1) === playerLaneNow() && (!b.twoRings || coreGapLane(b.gap2) === playerLaneNow())) ccSeen = { x: b.x, y: b.y, key: 'coreGap' };
 }
 function drawCoreRing(b, r, pos, col, w) {
-  // 2026-11-22 (kullanıcı: boşluk açık görünürken bomba BLOCKED): eskiden boşluk ~1.5 şerit genişliğinde görünüyordu, kural yarım
-  // şerit sayıyordu. Şimdi her şerit halkada CORE_LANE_ANG kadar ayrı yöne bakar, boşluk tam kuralın genişliğinde: açık göründüğü an açıktır.
+  // 2026-11-22: boşluk tam kuralın genişliğinde (CORE_LANE_ANG, CORE_GAP_TOL): açık göründüğü an açıktır.
+  // 2026-11-24 (kullanıcı: dönen kısımlar anlaşılmıyor, reaktörün camgöbeğiyle karışıyor): halkalar parlayan enerji kalkanı
+  // (dış turuncu, iç mor), boşluğun uçlarında beyaz kapak + dışa bakan ok: boşluğun yönü ve dönüşü okunur
   const a0 = Math.PI / 2 - (pos - 1) * CORE_LANE_ANG, half = CORE_GAP_TOL * CORE_LANE_ANG;
-  ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = 'butt';
+  const pulse = 0.75 + 0.25 * Math.sin(frameCount * 0.2);
+  ctx.lineCap = 'butt';
+  ctx.strokeStyle = 'rgba(10,6,20,0.85)'; ctx.lineWidth = w + 6; // koyu alt çizgi: reaktörden ayrılsın
   ctx.beginPath(); ctx.arc(b.x, b.y, r, a0 + half, a0 - half + Math.PI * 2); ctx.stroke();
-  // segment çizgileri
-  ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 2;
-  for (let k = 1; k < 10; k++) { const a = a0 + half + k * (Math.PI * 2 - half * 2) / 10; ctx.beginPath(); ctx.moveTo(b.x + Math.cos(a) * (r - w / 2), b.y + Math.sin(a) * (r - w / 2)); ctx.lineTo(b.x + Math.cos(a) * (r + w / 2), b.y + Math.sin(a) * (r + w / 2)); ctx.stroke(); }
-  // 2026-11-10: boşluğun üstündeki yeşil yay kaldırıldı (kalkan gibi görünüyordu); işaret TAP FOR BOMB yazısı
+  ctx.shadowColor = col; ctx.shadowBlur = 14; ctx.globalAlpha *= pulse;
+  ctx.strokeStyle = col; ctx.lineWidth = w;
+  ctx.beginPath(); ctx.arc(b.x, b.y, r, a0 + half, a0 - half + Math.PI * 2); ctx.stroke();
+  ctx.globalAlpha /= pulse; ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1.5; // ince parlak iç çizgi
+  ctx.beginPath(); ctx.arc(b.x, b.y, r, a0 + half, a0 - half + Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 2; // dönüşü gösteren dilim çizgileri
+  for (let k = 1; k < 12; k++) { const a = a0 + half + k * (Math.PI * 2 - half * 2) / 12; ctx.beginPath(); ctx.moveTo(b.x + Math.cos(a) * (r - w / 2), b.y + Math.sin(a) * (r - w / 2)); ctx.lineTo(b.x + Math.cos(a) * (r + w / 2), b.y + Math.sin(a) * (r + w / 2)); ctx.stroke(); }
+  ctx.fillStyle = '#ffffff'; // boşluğun uçları
+  [a0 + half, a0 - half].forEach(a => { ctx.save(); ctx.translate(b.x + Math.cos(a) * r, b.y + Math.sin(a) * r); ctx.rotate(a); ctx.fillRect(-w / 2 - 1, -2, w + 2, 4); ctx.restore(); });
+  const ax = b.x + Math.cos(a0) * (r + w / 2 + 4), ay = b.y + Math.sin(a0) * (r + w / 2 + 4); // boşluktan dışa bakan ok
+  ctx.save(); ctx.translate(ax, ay); ctx.rotate(a0); ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 8;
+  ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(0, -7); ctx.lineTo(0, 7); ctx.closePath(); ctx.fill(); ctx.restore();
 }
 function drawCenter(b) {
   ctx.save();
@@ -3586,7 +3598,7 @@ function drawCenter(b) {
     pg.addColorStop(0, hot ? `rgba(255,170,90,${0.55 * pulse})` : `rgba(150,230,255,${0.35 * pulse})`); pg.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = pg; ctx.beginPath(); ctx.arc(b.x, b.y, CORE_R * 0.9, 0, Math.PI * 2); ctx.fill();
     ctx.globalCompositeOperation = 'source-over';
-    if (!b.dying) { drawCoreRing(b, CORE_R + 30, b.gap1 ?? 1, hot ? '#7a3a3a' : '#5a6a94', 14); if (b.twoRings) drawCoreRing(b, CORE_R + 12, b.gap2 ?? 1, '#3f4d74', 10); }
+    if (!b.dying) { drawCoreRing(b, CORE_R + 30, b.gap1 ?? 1, hot ? '#ff4a3a' : '#ffa040', 12); if (b.twoRings) drawCoreRing(b, CORE_R + 12, b.gap2 ?? 1, '#d860ff', 9); }
     ctx.restore(); return;
   }
   // (görsel yüklenmezse eski çizim) destek kolları
@@ -3597,8 +3609,8 @@ function drawCenter(b) {
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x, b.y, CORE_R * 1.6, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = hot ? '#ffd2b0' : '#d8f6ff'; ctx.beginPath(); ctx.arc(b.x, b.y, CORE_R * 0.55, 0, Math.PI * 2); ctx.fill();
   if (!b.dying) {
-    drawCoreRing(b, CORE_R + 30, b.gap1 ?? 1, hot ? '#7a3a3a' : '#5a6a94', 14);
-    if (b.twoRings) drawCoreRing(b, CORE_R + 12, b.gap2 ?? 1, '#3f4d74', 10);
+    drawCoreRing(b, CORE_R + 30, b.gap1 ?? 1, hot ? '#ff4a3a' : '#ffa040', 12);
+    if (b.twoRings) drawCoreRing(b, CORE_R + 12, b.gap2 ?? 1, '#d860ff', 9);
   }
   ctx.restore();
 }
@@ -4018,7 +4030,7 @@ function drawFog(density) {
   [[fogLayers[0], 0.35, 0], [fogLayers[1], 0.6, 1]].forEach(([L, spd, k]) => {
     // Tam sayı konum: iki kopyanın birleştiği yerde çizgi kalmasın
     const oy = Math.floor((frameCount * spd) % H), ox = Math.round(Math.sin(frameCount * 0.004 + k * 2) * 18);
-    g.drawImage(L, ox, oy - H); g.drawImage(L, ox, oy);
+    g.drawImage(L, ox - 20, oy - H, W + 40, H); g.drawImage(L, ox - 20, oy, W + 40, H); // 2026-11-24: salınırken kenarda sissiz koyu şerit açılıyordu (kullanıcı) → katman 20 px taşkın çizilir
   });
   // Alt bölgede sis kaybolur
   g.globalCompositeOperation = 'destination-out';
@@ -4952,7 +4964,9 @@ function drawZoneTransition() {
   drawStars();
   const tImg = ZONE_TRANS_IMGS[zoneTransIdx], emblemPage = zoneTransIdx === 1 && zoneTransPage === 0;
   const hasImg = !emblemPage && tImg && tImg.complete && tImg.naturalWidth > 0; // amblem sayfası görselsiz kalır (amblem görünsün)
-  if (hasImg) { ctx.globalAlpha = zoneTransAlpha; ctx.drawImage(tImg, 0, 0, W, H); ctx.globalAlpha = 1; }
+  // 2026-11-24 (kullanıcı: görseli iki kez gördüm): aynı geçişin sonraki sayfasında görsel ve başlık yerinde kalır, sadece metin değişir
+  const carry = zoneTransPage > 0 && !(zoneTransIdx === 1 && zoneTransPage === 1);
+  if (hasImg) { ctx.globalAlpha = carry ? 1 : zoneTransAlpha; ctx.drawImage(tImg, 0, 0, W, H); ctx.globalAlpha = 1; }
 
   const nextZone = zoneTransIdx + 2;
   const col = ZONE_COLORS[nextZone];
@@ -4963,11 +4977,13 @@ function drawZoneTransition() {
 
   // Başlık: sıradaki bölge
   ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  if (carry) ctx.globalAlpha = 1;
   const ty = hasImg ? H * 0.52 : H * 0.24; // görsel varsa başlık ve metin altta (girişteki gibi)
   drawSpaced(`SECTOR 0${nextZone}`, W / 2, ty, 12, 600, MONO_FONT, 4);
   ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 18;
   drawSpaced(MENU_CARDS[nextZone - 1].name.toUpperCase(), W / 2, ty + 34, 26, 700, UI_FONT, 3, W - 50);
   ctx.shadowBlur = 0;
+  ctx.globalAlpha = a;
 
   // Mesaj — iki çizgi metnin gerçek yüksekliğine göre yerleşir
   ctx.font = STORY_FONT;
