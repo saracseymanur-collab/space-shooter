@@ -8306,7 +8306,7 @@ function render() {
   if (currentLevel === 15 && !boss && state !== 'levelcomplete') drawCorridor();
   asteroids.forEach(drawAsteroid);
   drawIonClouds();
-  if (slalomOutro > 0 && currentLevel !== 9) drawMineSilhouette();
+  if (slalomOutro > 0 && currentLevel === 6) drawMineSilhouette(); // 2026-11-24: sadece L6 (L7'de zaten üssün içindesin)
   drawCrystals();
   bullets.forEach(b => {
     if (currentLevel === 9 && !boss) ctx.globalAlpha = bulletAlpha(b);
