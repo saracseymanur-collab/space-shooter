@@ -776,7 +776,7 @@ function baseLevelConfig() {
     }
     case 15: { // CORE BREACH koridoru: lazer kapıları + az gemi (bomba taşırlar)
       const lw = Math.min(3, Math.max(1, getWave() - (currentLevel - 1) * 5)), G = GATE_WAVES[lw - 1];
-      return { interval: G.interval, doubleChance: G.dblE, speed: () => 2.8 + Math.random() * 0.3, hp: () => Math.random() < G.hp2 ? 2 : 1, canShoot: true, zigzag: false, fog: 0, gates: G };
+      return { interval: G.interval, doubleChance: G.dblE, speed: () => 2.9 + Math.random() * 0.3, hp: () => Math.random() < G.hp2 ? 2 : 1, canShoot: true, zigzag: false, fog: 0, gates: G };
     }
     // ── Zone 4: Black Hole — çekim şerit değiştirtir, mermiler kıvrılır, enkaz ──
     case 16: { // TIME RIFT: zaman yarıkları (yavaşlama / hızlanma / ters dönme)
@@ -2195,6 +2195,7 @@ function hazardWindows() {
   lasers.forEach(L => out.push({ lane: L.lane, t0: L.warn - L.t, t1: L.warn - L.t + (L.meteor ? 60 : L.drill ? 45 : L.fire) }));
   bolts.forEach(B => out.push({ lane: B.lane, t0: B.warn - B.t, t1: B.warn - B.t + B.fire }));
   if (orbs.length) orbHazards(out, py);
+  if (boss && boss.zone === 3 && boss.pulse) out.push({ lane: boss.pulse.lane, t0: CORE_PULSE_WARN - boss.pulse.t, t1: CORE_PULSE_WARN + CORE_PULSE_FIRE - boss.pulse.t }); // L15 boşluktan darbe
   if (press) pressHazards(out);
   if (crane) craneHazards(out);
   corrupt.forEach(c => { const t = (py - c.y) / CORRUPT_SPD, d = (CORRUPT_H / 2 + 24) / CORRUPT_SPD; if (t + d > 0) out.push({ lane: c.lane, t0: t - d, t1: t + d }); });
@@ -2734,9 +2735,10 @@ function drawDrifters() {
 // Boss: Ana Çekirdek. Etrafında boşluklu kalkan halkası şeritler arasında gidip gelir; boşluk senin şeridine bakarken
 // atılan bomba (Titan'daki gibi toplanır) çekirdeğe işler. F1 tek halka · F2 ters dönen iki halka · F3 hızlı + satır ateşi.
 const GATE_WAVES = [ // 2026-11-10: arka arkaya kapı yok, kapalı anı sana yaklaşırken gelir (kullanıcı: çok zor)
-  { every: 200, on: 56, off: 42, spd: 2.2, interval: 92, dblE: 0.08, hp2: 0.3 },
-  { every: 180, on: 60, off: 38, spd: 2.4, interval: 86, dblE: 0.1,  hp2: 0.35 },
-  { every: 170, on: 62, off: 36, spd: 2.5, interval: 84, dblE: 0.12, hp2: 0.35 },
+  // 2026-11-24 (kullanıcı: ilk dalgalar daha hızlı, bölüm genel olarak daha zor): kapılar ~%25 hızlı, gemiler sık ve dayanıklı
+  { every: 180, on: 52, off: 40, spd: 2.5, interval: 88, dblE: 0.1,  hp2: 0.35 },
+  { every: 165, on: 56, off: 37, spd: 2.7, interval: 82, dblE: 0.12, hp2: 0.4 },
+  { every: 155, on: 58, off: 35, spd: 2.9, interval: 78, dblE: 0.14, hp2: 0.4 },
 ];
 const GATE_HOLD = 150, GATE_WARN = 18, DASH_T = 14, DASH_RANGE = 170, DASH_PAST = 45, DASH_IDLE = 70, GATE_NEAR = 80, GATE_GAP = 420;
 let gates = [], gateT = 0, dashT = 0, dashLen = 0, dashTrail = 0, gateSeen = null, corridorY = 0;
@@ -3539,6 +3541,7 @@ function drawEchoBoss(b) {
 // --- Boss: Ana Çekirdek ---
 const CORE_Y = H * 0.24, CORE_R = 46, CORE_GUN = 0.5, CORE_IMG_W = 215; // boşluktan geçen mermi
 let ccSeen = null;
+const CORE_PULSE_WARN = 58, CORE_PULSE_FIRE = 26; // boşluktan darbe: şarj · ışın (kare)
 const CORE_GAP_TOL = 0.42, CORE_LANE_ANG = 0.9; // boşluk hizası (şerit) · bir şeridin halkadaki açısı (rad)
 function coreGapLane(pos) { const r = Math.round(pos); return Math.abs(pos - r) < CORE_GAP_TOL ? r : -1; } // 2026-11-10: 0.32 → 0.42, denk getirmek daha rahat
 function coreOpenFor(lane) { // kalkan boşluğu (iki halkada ikisi de) bu şeride bakıyor mu
@@ -3570,7 +3573,18 @@ function updateCenter() {
   b.twoRings = ph === 2;
   const sp = ph === 1 ? 0.009 : ph === 2 ? 0.011 : 0.016;
   const move = (k, d, v0) => { let v = b[k] + b[d] * v0; if (v > 2) { v = 2; b[d] = -1; } if (v < 0) { v = 0; b[d] = 1; } b[k] = v; };
-  move('gap1', 'd1', sp); if (b.twoRings) move('gap2', 'd2', sp * 0.55); // iç halka daha yavaş: boşluklar farklı şeritlerde buluşur
+  // 2026-11-24 (kullanıcı: boss'un hareketi az): BOŞLUKTAN DARBE. Çekirdek şarj olur, dış halka bir şeride kilitlenip durur,
+  // o şerit kırmızı yanar, sonra enerji boşluktan o şeride boşalır. Bomba atmak için gittiğin boşluk aynı zamanda tehlike.
+  if (b.pulseT == null) b.pulseT = 200;
+  if (!b.pulse && --b.pulseT <= 0 && coreGapLane(b.gap1) >= 0) { b.pulse = { lane: Math.round(b.gap1), t: 0, hit: false }; Sound.sfx.laserWarn(); }
+  if (b.pulse) {
+    const P = b.pulse; P.t++;
+    b.gap1 += (P.lane - b.gap1) * 0.25; // dış halka kilitlenir
+    if (P.t === CORE_PULSE_WARN) { Sound.sfx.laserFire(); hurtFx = Math.max(hurtFx, 6); enemies = enemies.filter(e => { if (nearestLane(e.x) !== P.lane || e.y < b.y) return true; spawnShipDeath(e); return false; }); }
+    if (P.t >= CORE_PULSE_WARN && !P.hit && !player.dead && !(player.invuln > 0) && playerLaneNow() === P.lane) { P.hit = true; damagePlayer('Blasted through the shield gap!'); }
+    if (P.t >= CORE_PULSE_WARN + CORE_PULSE_FIRE) { b.pulse = null; b.pulseT = ph === 1 ? 260 : ph === 2 ? 220 : 170; }
+  } else move('gap1', 'd1', sp);
+  if (b.twoRings) move('gap2', 'd2', sp * 0.55); // iç halka daha yavaş: boşluklar farklı şeritlerde buluşur
   // bomba kaynağı: ekranda gemi yoksa bombalı küçük gemi iner (2026-11-10: kaçarsa can gider)
   if (!enemies.length && Math.random() < 0.008) { // 2026-11-10: 0.02 → 0.008, boss sırasında daha az gemi
     spawnSlalomScout(Math.floor(Math.random() * 3), -40);
@@ -3588,6 +3602,27 @@ function updateCenter() {
     [0, 1, 2].filter(l => l !== open).forEach(l => pushShot({ x: LANE_CENTERS[l], y: b.y + 60, vx: 0, vy: 4.6, hp: 3, lane: l, fromBoss: true, big: true }));
   }
   if (!ccSeen && !seenIntro.coreGap && coreGapLane(b.gap1) === playerLaneNow() && (!b.twoRings || coreGapLane(b.gap2) === playerLaneNow())) ccSeen = { x: b.x, y: b.y, key: 'coreGap' };
+}
+function drawCorePulse(b) { // şarj: şerit kırmızı yanıp söner + çekirdek kızarır · ateş: boşluktan şeride geniş ışın
+  const P = b.pulse; if (!P) return;
+  const x = LANE_CENTERS[P.lane], top = b.y + CORE_R + 30;
+  ctx.save();
+  if (P.t < CORE_PULSE_WARN) {
+    const k = P.t / CORE_PULSE_WARN, blink = Math.floor(P.t / 5) % 2;
+    ctx.fillStyle = `rgba(255,40,60,${(blink ? 0.2 : 0.08) + 0.12 * k})`; ctx.fillRect(x - LANE_W / 2 + 6, top, LANE_W - 12, H - top);
+    ctx.strokeStyle = `rgba(255,90,110,${0.5 + 0.4 * k})`; ctx.lineWidth = 2; ctx.setLineDash([10, 8]); ctx.lineDashOffset = -frameCount * 3;
+    ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, H); ctx.stroke(); ctx.setLineDash([]);
+    ctx.globalCompositeOperation = 'lighter'; // çekirdek şarj: kırmızı nabız büyür
+    const g = ctx.createRadialGradient(b.x, b.y, 2, b.x, b.y, CORE_R * (0.8 + 0.8 * k)); g.addColorStop(0, `rgba(255,120,120,${0.4 + 0.5 * k})`); g.addColorStop(1, 'rgba(255,40,60,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x, b.y, CORE_R * (0.8 + 0.8 * k), 0, Math.PI * 2); ctx.fill();
+  } else {
+    const k = 1 - (P.t - CORE_PULSE_WARN) / CORE_PULSE_FIRE, w = LANE_W * 0.42 * (0.5 + 0.5 * k);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = `rgba(255,50,70,${0.45 * k})`; ctx.fillRect(x - w, top, w * 2, H - top);
+    ctx.fillStyle = `rgba(255,170,180,${0.8 * k})`; ctx.fillRect(x - w * 0.45, top, w * 0.9, H - top);
+    ctx.fillStyle = `rgba(255,255,255,${0.95 * k})`; ctx.fillRect(x - 3, top, 6, H - top);
+  }
+  ctx.restore();
 }
 function drawCoreRing(b, r, pos, col, w) {
   // 2026-11-22: boşluk tam kuralın genişliğinde (CORE_LANE_ANG, CORE_GAP_TOL): açık göründüğü an açıktır.
@@ -3625,7 +3660,7 @@ function drawCenter(b) {
     pg.addColorStop(0, hot ? `rgba(255,170,90,${0.55 * pulse})` : `rgba(150,230,255,${0.35 * pulse})`); pg.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = pg; ctx.beginPath(); ctx.arc(b.x, b.y, CORE_R * 0.9, 0, Math.PI * 2); ctx.fill();
     ctx.globalCompositeOperation = 'source-over';
-    if (!b.dying) { drawCoreRing(b, CORE_R + 30, b.gap1 ?? 1, hot ? '#ff4a3a' : '#ffa040', 12); if (b.twoRings) drawCoreRing(b, CORE_R + 12, b.gap2 ?? 1, '#d860ff', 9); }
+    if (!b.dying) { drawCorePulse(b); drawCoreRing(b, CORE_R + 30, b.gap1 ?? 1, hot ? '#ff4a3a' : '#ffa040', 12); if (b.twoRings) drawCoreRing(b, CORE_R + 12, b.gap2 ?? 1, '#d860ff', 9); }
     ctx.restore(); return;
   }
   // (görsel yüklenmezse eski çizim) destek kolları
@@ -4655,16 +4690,16 @@ function drawWarp() { // ışınlanma izi + uyarıda inecekleri yerdeki soluk ko
 // (gideceği şeritte önce soluk çizgi). Bölüm sonunda toplanan kadar çözülmüş mesaj (hikâye ipucu 2).
 const DATA_WAVES = [ // 2026-11-08: L1'e yakın: daha hızlı ve dayanıklı gemiler (L1: 3.0-3.4 hız, çoğu 2-3 can), biraz daha seyrek
   // 2026-11-24 (kullanıcı: sıkıcı): bad = akışın içinden inen bozuk veri paketi aralığı, pair = arka arkaya iki paket olasılığı
-  { shift: 260, pre: 70, dblShift: 0,    spd: 3.0, interval: 68, dbl: 0.2,  hp2: 0.4,  hp3: 0.1,  bias: 0.5,  bad: 150, pair: 0 },
-  { shift: 220, pre: 60, dblShift: 0,    spd: 3.1, interval: 64, dbl: 0.25, hp2: 0.4,  hp3: 0.15, bias: 0.6,  bad: 120, pair: 0.2 },
-  { shift: 180, pre: 56, dblShift: 0.2,  spd: 3.1, interval: 64, dbl: 0.25, hp2: 0.4,  hp3: 0.15, bias: 0.6,  bad: 105, pair: 0.3 },
-  { shift: 200, pre: 44, dblShift: 0.6,  spd: 3.0, interval: 72, dbl: 0.2,  hp2: 0.4,  hp3: 0.1,  bias: 0.55, bad: 90,  pair: 0.4 }, // nefes + arka arkaya kayma
-  { shift: 160, pre: 50, dblShift: 0.35, spd: 3.3, interval: 60, dbl: 0.3,  hp2: 0.4,  hp3: 0.2,  bias: 0.65, bad: 85,  pair: 0.45 },
+  { shift: 260, pre: 70, dblShift: 0,    spd: 3.0, interval: 68, dbl: 0.2,  hp2: 0.4,  hp3: 0.1,  bias: 0.5,  bad: 170, pair: 0 },
+  { shift: 220, pre: 60, dblShift: 0,    spd: 3.1, interval: 64, dbl: 0.25, hp2: 0.4,  hp3: 0.15, bias: 0.6,  bad: 140, pair: 0.2 },
+  { shift: 180, pre: 56, dblShift: 0.2,  spd: 3.1, interval: 64, dbl: 0.25, hp2: 0.4,  hp3: 0.15, bias: 0.6,  bad: 125, pair: 0.3 },
+  { shift: 200, pre: 44, dblShift: 0.6,  spd: 3.0, interval: 72, dbl: 0.2,  hp2: 0.4,  hp3: 0.1,  bias: 0.55, bad: 105, pair: 0.35 }, // nefes + arka arkaya kayma
+  { shift: 160, pre: 50, dblShift: 0.35, spd: 3.3, interval: 60, dbl: 0.3,  hp2: 0.4,  hp3: 0.2,  bias: 0.65, bad: 100, pair: 0.4 },
 ];
 // Bozuk veri: akışın şeridinde tepeden iner, vurulamaz; değersen can + arşivden CORRUPT_LOSS gider. Akıştan kısa çıkıp geri girmek gerekir.
 const CORRUPT_SPD = 4.6, CORRUPT_LOSS = 0.04, CORRUPT_H = 34;
 let corrupt = [], corruptT = 0;
-const ARCHIVE_FULL = 2050; // 2026-11-24: bozuk veri yüzünden akış dışında geçen süre eklendi, bölüm uzamasın diye 2400 → 2050 // akışta bu kadar kare = %100; bölüm arşiv dolunca biter (dalgalar arşivle ilerler)
+const ARCHIVE_FULL = 1800; // 2026-11-24: bozuk veri yüzünden akış dışında geçen süre eklendi, bölüm uzamasın diye 2400 → 2050 // akışta bu kadar kare = %100; bölüm arşiv dolunca biter (dalgalar arşivle ilerler)
 const ARCHIVE_MSG = [
   '...if this message ever reaches you,',
   'the colony is not what we were promised.',
@@ -4695,6 +4730,9 @@ function updateStream(D, ending) {
   }
   corrupt = corrupt.filter(c => {
     c.y += CORRUPT_SPD;
+    // 2026-11-24 (kullanıcı): akış şerit değiştirince bloklar da onunla kayar; gemiye 170 px'ten yakın olan blok artık kaymaz (sürpriz çarpma olmasın)
+    if (c.lane !== streamLane && c.y < player.y - 170) c.lane = streamLane;
+    c.x += (LANE_CENTERS[c.lane] - c.x) * 0.16;
     if (!player.dead && !(player.invuln > 0) && Math.abs(c.x - player.x) < LANE_W * 0.36 && Math.abs(c.y - player.y) < CORRUPT_H / 2 + 22) {
       damagePlayer('Hit by corrupted data!'); archive = Math.max(0, archive - CORRUPT_LOSS);
       addFloat(player.x, player.y - 50, '-' + Math.round(CORRUPT_LOSS * 100) + '% ARCHIVE', '#ff4d66', false);
@@ -6865,6 +6903,7 @@ const FIRST_SEEN = {
   crane:     { title: 'MAGNETIC CRANE', text: 'The crane drops its load where it stops. Watch where it goes, and get out of the flashing lane!' },
   heat:      { title: 'HOT FLOOR',      text: 'The mine floor heats up under you. Stay in one lane too long and you burn. Keep moving!' },
   press:     { title: 'CRUSHER',        text: 'Presses slam in from the walls. Only the green lane stays open. Get there before they close!' },
+  corePulse: { title: 'CORE PULSE',     text: 'When the ring stops and a lane turns red, the core fires through its gap. Get out, then come back to throw!' },
   corrupt:   { title: 'CORRUPTED DATA', text: "Red blocks ride the stream. They can't be shot and cost a life and some archive. Slip out, then back in!" },
   orb:       { title: 'BALL LIGHTNING', text: "It zigzags between lanes and can't be shot. A spark shows where it jumps next!" },
   bolt:      { title: 'LIGHTNING',      text: 'The glowing cloud marks the lane it will strike. Get out of that lane!' },
@@ -6898,6 +6937,7 @@ function checkFirstSeen() {
   warpSeen = null; // WARP JUMP durdurma kartı kaldırıldı (2026-11-09): bilgi bölüm kartında
   for (const B of bolts) if (B.t > 6 && B.t < B.warn - 20) want('bolt', LANE_CENTERS[B.lane], H * 0.3);
   if (currentLevel === 10 && mineHeat[playerLaneNow()] > 0.3) want('heat', player.x, player.y);
+  if (boss && boss.zone === 3 && boss.pulse && boss.pulse.t > 4 && boss.pulse.t < 30) want('corePulse', LANE_CENTERS[boss.pulse.lane], H * 0.5);
   if (crane && crane.st === 'warn' && crane.t > 4) want('crane', LANE_CENTERS[crane.lane], H * 0.45);
   if (press && press.t > 4 && press.t < PRESS_WARN - 20) want('press', LANE_CENTERS[press.open], player.y);
   for (const c of corrupt) if (c.y > HUD_H + 80 && c.y < H * 0.5) want('corrupt', c.x, c.y);
