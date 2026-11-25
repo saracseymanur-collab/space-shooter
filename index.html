@@ -3725,7 +3725,8 @@ function updateBreak() {
     const midOk = () => { for (let t = 0; t <= T; t += 8) if (!arenaRingFree(1, A.th + A.w * t, t - 10, t + 10)) return false; return true; }; // ortadaki halka bomba patlayana kadar yol boyunca geçilebilir olmalı
     const free = [0, 1, 2].filter(j => !lanes.includes(j) && arenaRingFree(j, th, T, T + BB_BOOM + (res ? BB_RES : 0))
       && (Math.abs(j - pr) < 2 || midOk()));
-    if (free.length) { bbombs.push({ lane: lo, two, th, r: 30, tr, arm: E.arm, st: 'fly', t: 0, hit: false, res }); b.nose = 10; Sound.sfx.whoosh(); b.bombT = E.every; }
+    // konum hemen verilir: ilk karede çizim boş konumla çöküyordu (ekran beyazlaşıyordu)
+    if (free.length) { bbombs.push({ lane: lo, two, th, r: 30, tr, arm: E.arm, st: 'fly', t: 0, hit: false, res, x: W / 2 + Math.cos(th) * 30, y: ARENA_CY + Math.sin(th) * 30 }); b.nose = 10; Sound.sfx.whoosh(); b.bombT = E.every; }
     else b.bombT = 12;
   }
   if (b.nose > 0) b.nose--;
@@ -3772,9 +3773,10 @@ function drawBreakFx() { // bombalar, kalıntı yayları, mermiler
     ctx.strokeStyle = 'rgba(255,200,210,0.9)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(cx, cy, R + 16, r.th - BB_ARC * k, r.th + BB_ARC * k); ctx.stroke(); // kalan süre
   });
   bbombs.forEach(q => {
+    if (!isFinite(q.x) || !isFinite(q.y)) return;
     const R = q.two ? BB_R2 : BB_R1;
     if (q.st !== 'boom') {
-      if (q.st === 'arm') { const k = 1 - q.t / q.arm;
+      if (q.st === 'arm') { const k = Math.max(0, 1 - q.t / q.arm);
         ctx.strokeStyle = `rgba(255,90,110,${0.5 + 0.4 * k})`; ctx.lineWidth = 2.5; ctx.setLineDash([8, 6]); ctx.lineDashOffset = -frameCount * 2;
         ctx.beginPath(); ctx.arc(q.x, q.y, R, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
         ctx.fillStyle = `rgba(255,40,70,${0.06 + 0.14 * k})`; ctx.beginPath(); ctx.arc(q.x, q.y, R * k, 0, Math.PI * 2); ctx.fill(); }
@@ -3787,7 +3789,7 @@ function drawBreakFx() { // bombalar, kalıntı yayları, mermiler
       const g = ctx.createRadialGradient(q.x, q.y, 2, q.x, q.y, q.two ? 22 : 15); g.addColorStop(0, `rgba(255,230,220,${pulse})`); g.addColorStop(0.5, 'rgba(255,60,90,0.8)'); g.addColorStop(1, 'rgba(255,40,70,0)');
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(q.x, q.y, q.two ? 22 : 15, 0, Math.PI * 2); ctx.fill(); ctx.globalCompositeOperation = 'source-over';
     } else {
-      const k = 1 - q.t / BB_BOOM, r = R * Math.min(1, k * 2.2), a = Math.max(0, 1 - k);
+      const k = 1 - q.t / BB_BOOM, r = Math.max(3, R * Math.min(1, k * 2.2)), a = Math.max(0, 1 - k);
       ctx.globalCompositeOperation = 'lighter';
       const g = ctx.createRadialGradient(q.x, q.y, 2, q.x, q.y, r); g.addColorStop(0, `rgba(255,240,230,${0.9 * a})`); g.addColorStop(0.5, `rgba(255,80,90,${0.6 * a})`); g.addColorStop(1, 'rgba(255,40,60,0)');
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, Math.PI * 2); ctx.fill();
@@ -9151,7 +9153,9 @@ function drawResult() {
 
 // --- Render ---
 function render() {
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  // 2026-11-25 güvenlik: önceki karede bir çizim hatayla yarıda kaldıysa kalan ayarlar (lighter, saydamlık, açık save) sonraki kareleri bozmasın
+  for (let i = 0; i < 40; i++) ctx.restore();
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.setLineDash([]);
   if (hurtFx > 0 && (state === 'play' || state === 'gameover')) { const k = hurtFx / 26 * 5; ctx.translate((Math.random() - 0.5) * k, (Math.random() - 0.5) * k); }
   else if (stormShake > 0 && state === 'play') { const k = stormShake * 0.7; ctx.translate((Math.random() - 0.5) * k, (Math.random() - 0.5) * k); } // şimşek sarsıntısı (kırmızı parlama yok)
 
