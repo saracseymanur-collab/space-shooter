@@ -3638,7 +3638,7 @@ const BREAK = { // every: bomba aralığı · arm: patlamadan önce bekleme · r
   2: { every: 80, arm: 44, res: 0.4, dbl: 0,   w: 0.013 },
   3: { every: 74, arm: 44, res: 0.3, dbl: 0.4, w: 0.016 },
 };
-const ARENA_R = [62, 113, 164], ARENA_CY = H * 0.46, BB_SPD = 5, BB_R1 = 32, BB_R2 = 54, BB_BOOM = 26, BB_RES = 150, BB_ARC = 0.5, BREAK_HP = 200;
+const ARENA_R = [60, 108, 156], ARENA_CY = H * 0.46, BB_SPD = 5, BB_R1 = 32, BB_R2 = 54, BB_BOOM = 26, BB_RES = 150, BB_ARC = 0.5, BREAK_HP = 200;
 let bbombs = [], bres = [], arena = null, arenaShots = [];
 const arenaOn = () => !!(arena && currentLevel === 20 && boss && boss.zone === 4);
 const angDiff = (a, b) => { let d = (a - b) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return Math.abs(d); };
@@ -3741,23 +3741,41 @@ function updateBreakEnding() {
   if (E.t < 120 && E.t % 24 === 0) { spawnExplosion(boss.x + (Math.random() - 0.5) * 70, boss.y + (Math.random() - 0.5) * 40, false); Sound.sfx.hit(); } // motorlar / silahlar teker teker söner
   if (E.t === 330) { bullets = []; startFinalChoice(); }
 }
-function drawArenaBack() { // dönen kara delik + halkalar (gemilerden önce)
+function drawArenaBack() { // 2026-11-25 (kullanıcı): arkada girdap gibi dönen kara delik — dönen arka plan, toplanma diski kolları, içe çekilen parçacıklar, foton halkası
   const A = arena; if (!A) return;
-  const k = A.k, cx = W / 2, cy = ARENA_CY;
+  const k = A.k, cx = W / 2, cy = ARENA_CY, t = frameCount, slow = boss && boss.ending ? Math.max(0.15, 1 - boss.ending.t / 200) : 1;
+  A.spin = (A.spin || 0) + 0.0025 * slow;
   ctx.save();
-  ctx.fillStyle = `rgba(0,0,0,${0.45 * k})`; ctx.fillRect(0, 0, W, H);
-  ctx.globalCompositeOperation = 'lighter'; // girdap kolları
-  for (let i = 0; i < 5; i++) { const a0 = frameCount * 0.006 + i * Math.PI * 2 / 5; ctx.strokeStyle = `rgba(190,110,255,${0.12 * k})`; ctx.lineWidth = 10;
-    ctx.beginPath(); for (let t = 0; t <= 1; t += 0.05) { const rr = 30 + t * 260, a = a0 + t * 2.6; t ? ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr) : ctx.moveTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); } ctx.stroke(); }
+  const bg = bgImgs[3]; // kara delik arka planı merkezin etrafında döner
+  if (bg && bg.complete && bg.naturalWidth) { ctx.save(); ctx.globalAlpha = 0.55 * k; ctx.translate(cx, cy); ctx.rotate(A.spin); const sc = 1.9 * Math.max(W / bg.naturalWidth, H / bg.naturalHeight); ctx.drawImage(bg, -bg.naturalWidth * sc / 2, -bg.naturalHeight * sc / 2, bg.naturalWidth * sc, bg.naturalHeight * sc); ctx.restore(); }
+  ctx.fillStyle = `rgba(0,0,0,${0.35 * k})`; ctx.fillRect(0, 0, W, H);
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 9; i++) { // toplanma diski: içe doğru hızlanan spiral kollar (turuncu → mor)
+    const a0 = A.spin * 3 + i * Math.PI * 2 / 9, hue = i % 3;
+    ctx.strokeStyle = hue === 0 ? `rgba(255,150,60,${0.16 * k})` : hue === 1 ? `rgba(220,90,200,${0.14 * k})` : `rgba(140,90,255,${0.14 * k})`;
+    ctx.lineWidth = 14 - (i % 3) * 3; ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (let u = 0; u <= 1.0001; u += 0.04) { const rr = 46 + u * 300, a = a0 + (1 - u) * 3.2 + u * 0.6; u ? ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr) : ctx.moveTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); }
+    ctx.stroke();
+  }
+  for (let i = 0; i < 70; i++) { // içe sarmal çekilen parçacıklar
+    const p = ((t * 0.0035 * slow) + i / 70) % 1, rr = 48 + (1 - p) * 300, a = i * 2.39 + A.spin * 4 + p * p * 7;
+    const al = Math.min(1, p * 3) * (1 - p * 0.3) * k;
+    ctx.fillStyle = i % 2 ? `rgba(255,190,120,${al})` : `rgba(200,150,255,${al})`;
+    ctx.fillRect(cx + Math.cos(a) * rr - 1.5, cy + Math.sin(a) * rr - 1.5, 3, 3);
+  }
+  const pr = 50 + 2 * Math.sin(t * 0.08); // foton halkası
+  const rg = ctx.createRadialGradient(cx, cy, pr - 12, cx, cy, pr + 22); rg.addColorStop(0, 'rgba(255,170,90,0)'); rg.addColorStop(0.35, `rgba(255,200,140,${0.55 * k})`); rg.addColorStop(1, 'rgba(255,120,60,0)');
+  ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(cx, cy, pr + 22, 0, Math.PI * 2); ctx.fill();
   ctx.globalCompositeOperation = 'source-over';
+  const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, pr - 4); core.addColorStop(0, `rgba(0,0,0,${k})`); core.addColorStop(0.85, `rgba(0,0,0,${0.95 * k})`); core.addColorStop(1, 'rgba(0,0,0,0)'); // olay ufku
+  ctx.fillStyle = core; ctx.beginPath(); ctx.arc(cx, cy, pr - 4, 0, Math.PI * 2); ctx.fill();
   ARENA_R.forEach((R, i) => { // halkalar: senin halkan parlak
     const on = i === player.targetLane;
-    ctx.strokeStyle = on ? `rgba(160,220,255,${0.55 * k})` : `rgba(200,170,255,${0.22 * k})`; ctx.lineWidth = on ? 3 : 2;
-    ctx.setLineDash(on ? [] : [6, 8]); ctx.lineDashOffset = -frameCount * 0.6; ctx.beginPath(); ctx.arc(cx, cy, R * (0.6 + 0.4 * k), 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = on ? `rgba(160,220,255,${0.6 * k})` : `rgba(210,180,255,${0.25 * k})`; ctx.lineWidth = on ? 3 : 2;
+    ctx.setLineDash(on ? [] : [6, 8]); ctx.lineDashOffset = -t * 0.6; ctx.beginPath(); ctx.arc(cx, cy, R * (0.6 + 0.4 * k), 0, Math.PI * 2); ctx.stroke();
   });
   ctx.setLineDash([]);
-  const g = ctx.createRadialGradient(cx, cy, 10, cx, cy, 60); g.addColorStop(0, `rgba(0,0,0,${0.9 * k})`); g.addColorStop(1, 'rgba(0,0,0,0)'); // merkez: kara delik
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, 60, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 }
 function drawBreakFx() { // bombalar, kalıntı yayları, mermiler
