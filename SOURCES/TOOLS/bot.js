@@ -52,6 +52,7 @@ function laneDanger(l, horizon, blind) { // isabet edecek mermi/kaya/lazer: kesi
     if (!q.known || q.lane !== l || q.y > player.y + 40) continue;
     const t = (player.y - q.y) / q.spd; if (t <= horizon * 2) d += 1e5 / (1 + Math.max(0, t));
   }
+  if (boss && boss.zone === 2 && boss.claw && boss.claw.lanes.includes(l) && boss.claw.t < CLAW_WARN + CLAW_SWEEP) d += 1e6 / (1 + Math.max(0, CLAW_WARN - boss.claw.t)); // L10 pençe
   if (boss && boss.zone === 3 && boss.pulse && boss.pulse.lane === l) d += 1e6 / (1 + Math.max(0, CORE_PULSE_WARN - boss.pulse.t)); // L15 boşluktan darbe
   if (typeof crane !== 'undefined' && (crane || craneDrops.length)) { const hz = []; craneHazards(hz); for (const h of hz) if (h.lane === l && h.t1 > -4 && h.t0 < horizon * 2) d += 1e5 / (1 + Math.max(0, h.t0)); } // L10 vinç
   if (typeof press !== 'undefined' && press && l !== press.open) d += 1e6 / (1 + Math.max(0, PRESS_WARN - press.t)); // L10 pres
@@ -80,6 +81,7 @@ function hitWithin(l, t0, t1) {
     if (Math.abs(a.x + (a.vx || 0) * Math.max(0, t) - lx) < a.size * 0.9 + 22) return true; }
   for (const L of lasers) if (L.lane === l && L.t > L.warn - t1) return true;
   if (typeof bolts !== 'undefined') for (const B of bolts) if (B.lane === l && B.t > 0 && B.t > B.warn - t1 && B.t < B.warn + B.fire - t0) return true;
+  if (boss && boss.zone === 2 && boss.claw && boss.claw.lanes.includes(l) && CLAW_WARN + CLAW_SWEEP - boss.claw.t > t0 && CLAW_WARN - boss.claw.t < t1) return true;
   if (boss && boss.zone === 3 && boss.pulse && boss.pulse.lane === l && CORE_PULSE_WARN + CORE_PULSE_FIRE - boss.pulse.t > t0 && CORE_PULSE_WARN - boss.pulse.t < t1) return true;
   if (typeof crane !== 'undefined' && (crane || craneDrops.length)) { const hz = []; craneHazards(hz); if (hz.some(h => h.lane === l && h.t1 > t0 && h.t0 < t1)) return true; }
   if (typeof press !== 'undefined' && press && l !== press.open && PRESS_WARN + PRESS_CLOSE + PRESS_HOLD - press.t > t0 && PRESS_WARN - press.t < t1) return true;
