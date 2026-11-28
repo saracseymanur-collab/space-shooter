@@ -25,7 +25,8 @@ Mobil (iPhone) için tek dosyalık canvas oyunu. Kullanıcı Türkçe konuşur; 
 - Oyunda henüz ESKİ metinler duruyor (`INTRO_PANELS`, `ZONE_TRANSITION_MESSAGES`, `ENDING_PANELS`, `MENU_CARDS` alt başlıkları, `LEVEL_BRIEFS` ROCK TITAN / COMMAND CENTER satırları "Void Colony"/"fleet's escape"). Kullanıcı adım adım güncellemek istiyor: 1) giriş 7 panel 2) bölge geçişleri (3→4 üç panel, ipuçları) 3) menü alt başlıkları + brief satırları 4) final seçim ekranı + iki son (en büyük iş: boss 0 HP'de patlamaz, oyun durur, iki buton).
 - Giriş (2026-11-05 yayında, dc7c5ae): 7 panel + tam ekran görsel (`INTRO_IMGS`, `ASSETS/story/intro-1..7.jpg`, 852×1846: genişliğe sığdırılıp alt kısım görselin koyu rengiyle uzatıldı, kırpma yok; orijinaller `SOURCES/STORY/intro/`). Görsel varsa metin altta (0.60–0.86 H). Panel 7'deki gezegen Dünya'ya benziyor (Kuzey Amerika) — ileride yenilenebilir.
 - **BEKLEYEN (2026-11-06):** kullanıcı girişin EN BAŞINA hikâyeyle ilgili birkaç panel daha ekleyecek (metin + görsel getirecek). Gelince `INTRO_PANELS` başına ekle, görsel dosyalarını yeniden numarala (intro-1… kayar), sw `CACHE` artır + ASSETS listesi, `STORY.md` giriş bölümünü güncelle.
-- Açık kararlar: ana gezegenin adı, kardeş isimleri, zaman aralığı, ipuçlarının sunumu (metin paneli mi), ağabeyin teslim olmasının inandırıcılığı.
+- ANA GEZEGEN = DÜNYA (2026-11-28, kullanıcı kararı): "Dünya'ya benzemesin" kuralı sadece Astra (yeni bulunan gezegen) için. Ana gezegen görsellerde Dünya olarak gösterilir (ör. panel 5 dinleme istasyonu Dünya'da; panel 8 düşman armadası Dünya'ya gidiyor: `intro-7-v2` Dünya'ya benzemeyen gezegenle yapılmıştı, yeniden üretilecek).
+- Açık kararlar: kardeş isimleri, zaman aralığı, ipuçlarının sunumu (metin paneli mi), ağabeyin teslim olmasının inandırıcılığı.
 
 ## Oyunun yapısı
 - 4 bölge × 5 bölüm = 20 bölüm: Deep Space (1-5), Asteroid Belt (6-10), Nebula (11-15), Black Hole (16-20). Her bölgenin 5. bölümü boss.
