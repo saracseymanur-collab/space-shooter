@@ -698,7 +698,7 @@ function baseLevelConfig() {
       stack: 150, splitter: 0.1, burster: 330,
       canShoot: true, zigzag: false, fireMul: 1.25,
     };
-    case 5: { // boss öncesi 5 dalga = sektörün özeti: 1 normal · 2 Splitter · 3 Rammer (+kargo) · 4 Burster · 5 karışık
+    case 5: { // boss öncesi 5 dalga = sektörün özeti: 1 normal · 2 Splitter · 3 Rammer · 4 Burster (+kalpli kargo, 2026-11-28) · 5 karışık
       const lw = getWave() - (currentLevel - 1) * 5;
       const base = { interval: 64, doubleChance: 0.36, speed: () => 3.3 + Math.random() * 0.4,
         hp: () => Math.random() < 0.5 ? 2 : 1, stack: 150, canShoot: true, zigzag: false, fireMul: 1.05 };
@@ -8270,7 +8270,8 @@ function update() {
     if (cfg && cfg.burster && ++burstT >= cfg.burster && enemies.filter(e => e.burster).length < 2 && spawnBurster()) burstT = 0;
     if (cfg && cfg.link && ++linkT >= cfg.link && !enemies.some(e => e.guarding) && spawnLinkPair()) linkT = 0;
     const lw = getWave() - (currentLevel - 1) * 5;
-    if (lw === 3 && !runnerDone && !(cfg && (cfg.slalom || cfg.stealth || cfg.drills)) && (Math.random() < 1 / 360 || getWave() * WAVE_SEC - gameSec() < 2)) runnerDone = spawnRunner();
+    // 2026-11-28 (kullanıcı): L5'te kalpli kargo Rammer dalgasıyla (3) çakışıyordu → 4. dalgada gelir
+    if (lw === (currentLevel === 5 ? 4 : 3) && !runnerDone && !(cfg && (cfg.slalom || cfg.stealth || cfg.drills)) && (Math.random() < 1 / 360 || getWave() * WAVE_SEC - gameSec() < 2)) runnerDone = spawnRunner();
     // formation: true → sadece son dalga; dizi → o dalgalarda
     const formWave = cfg && (Array.isArray(cfg.formation) ? cfg.formation.includes(lw) : cfg.formation && lw >= 5);
     if (!formWave) formOn = false;
