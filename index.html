@@ -455,7 +455,7 @@ const INTRO_PANELS = [ // hikâye V1.0 (SOURCES/STORY/STORY.md): düşman kim be
   "They turned it into a trap. Your fleet was destroyed. You alone survived.",
   "The enemy is heading for your home. No reinforcements. No way back. Only you can stop them.",
 ];
-const INTRO_IMG_FILES = ['intro-1-v4', 'intro-2', 'intro-3', 'intro-search-v3', 'intro-4', 'intro-5-v2', 'intro-6', 'intro-7-v2']; // 2026-11-22: panel 4 görseli + panel 6/8 derme çatma düşmanlarla yenilendi // null: görseli henüz yok (arama gemileri paneli, kullanıcı üretecek)
+const INTRO_IMG_FILES = ['intro-1-v5', 'intro-2', 'intro-3', 'intro-search-v3', 'intro-4', 'intro-5-v2', 'intro-6', 'intro-7-v2']; // 2026-11-22: panel 4 görseli + panel 6/8 derme çatma düşmanlarla yenilendi // null: görseli henüz yok (arama gemileri paneli, kullanıcı üretecek)
 const INTRO_IMGS = INTRO_IMG_FILES.map(f => { if (!f) return null; const im = new Image(); im.src = `ASSETS/story/${f}.jpg`; return im; }); // panel görselleri (852×1846; orijinaller SOURCES/STORY/intro)
 let cinePanels = INTRO_PANELS; // intro ve final sinematiği aynı ekranı kullanır
 let introPanelIdx = 0;
