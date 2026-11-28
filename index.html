@@ -1234,7 +1234,8 @@ function spawnEnemy(yOffset = 0) {
   if (cfg && cfg.mirror && lane !== 1) { ne.mirror = true; if (Math.random() < cfg.mirror.swap) ne.swapY = H * (0.26 + Math.random() * 0.18); }
   if (cfg && cfg.splitter && Math.random() < cfg.splitter) { ne.splitter = true; ne.hp = ne.maxHp = 2; ne.canShoot = false; }
   else if (cfg && cfg.mini && Math.random() < cfg.mini) { ne.mini = true; ne.hp = ne.maxHp = 3; ne.canShoot = false; ne.speed = 3; }
-  else if (cfg && cfg.rammer && Math.random() < cfg.rammer) { ne.rammer = true; ne.hp = ne.maxHp = 2; ne.canShoot = false; ne.rState = 'fall'; ne.ramAt = H * (0.08 + Math.random() * 0.08); }
+  // 2026-11-28 (kullanıcı: L5 bazen geçilemez): L5'te dalışını bitirmemiş en fazla 2 Rammer; üçüncüsü normal gemi olur
+  else if (cfg && cfg.rammer && Math.random() < cfg.rammer && !(currentLevel === 5 && enemies.filter(o => o.rammer && o.rState !== 'dash' || o.rammer && o.rState === 'dash' && o.y < player.y).length >= 2)) { ne.rammer = true; ne.hp = ne.maxHp = 2; ne.canShoot = false; ne.rState = 'fall'; ne.ramAt = H * (0.08 + Math.random() * 0.08); }
   else if (cfg && cfg.spreader && Math.random() < cfg.spreader) { ne.spreader = true; ne.hp = ne.maxHp = 2; ne.canShoot = false; ne.sprT = Math.floor(Math.random() * 8); ne.sprCharge = 0; }
 }
 
